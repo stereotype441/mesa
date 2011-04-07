@@ -251,6 +251,9 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    gen7_set_surface_tiling(surf, region->tiling);
    surf->ss3.pitch = (region->pitch * region->cpp) - 1;
 
+   if (INTEL_DEBUG & DEBUG_AUB)
+       drm_intel_set_surf_offset(brw->bind.surf_offset[unit]);
+
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
 			   brw->bind.surf_offset[unit] +
 			   offsetof(struct gen7_surface_state, ss1),
