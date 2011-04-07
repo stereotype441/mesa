@@ -990,6 +990,9 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
       }
    }
 
+   if (INTEL_DEBUG & DEBUG_AUB)
+       drm_intel_set_surf_offset(brw->bind.surf_offset[unit]);
+
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
 			   brw->bind.surf_offset[unit] + 4,
 			   region->bo,
