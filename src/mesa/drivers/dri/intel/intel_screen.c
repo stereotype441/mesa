@@ -587,8 +587,7 @@ intel_init_bufmgr(struct intel_screen *intelScreen)
    __DRIscreen *spriv = intelScreen->driScrnPriv;
    int num_fences = 0;
 
-   intelScreen->no_hw = (getenv("INTEL_NO_HW") != NULL ||
-			 getenv("INTEL_DEVID_OVERRIDE") != NULL);
+   intelScreen->no_hw = (getenv("INTEL_NO_HW") != NULL);
 
    intelScreen->bufmgr = intel_bufmgr_gem_init(spriv->fd, BATCH_SZ);
    if (intelScreen->bufmgr == NULL) {
