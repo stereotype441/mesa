@@ -211,73 +211,96 @@ _mesa_glsl_process_extension(const char *name, YYLTYPE *name_locp,
 	 state->ARB_draw_buffers_warn = (ext_mode == extension_warn);
       }
    } else if (strcmp(name, "GL_ARB_draw_instanced") == 0) {
-      state->ARB_draw_instanced_enable = (ext_mode != extension_disable);
-      state->ARB_draw_instanced_warn = (ext_mode == extension_warn);
-
       /* This extension is only supported in vertex shaders.
        */
-      unsupported = (state->target != vertex_shader)
-	 ||  !state->extensions->ARB_draw_instanced;
+      if ((state->target != vertex_shader)
+          ||  !state->extensions->ARB_draw_instanced) {
+         unsupported = true;
+      } else {
+         state->ARB_draw_instanced_enable = (ext_mode != extension_disable);
+         state->ARB_draw_instanced_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_ARB_explicit_attrib_location") == 0) {
-      state->ARB_explicit_attrib_location_enable =
-	 (ext_mode != extension_disable);
-      state->ARB_explicit_attrib_location_warn =
-	 (ext_mode == extension_warn);
-
-      unsupported = !state->extensions->ARB_explicit_attrib_location;
+      if (!state->extensions->ARB_explicit_attrib_location) {
+         unsupported = true;
+      } else {
+         state->ARB_explicit_attrib_location_enable =
+            (ext_mode != extension_disable);
+         state->ARB_explicit_attrib_location_warn =
+            (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_ARB_fragment_coord_conventions") == 0) {
-      state->ARB_fragment_coord_conventions_enable =
-	 (ext_mode != extension_disable);
-      state->ARB_fragment_coord_conventions_warn =
-	 (ext_mode == extension_warn);
-
-      unsupported = !state->extensions->ARB_fragment_coord_conventions;
+      if (!state->extensions->ARB_fragment_coord_conventions) {
+         unsupported = true;
+      } else {
+         state->ARB_fragment_coord_conventions_enable =
+            (ext_mode != extension_disable);
+         state->ARB_fragment_coord_conventions_warn =
+            (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_ARB_texture_rectangle") == 0) {
       state->ARB_texture_rectangle_enable = (ext_mode != extension_disable);
       state->ARB_texture_rectangle_warn = (ext_mode == extension_warn);
    } else if (strcmp(name, "GL_EXT_texture_array") == 0) {
-      state->EXT_texture_array_enable = (ext_mode != extension_disable);
-      state->EXT_texture_array_warn = (ext_mode == extension_warn);
-
-      unsupported = !state->extensions->EXT_texture_array;
+      if (!state->extensions->EXT_texture_array) {
+         unsupported = true;
+      } else {
+         state->EXT_texture_array_enable = (ext_mode != extension_disable);
+         state->EXT_texture_array_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_ARB_shader_texture_lod") == 0) {
-      /* Force ARB_texture_rectangle to be on so sampler2DRects are defined */
-      state->ARB_texture_rectangle_enable = true;
+      if (!state->extensions->ARB_shader_texture_lod) {
+         unsupported = true;
+      } else {
+         /* Force ARB_texture_rectangle to be on so sampler2DRects are defined
+          */
+         state->ARB_texture_rectangle_enable = true;
 
-      state->ARB_shader_texture_lod_enable = (ext_mode != extension_disable);
-      state->ARB_shader_texture_lod_warn = (ext_mode == extension_warn);
-
-      unsupported = !state->extensions->ARB_shader_texture_lod;
+         state->ARB_shader_texture_lod_enable
+            = (ext_mode != extension_disable);
+         state->ARB_shader_texture_lod_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_ARB_shader_stencil_export") == 0) {
-      state->ARB_shader_stencil_export_enable = (ext_mode != extension_disable);
-      state->ARB_shader_stencil_export_warn = (ext_mode == extension_warn);
-
       /* This extension is only supported in fragment shaders.
        */
-      unsupported = (state->target != fragment_shader)
-	 || !state->extensions->ARB_shader_stencil_export;
+      if ((state->target != fragment_shader)
+          || !state->extensions->ARB_shader_stencil_export) {
+         unsupported = true;
+      } else {
+         state->ARB_shader_stencil_export_enable
+            = (ext_mode != extension_disable);
+         state->ARB_shader_stencil_export_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_AMD_conservative_depth") == 0) {
-      /* The AMD_conservative spec does not forbid requiring the extension in
-       * the vertex shader.
-       */
-      state->AMD_conservative_depth_enable = (ext_mode != extension_disable);
-      state->AMD_conservative_depth_warn = (ext_mode == extension_warn);
-      unsupported = !state->extensions->AMD_conservative_depth;
+      if (!state->extensions->AMD_conservative_depth) {
+         unsupported = true;
+      } else {
+         /* The AMD_conservative spec does not forbid requiring the extension
+          * in the vertex shader.
+          */
+         state->AMD_conservative_depth_enable = (ext_mode != extension_disable);
+         state->AMD_conservative_depth_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_AMD_shader_stencil_export") == 0) {
-      state->AMD_shader_stencil_export_enable = (ext_mode != extension_disable);
-      state->AMD_shader_stencil_export_warn = (ext_mode == extension_warn);
-
       /* This extension is only supported in fragment shaders.
        * Both the ARB and AMD variants share the same ARB flag
        * in gl_extensions.
        */
-      unsupported = (state->target != fragment_shader)
-	 || !state->extensions->ARB_shader_stencil_export;
+      if ((state->target != fragment_shader)
+          || !state->extensions->ARB_shader_stencil_export) {
+         unsupported = true;
+      } else {
+         state->AMD_shader_stencil_export_enable
+            = (ext_mode != extension_disable);
+         state->AMD_shader_stencil_export_warn = (ext_mode == extension_warn);
+      }
    } else if (strcmp(name, "GL_OES_texture_3D") == 0 && state->es_shader) {
-      state->OES_texture_3D_enable = (ext_mode != extension_disable);
-      state->OES_texture_3D_warn = (ext_mode == extension_warn);
-
-      unsupported = !state->extensions->EXT_texture3D;
+      if (!state->extensions->EXT_texture3D) {
+         unsupported = true;
+      } else {
+         state->OES_texture_3D_enable = (ext_mode != extension_disable);
+         state->OES_texture_3D_warn = (ext_mode == extension_warn);
+      }
    } else {
       unsupported = true;
    }
