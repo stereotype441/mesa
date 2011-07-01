@@ -146,16 +146,17 @@ struct function_record
    ir_function_signature* signature;
    ir_variable* return_flag; /* used to break out of all loops and then jump to the return instruction */
    ir_variable* return_value;
-   bool is_main;
+   bool lower_return;
    unsigned nesting_depth;
 
-   function_record(ir_function_signature* p_signature = 0)
+   function_record(ir_function_signature* p_signature = 0,
+                   bool lower_return = false)
    {
       this->signature = p_signature;
       this->return_flag = 0;
       this->return_value = 0;
       this->nesting_depth = 0;
-      this->is_main = this->signature && (strcmp(this->signature->function_name(), "main") == 0);
+      this->lower_return = lower_return;
    }
 
    ir_variable* get_return_flag()
@@ -274,10 +275,8 @@ struct ir_lower_jumps_visitor : public ir_control_flow_visitor {
          /* never lower return at the end of a this->function */
          if(this->function.nesting_depth == 0 && ir->get_next()->is_tail_sentinel())
             lower = false;
-         else if (this->function.is_main)
-            lower = lower_main_return;
          else
-            lower = lower_sub_return;
+            lower = this->function.lower_return;
          break;
       }
       return lower;
@@ -530,13 +529,34 @@ lower_continue:
       assert(!this->function.signature);
       assert(!this->loop.loop);
 
+      bool lower_return;
+      if (strcmp(ir->function_name(), "main") == 0)
+         lower_return = lower_main_return;
+      else
+         lower_return = lower_sub_return;
+
       function_record saved_function = this->function;
       loop_record saved_loop = this->loop;
-      this->function = function_record(ir);
+      this->function = function_record(ir, lower_return);
       this->loop = loop_record(ir);
 
       assert(!this->loop.loop);
       visit_block(&ir->body);
+
+      /* If the body ended in an unconditional return of non-void,
+       * then we don't need to lower it because an unconditional
+       * return of non-void at the end of a function is what returns
+       * get lowered to.
+       *
+       * If the body ended in a return of void, eliminate it because
+       * it is redundant.
+       */
+      if (ir->return_type->is_void() &&
+          get_jump_strength((ir_instruction *) ir->body.get_tail())) {
+         ir_jump *jump = (ir_jump *) ir->body.get_tail();
+         assert (jump->ir_type == ir_type_return);
+         jump->remove();
+      }
 
       if(this->function.return_value)
          ir->body.push_tail(new(ir) ir_return(new (ir) ir_dereference_variable(this->function.return_value)));
