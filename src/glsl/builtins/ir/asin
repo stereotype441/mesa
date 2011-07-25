@@ -6,7 +6,7 @@
 	       (expression float sign (var_ref x))
 	       (expression float -
 		(expression float *
-		 (constant float (3.1415926))
+		 (constant float (3.14159265))
 		 (constant float (0.5)))
 		(expression float *
 		 (expression float sqrt
@@ -30,7 +30,7 @@
 	       (expression vec2 sign (var_ref x))
 	       (expression vec2 -
 		(expression float *
-		 (constant float (3.1415926))
+		 (constant float (3.14159265))
 		 (constant float (0.5)))
 		(expression vec2 *
 		 (expression vec2 sqrt
@@ -54,7 +54,7 @@
 	       (expression vec3 sign (var_ref x))
 	       (expression vec3 -
 		(expression float *
-		 (constant float (3.1415926))
+		 (constant float (3.14159265))
 		 (constant float (0.5)))
 		(expression vec3 *
 		 (expression vec3 sqrt
@@ -78,7 +78,7 @@
 	       (expression vec4 sign (var_ref x))
 	       (expression vec4 -
 		(expression float *
-		 (constant float (3.1415926))
+		 (constant float (3.14159265))
 		 (constant float (0.5)))
 		(expression vec4 *
 		 (expression vec4 sqrt
