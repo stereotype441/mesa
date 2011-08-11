@@ -595,9 +595,18 @@ generate_130_vs_variables(exec_list *instructions,
 			   & builtin_130_vs_variables[i]);
    }
 
+   /* From the GLSL 1.30 spec, section 7.1 (Vertex Shader Special
+    * Variables):
+    *
+    *   The gl_ClipDistance array is predeclared as unsized and must
+    *   be sized by the shader either redeclaring it with a size or
+    *   indexing it only with integral constant expressions.
+    *
+    * We represent this in Mesa by initially declaring the array as
+    * size 0.
+    */
    const glsl_type *const clip_distance_array_type =
-      glsl_type::get_array_instance(glsl_type::float_type,
-				    state->Const.MaxClipPlanes);
+      glsl_type::get_array_instance(glsl_type::float_type, 0);
 
    /* FINISHME: gl_ClipDistance needs a real location assigned. */
    add_variable(instructions, state->symbols,
