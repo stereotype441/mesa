@@ -2121,17 +2121,31 @@ get_variable_being_redeclared(ir_variable *var, ast_declaration *decl,
        * FINISHME: required or not.
        */
 
-      /* From page 54 (page 60 of the PDF) of the GLSL 1.20 spec:
-       *
-       *     "The size [of gl_TexCoord] can be at most
-       *     gl_MaxTextureCoords."
-       */
       const unsigned size = unsigned(var->type->array_size());
       if ((strcmp("gl_TexCoord", var->name) == 0)
 	  && (size > state->Const.MaxTextureCoords)) {
+         /* From page 54 (page 60 of the PDF) of the GLSL 1.20 spec:
+          *
+          *     "The size [of gl_TexCoord] can be at most
+          *     gl_MaxTextureCoords."
+          */
 	 _mesa_glsl_error(& loc, state, "`gl_TexCoord' array size cannot "
 			  "be larger than gl_MaxTextureCoords (%u)\n",
 			  state->Const.MaxTextureCoords);
+      } else if (strcmp("gl_ClipDistance", var->name) == 0
+                 && size > state->Const.MaxClipPlanes) {
+         /* From section 7.1 (Vertex Shader Special Variables) of the
+          * GLSL 1.30 spec:
+          *
+          *   "The gl_ClipDistance array is predeclared as unsized and
+          *   must be sized by the shader either redeclaring it with a
+          *   size or indexing it only with integral constant
+          *   expressions. ... The size can be at most
+          *   gl_MaxClipDistances."
+          */
+         _mesa_glsl_error(&loc, state, "`gl_ClipDistance' array size cannot "
+                          "be larger than gl_MaxClipDistances (%u)\n",
+                          state->Const.MaxClipPlanes);
       } else if ((size > 0) && (size <= earlier->max_array_access)) {
 	 _mesa_glsl_error(& loc, state, "array size must be > %u due to "
 			  "previous access",
