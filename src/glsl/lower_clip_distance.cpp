@@ -341,9 +341,15 @@ lower_clip_distance_visitor::visit_leave(ir_call *ir)
 bool
 lower_clip_distance(exec_list *instructions)
 {
+   /* TODO: remove this once I'm confident */
+   validate_ir_tree(instructions);
+
    lower_clip_distance_visitor v;
 
    visit_list_elements(&v, instructions);
+
+   /* TODO: remove this once I'm confident */
+   validate_ir_tree(instructions);
 
    return v.progress;
 }
