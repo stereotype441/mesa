@@ -915,7 +915,7 @@ link_intrastage_shaders(void *mem_ctx,
    assert(idx == num_linking_shaders);
 
    if (!link_function_calls(prog, linked, linking_shaders,
-			    num_linking_shaders)) {
+			    num_linking_shaders, mem_ctx)) {
       ctx->Driver.DeleteShader(ctx, linked);
       linked = NULL;
    }

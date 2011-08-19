@@ -37,13 +37,15 @@ find_matching_signature(const char *name, const exec_list *actual_parameters,
 class call_link_visitor : public ir_hierarchical_visitor {
 public:
    call_link_visitor(gl_shader_program *prog, gl_shader *linked,
-		     gl_shader **shader_list, unsigned num_shaders)
+		     gl_shader **shader_list, unsigned num_shaders,
+                     void *mem_ctx)
    {
       this->prog = prog;
       this->shader_list = shader_list;
       this->num_shaders = num_shaders;
       this->success = true;
       this->linked = linked;
+      this->mem_ctx = mem_ctx;
 
       this->locals = hash_table_ctor(0, hash_table_pointer_hash,
 				     hash_table_pointer_compare);
@@ -102,7 +104,7 @@ public:
        */
       ir_function *f = linked->symbols->get_function(name);
       if (f == NULL) {
-	 f = new(linked) ir_function(name);
+	 f = new(mem_ctx) ir_function(name);
 
 	 /* Add the new function to the linked IR.  Put it at the end
           * so that it comes after any global variable declarations
@@ -117,7 +119,7 @@ public:
       if ((linked_sig == NULL)
 	  || ((linked_sig != NULL)
 	      && (linked_sig->is_builtin != ir->use_builtin))) {
-	 linked_sig = new(linked) ir_function_signature(callee->return_type);
+	 linked_sig = new(mem_ctx) ir_function_signature(callee->return_type);
 	 f->add_signature(linked_sig);
       }
 
@@ -147,7 +149,7 @@ public:
 	 const ir_instruction *const original = (ir_instruction *) node;
 	 assert(const_cast<ir_instruction *>(original)->as_variable());
 
-	 ir_instruction *copy = original->clone(linked, ht);
+	 ir_instruction *copy = original->clone(mem_ctx, ht);
 	 formal_parameters.push_tail(copy);
       }
 
@@ -156,7 +158,7 @@ public:
       foreach_list_const(node, &sig->body) {
 	 const ir_instruction *const original = (ir_instruction *) node;
 
-	 ir_instruction *copy = original->clone(linked, ht);
+	 ir_instruction *copy = original->clone(mem_ctx, ht);
 	 linked_sig->body.push_tail(copy);
       }
 
@@ -186,7 +188,7 @@ public:
 	    /* Clone the ir_variable that the dereference already has and add
 	     * it to the linked shader.
 	     */
-	    var = ir->var->clone(linked, NULL);
+	    var = ir->var->clone(mem_ctx, NULL);
 	    linked->symbols->add_variable(var);
 	    linked->ir->push_head(var);
 	 } else if (var->type->is_array()) {
@@ -239,6 +241,11 @@ private:
     * Table of variables local to the function.
     */
    hash_table *locals;
+
+   /**
+    * Memory context which should be used to allocate additional IR.
+    */
+   void *mem_ctx;
 };
 
 
@@ -277,9 +284,10 @@ find_matching_signature(const char *name, const exec_list *actual_parameters,
 
 bool
 link_function_calls(gl_shader_program *prog, gl_shader *main,
-		    gl_shader **shader_list, unsigned num_shaders)
+		    gl_shader **shader_list, unsigned num_shaders,
+                    void *mem_ctx)
 {
-   call_link_visitor v(prog, main, shader_list, num_shaders);
+   call_link_visitor v(prog, main, shader_list, num_shaders, mem_ctx);
 
    v.run(main->ir);
    return v.success;

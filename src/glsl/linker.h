@@ -27,6 +27,7 @@
 
 extern bool
 link_function_calls(gl_shader_program *prog, gl_shader *main,
-		    gl_shader **shader_list, unsigned num_shaders);
+		    gl_shader **shader_list, unsigned num_shaders,
+                    void *mem_ctx);
 
 #endif /* GLSL_LINKER_H */
