@@ -31,6 +31,8 @@
 #include "loop_analysis.h"
 #include "standalone_scaffolding.h"
 
+extern bool VALIDATE_DO_PARENT_CHECK;
+
 static void
 initialize_context(struct gl_context *ctx, gl_api api)
 {
@@ -202,6 +204,8 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 int
 main(int argc, char **argv)
 {
+   VALIDATE_DO_PARENT_CHECK = false;
+
    int status = EXIT_SUCCESS;
    struct gl_context local_ctx;
    struct gl_context *ctx = &local_ctx;
