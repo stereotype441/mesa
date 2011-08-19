@@ -291,9 +291,9 @@ const struct gl_builtin_uniform_desc _mesa_builtin_uniform_desc[] = {
 static ir_variable *
 add_variable(exec_list *instructions, glsl_symbol_table *symtab,
 	     const char *name, const glsl_type *type,
-	     enum ir_variable_mode mode, int slot)
+	     enum ir_variable_mode mode, int slot, void *ctx)
 {
-   ir_variable *var = new(symtab) ir_variable(type, name, mode);
+   ir_variable *var = new(ctx) ir_variable(type, name, mode);
 
    switch (var->mode) {
    case ir_var_auto:
@@ -325,10 +325,10 @@ add_variable(exec_list *instructions, glsl_symbol_table *symtab,
 
 static ir_variable *
 add_uniform(exec_list *instructions, glsl_symbol_table *symtab,
-	    const char *name, const glsl_type *type)
+	    const char *name, const glsl_type *type, void *ctx)
 {
    ir_variable *const uni =
-      add_variable(instructions, symtab, name, type, ir_var_uniform, -1);
+      add_variable(instructions, symtab, name, type, ir_var_uniform, -1, ctx);
 
    unsigned i;
    for (i = 0; _mesa_builtin_uniform_desc[i].name != NULL; i++) {
@@ -368,7 +368,7 @@ add_uniform(exec_list *instructions, glsl_symbol_table *symtab,
 
 static void
 add_builtin_variable(exec_list *instructions, glsl_symbol_table *symtab,
-		     const builtin_variable *proto)
+		     const builtin_variable *proto, void *ctx)
 {
    /* Create a new variable declaration from the description supplied by
     * the caller.
@@ -378,20 +378,20 @@ add_builtin_variable(exec_list *instructions, glsl_symbol_table *symtab,
    assert(type != NULL);
 
    if (proto->mode == ir_var_uniform) {
-      add_uniform(instructions, symtab, proto->name, type);
+      add_uniform(instructions, symtab, proto->name, type, ctx);
    } else {
       add_variable(instructions, symtab, proto->name, type, proto->mode,
-		   proto->slot);
+		   proto->slot, ctx);
    }
 }
 
 static void
 add_builtin_constant(exec_list *instructions, glsl_symbol_table *symtab,
-		     const char *name, int value)
+		     const char *name, int value, void *ctx)
 {
    ir_variable *const var = add_variable(instructions, symtab,
 					 name, glsl_type::int_type,
-					 ir_var_auto, -1);
+					 ir_var_auto, -1, ctx);
    var->constant_value = new(var) ir_constant(value);
 }
 
@@ -405,22 +405,22 @@ generate_100ES_uniforms(exec_list *instructions,
    glsl_symbol_table *const symtab = state->symbols;
 
    add_builtin_constant(instructions, symtab, "gl_MaxVertexAttribs",
-			state->Const.MaxVertexAttribs);
+			state->Const.MaxVertexAttribs, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexUniformVectors",
-			state->Const.MaxVertexUniformComponents);
+			state->Const.MaxVertexUniformComponents, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVaryingVectors",
-			state->Const.MaxVaryingFloats / 4);
+			state->Const.MaxVaryingFloats / 4, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexTextureImageUnits",
-			state->Const.MaxVertexTextureImageUnits);
+			state->Const.MaxVertexTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxCombinedTextureImageUnits",
-			state->Const.MaxCombinedTextureImageUnits);
+			state->Const.MaxCombinedTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxTextureImageUnits",
-			state->Const.MaxTextureImageUnits);
+			state->Const.MaxTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxFragmentUniformVectors",
-			state->Const.MaxFragmentUniformComponents);
+			state->Const.MaxFragmentUniformComponents, state);
 
    add_uniform(instructions, symtab, "gl_DepthRange",
-	       state->symbols->get_type("gl_DepthRangeParameters"));
+	       state->symbols->get_type("gl_DepthRangeParameters"), state);
 }
 
 static void
@@ -433,91 +433,97 @@ generate_110_uniforms(exec_list *instructions,
 	   ; i < Elements(builtin_110_deprecated_uniforms)
 	   ; i++) {
       add_builtin_variable(instructions, symtab,
-			   & builtin_110_deprecated_uniforms[i]);
+			   & builtin_110_deprecated_uniforms[i], state);
    }
 
    add_builtin_constant(instructions, symtab, "gl_MaxLights",
-			state->Const.MaxLights);
+			state->Const.MaxLights, state);
    add_builtin_constant(instructions, symtab, "gl_MaxClipPlanes",
-			state->Const.MaxClipPlanes);
+			state->Const.MaxClipPlanes, state);
    add_builtin_constant(instructions, symtab, "gl_MaxTextureUnits",
-			state->Const.MaxTextureUnits);
+			state->Const.MaxTextureUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxTextureCoords",
-			state->Const.MaxTextureCoords);
+			state->Const.MaxTextureCoords, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexAttribs",
-			state->Const.MaxVertexAttribs);
+			state->Const.MaxVertexAttribs, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexUniformComponents",
-			state->Const.MaxVertexUniformComponents);
+			state->Const.MaxVertexUniformComponents, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVaryingFloats",
-			state->Const.MaxVaryingFloats);
+			state->Const.MaxVaryingFloats, state);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexTextureImageUnits",
-			state->Const.MaxVertexTextureImageUnits);
+			state->Const.MaxVertexTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxCombinedTextureImageUnits",
-			state->Const.MaxCombinedTextureImageUnits);
+			state->Const.MaxCombinedTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxTextureImageUnits",
-			state->Const.MaxTextureImageUnits);
+			state->Const.MaxTextureImageUnits, state);
    add_builtin_constant(instructions, symtab, "gl_MaxFragmentUniformComponents",
-			state->Const.MaxFragmentUniformComponents);
+			state->Const.MaxFragmentUniformComponents, state);
 
    const glsl_type *const mat4_array_type =
       glsl_type::get_array_instance(glsl_type::mat4_type,
 				    state->Const.MaxTextureCoords);
 
-   add_uniform(instructions, symtab, "gl_TextureMatrix", mat4_array_type);
-   add_uniform(instructions, symtab, "gl_TextureMatrixInverse", mat4_array_type);
-   add_uniform(instructions, symtab, "gl_TextureMatrixTranspose", mat4_array_type);
-   add_uniform(instructions, symtab, "gl_TextureMatrixInverseTranspose", mat4_array_type);
+   add_uniform(instructions, symtab, "gl_TextureMatrix", mat4_array_type, state);
+   add_uniform(instructions, symtab, "gl_TextureMatrixInverse", mat4_array_type, state);
+   add_uniform(instructions, symtab, "gl_TextureMatrixTranspose", mat4_array_type, state);
+   add_uniform(instructions, symtab, "gl_TextureMatrixInverseTranspose", mat4_array_type, state);
 
    add_uniform(instructions, symtab, "gl_DepthRange",
-		symtab->get_type("gl_DepthRangeParameters"));
+               symtab->get_type("gl_DepthRangeParameters"), state);
 
    add_uniform(instructions, symtab, "gl_ClipPlane",
 	       glsl_type::get_array_instance(glsl_type::vec4_type,
-					     state->Const.MaxClipPlanes));
+					     state->Const.MaxClipPlanes), state);
    add_uniform(instructions, symtab, "gl_Point",
-	       symtab->get_type("gl_PointParameters"));
+	       symtab->get_type("gl_PointParameters"), state);
 
    const glsl_type *const material_parameters_type =
       symtab->get_type("gl_MaterialParameters");
-   add_uniform(instructions, symtab, "gl_FrontMaterial", material_parameters_type);
-   add_uniform(instructions, symtab, "gl_BackMaterial", material_parameters_type);
+   add_uniform(instructions, symtab, "gl_FrontMaterial",
+               material_parameters_type, state);
+   add_uniform(instructions, symtab, "gl_BackMaterial",
+               material_parameters_type, state);
 
    const glsl_type *const light_source_array_type =
       glsl_type::get_array_instance(symtab->get_type("gl_LightSourceParameters"), state->Const.MaxLights);
 
-   add_uniform(instructions, symtab, "gl_LightSource", light_source_array_type);
+   add_uniform(instructions, symtab, "gl_LightSource", light_source_array_type,
+               state);
 
    const glsl_type *const light_model_products_type =
       symtab->get_type("gl_LightModelProducts");
    add_uniform(instructions, symtab, "gl_FrontLightModelProduct",
-	       light_model_products_type);
+	       light_model_products_type, state);
    add_uniform(instructions, symtab, "gl_BackLightModelProduct",
-	       light_model_products_type);
+	       light_model_products_type, state);
 
    const glsl_type *const light_products_type =
       glsl_type::get_array_instance(symtab->get_type("gl_LightProducts"),
 				    state->Const.MaxLights);
-   add_uniform(instructions, symtab, "gl_FrontLightProduct", light_products_type);
-   add_uniform(instructions, symtab, "gl_BackLightProduct", light_products_type);
+   add_uniform(instructions, symtab, "gl_FrontLightProduct",
+               light_products_type, state);
+   add_uniform(instructions, symtab, "gl_BackLightProduct",
+               light_products_type, state);
 
    add_uniform(instructions, symtab, "gl_TextureEnvColor",
 	       glsl_type::get_array_instance(glsl_type::vec4_type,
-					     state->Const.MaxTextureUnits));
+					     state->Const.MaxTextureUnits),
+               state);
 
    const glsl_type *const texcoords_vec4 =
       glsl_type::get_array_instance(glsl_type::vec4_type,
 				    state->Const.MaxTextureCoords);
-   add_uniform(instructions, symtab, "gl_EyePlaneS", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_EyePlaneT", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_EyePlaneR", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_EyePlaneQ", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_ObjectPlaneS", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_ObjectPlaneT", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_ObjectPlaneR", texcoords_vec4);
-   add_uniform(instructions, symtab, "gl_ObjectPlaneQ", texcoords_vec4);
+   add_uniform(instructions, symtab, "gl_EyePlaneS", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_EyePlaneT", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_EyePlaneR", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_EyePlaneQ", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_ObjectPlaneS", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_ObjectPlaneT", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_ObjectPlaneR", texcoords_vec4, state);
+   add_uniform(instructions, symtab, "gl_ObjectPlaneQ", texcoords_vec4, state);
 
    add_uniform(instructions, symtab, "gl_Fog",
-	       symtab->get_type("gl_FogParameters"));
+	       symtab->get_type("gl_FogParameters"), state);
 }
 
 /* This function should only be called for ES, not desktop GL. */
@@ -527,7 +533,7 @@ generate_100ES_vs_variables(exec_list *instructions,
 {
    for (unsigned i = 0; i < Elements(builtin_core_vs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_core_vs_variables[i]);
+			   & builtin_core_vs_variables[i], state);
    }
 
    generate_100ES_uniforms(instructions, state);
@@ -543,14 +549,14 @@ generate_110_vs_variables(exec_list *instructions,
 {
    for (unsigned i = 0; i < Elements(builtin_core_vs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_core_vs_variables[i]);
+			   & builtin_core_vs_variables[i], state);
    }
 
    for (unsigned i = 0
 	   ; i < Elements(builtin_110_deprecated_vs_variables)
 	   ; i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_110_deprecated_vs_variables[i]);
+			   & builtin_110_deprecated_vs_variables[i], state);
    }
    generate_110_uniforms(instructions, state);
 
@@ -566,7 +572,8 @@ generate_110_vs_variables(exec_list *instructions,
       glsl_type::get_array_instance(glsl_type::vec4_type, 0);
 
    add_variable(instructions, state->symbols,
-		"gl_TexCoord", vec4_array_type, ir_var_out, VERT_RESULT_TEX0);
+		"gl_TexCoord", vec4_array_type, ir_var_out, VERT_RESULT_TEX0,
+                state);
 
    generate_ARB_draw_buffers_variables(instructions, state, false,
 				       vertex_shader);
@@ -592,7 +599,7 @@ generate_130_vs_variables(exec_list *instructions,
 
    for (unsigned i = 0; i < Elements(builtin_130_vs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_130_vs_variables[i]);
+			   & builtin_130_vs_variables[i], state);
    }
 
    const glsl_type *const clip_distance_array_type =
@@ -601,7 +608,8 @@ generate_130_vs_variables(exec_list *instructions,
 
    /* FINISHME: gl_ClipDistance needs a real location assigned. */
    add_variable(instructions, state->symbols,
-		"gl_ClipDistance", clip_distance_array_type, ir_var_out, -1);
+		"gl_ClipDistance", clip_distance_array_type, ir_var_out, -1,
+                state);
 
 }
 
@@ -639,12 +647,12 @@ generate_100ES_fs_variables(exec_list *instructions,
 {
    for (unsigned i = 0; i < Elements(builtin_core_fs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_core_fs_variables[i]);
+			   & builtin_core_fs_variables[i], state);
    }
 
    for (unsigned i = 0; i < Elements(builtin_100ES_fs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_100ES_fs_variables[i]);
+			   & builtin_100ES_fs_variables[i], state);
    }
 
    generate_100ES_uniforms(instructions, state);
@@ -659,19 +667,19 @@ generate_110_fs_variables(exec_list *instructions,
 {
    for (unsigned i = 0; i < Elements(builtin_core_fs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_core_fs_variables[i]);
+			   & builtin_core_fs_variables[i], state);
    }
 
    for (unsigned i = 0; i < Elements(builtin_110_fs_variables); i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_110_fs_variables[i]);
+			   & builtin_110_fs_variables[i], state);
    }
 
    for (unsigned i = 0
 	   ; i < Elements(builtin_110_deprecated_fs_variables)
 	   ; i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_110_deprecated_fs_variables[i]);
+			   & builtin_110_deprecated_fs_variables[i], state);
    }
    generate_110_uniforms(instructions, state);
 
@@ -687,7 +695,8 @@ generate_110_fs_variables(exec_list *instructions,
       glsl_type::get_array_instance(glsl_type::vec4_type, 0);
 
    add_variable(instructions, state->symbols,
-		"gl_TexCoord", vec4_array_type, ir_var_in, FRAG_ATTRIB_TEX0);
+		"gl_TexCoord", vec4_array_type, ir_var_in, FRAG_ATTRIB_TEX0,
+                state);
 
    generate_ARB_draw_buffers_variables(instructions, state, false,
 				       fragment_shader);
@@ -703,7 +712,8 @@ generate_ARB_draw_buffers_variables(exec_list *instructions,
     */
    ir_variable *const mdb =
       add_variable(instructions, state->symbols,
-		   "gl_MaxDrawBuffers", glsl_type::int_type, ir_var_auto, -1);
+		   "gl_MaxDrawBuffers", glsl_type::int_type, ir_var_auto, -1,
+                   state);
 
    if (warn)
       mdb->warn_extension = "GL_ARB_draw_buffers";
@@ -722,7 +732,7 @@ generate_ARB_draw_buffers_variables(exec_list *instructions,
       ir_variable *const fd =
 	 add_variable(instructions, state->symbols,
 		      "gl_FragData", vec4_array_type,
-		      ir_var_out, FRAG_RESULT_DATA0);
+		      ir_var_out, FRAG_RESULT_DATA0, state);
 
       if (warn)
 	 fd->warn_extension = "GL_ARB_draw_buffers";
@@ -742,7 +752,7 @@ generate_ARB_draw_instanced_variables(exec_list *instructions,
       ir_variable *const inst =
          add_variable(instructions, state->symbols,
 		      "gl_InstanceIDARB", glsl_type::int_type,
-		      ir_var_system_value, SYSTEM_VALUE_INSTANCE_ID);
+		      ir_var_system_value, SYSTEM_VALUE_INSTANCE_ID, state);
 
       if (warn)
          inst->warn_extension = "GL_ARB_draw_instanced";
@@ -760,7 +770,7 @@ generate_ARB_shader_stencil_export_variables(exec_list *instructions,
    ir_variable *const fd =
       add_variable(instructions, state->symbols,
 		   "gl_FragStencilRefARB", glsl_type::int_type,
-		   ir_var_out, FRAG_RESULT_STENCIL);
+		   ir_var_out, FRAG_RESULT_STENCIL, state);
 
    if (warn)
       fd->warn_extension = "GL_ARB_shader_stencil_export";
@@ -776,7 +786,7 @@ generate_AMD_shader_stencil_export_variables(exec_list *instructions,
    ir_variable *const fd =
       add_variable(instructions, state->symbols,
 		   "gl_FragStencilRefAMD", glsl_type::int_type,
-		   ir_var_out, FRAG_RESULT_STENCIL);
+		   ir_var_out, FRAG_RESULT_STENCIL, state);
 
    if (warn)
       fd->warn_extension = "GL_AMD_shader_stencil_export";
@@ -792,7 +802,7 @@ generate_120_fs_variables(exec_list *instructions,
 	   ; i < Elements(builtin_120_fs_variables)
 	   ; i++) {
       add_builtin_variable(instructions, state->symbols,
-			   & builtin_120_fs_variables[i]);
+			   & builtin_120_fs_variables[i], state);
    }
 }
 
@@ -808,7 +818,8 @@ generate_130_fs_variables(exec_list *instructions,
 
    /* FINISHME: gl_ClipDistance needs a real location assigned. */
    add_variable(instructions, state->symbols,
-		"gl_ClipDistance", clip_distance_array_type, ir_var_in, -1);
+		"gl_ClipDistance", clip_distance_array_type, ir_var_in, -1,
+                state);
 }
 
 static void
