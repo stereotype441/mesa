@@ -162,5 +162,8 @@ lower_clip_distance(exec_list *instructions)
 
    visit_list_elements(&v, instructions);
 
+   /* TODO: remove this once I'm confident */
+   validate_ir_tree(instructions);
+
    return v.progress;
 }
