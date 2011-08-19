@@ -39,6 +39,8 @@
 #include "program/hash_table.h"
 #include "glsl_types.h"
 
+bool VALIDATE_DO_PARENT_CHECK = true;
+
 class ir_validate : public ir_hierarchical_visitor {
 public:
    ir_validate()
@@ -606,9 +608,38 @@ check_node_type(ir_instruction *ir, void *data)
    assert(ir->type != glsl_type::error_type);
 }
 
+static void
+check_parentage(ir_instruction *ir, void *parent)
+{
+   assert (ralloc_parent(ir) == parent);
+
+   ir_variable *var = ir->as_variable();
+   ir_constant *constant = ir->as_constant();
+   if (var != NULL && var->constant_value != NULL)
+      assert (ralloc_parent(var->constant_value) == ir);
+
+   /* The components of aggregate constants are not visited by the normal
+    * visitor, so check their parentage by hand.
+    */
+   if (constant != NULL) {
+      if (constant->type->is_record()) {
+	 foreach_iter(exec_list_iterator, iter, constant->components) {
+	    ir_constant *field = (ir_constant *)iter.get();
+	    check_parentage(field, ir);
+	 }
+      } else if (constant->type->is_array()) {
+	 for (unsigned int i = 0; i < constant->type->length; i++) {
+	    check_parentage(constant->array_elements[i], ir);
+	 }
+      }
+   }
+}
+
 void
 validate_ir_tree(exec_list *instructions)
 {
+   void *parent = NULL;
+
    ir_validate v;
 
    v.run(instructions);
@@ -617,5 +648,11 @@ validate_ir_tree(exec_list *instructions)
       ir_instruction *ir = (ir_instruction *)iter.get();
 
       visit_tree(ir, check_node_type, NULL);
+
+      if (parent == NULL)
+         parent = ralloc_parent(ir);
+
+      if (VALIDATE_DO_PARENT_CHECK)
+         visit_tree(ir, check_parentage, parent);
    }
 }
