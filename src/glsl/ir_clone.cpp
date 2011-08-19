@@ -69,7 +69,7 @@ ir_variable::clone(void *mem_ctx, struct hash_table *ht) const
       var->location = this->location;
 
    if (this->constant_value)
-      var->constant_value = this->constant_value->clone(mem_ctx, ht);
+      var->constant_value = this->constant_value->clone(var, ht);
 
    if (ht) {
       hash_table_insert(ht, var, (void *)const_cast<ir_variable *>(this));
