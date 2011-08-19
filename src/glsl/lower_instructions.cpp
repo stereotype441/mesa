@@ -118,22 +118,25 @@ lower_instructions(exec_list *instructions, unsigned what_to_lower)
 void
 lower_instructions_visitor::sub_to_add_neg(ir_expression *ir)
 {
+   void *mem_ctx = ralloc_parent(ir);
    ir->operation = ir_binop_add;
-   ir->operands[1] = new(ir) ir_expression(ir_unop_neg, ir->operands[1]->type,
-					   ir->operands[1], NULL);
+   ir->operands[1] = new(mem_ctx) ir_expression(ir_unop_neg,
+                                                ir->operands[1]->type,
+                                                ir->operands[1], NULL);
    this->progress = true;
 }
 
 void
 lower_instructions_visitor::div_to_mul_rcp(ir_expression *ir)
 {
+   void *mem_ctx = ralloc_parent(ir);
    if (!ir->operands[1]->type->is_integer()) {
       /* New expression for the 1.0 / op1 */
       ir_rvalue *expr;
-      expr = new(ir) ir_expression(ir_unop_rcp,
-				   ir->operands[1]->type,
-				   ir->operands[1],
-				   NULL);
+      expr = new(mem_ctx) ir_expression(ir_unop_rcp,
+                                        ir->operands[1]->type,
+                                        ir->operands[1],
+                                        NULL);
 
       /* op0 / op1 -> op0 * (1.0 / op1) */
       ir->operation = ir_binop_mul;
@@ -151,33 +154,37 @@ lower_instructions_visitor::div_to_mul_rcp(ir_expression *ir)
 					 ir->operands[1]->type->matrix_columns);
 
       if (ir->operands[1]->type->base_type == GLSL_TYPE_INT)
-	 op1 = new(ir) ir_expression(ir_unop_i2f, vec_type, ir->operands[1], NULL);
+	 op1 = new(mem_ctx) ir_expression(ir_unop_i2f, vec_type,
+                                          ir->operands[1], NULL);
       else
-	 op1 = new(ir) ir_expression(ir_unop_u2f, vec_type, ir->operands[1], NULL);
+	 op1 = new(mem_ctx) ir_expression(ir_unop_u2f, vec_type,
+                                          ir->operands[1], NULL);
 
-      op1 = new(ir) ir_expression(ir_unop_rcp, op1->type, op1, NULL);
+      op1 = new(mem_ctx) ir_expression(ir_unop_rcp, op1->type, op1, NULL);
 
       vec_type = glsl_type::get_instance(GLSL_TYPE_FLOAT,
 					 ir->operands[0]->type->vector_elements,
 					 ir->operands[0]->type->matrix_columns);
 
       if (ir->operands[0]->type->base_type == GLSL_TYPE_INT)
-	 op0 = new(ir) ir_expression(ir_unop_i2f, vec_type, ir->operands[0], NULL);
+	 op0 = new(mem_ctx) ir_expression(ir_unop_i2f, vec_type,
+                                          ir->operands[0], NULL);
       else
-	 op0 = new(ir) ir_expression(ir_unop_u2f, vec_type, ir->operands[0], NULL);
+	 op0 = new(mem_ctx) ir_expression(ir_unop_u2f, vec_type,
+                                          ir->operands[0], NULL);
 
       vec_type = glsl_type::get_instance(GLSL_TYPE_FLOAT,
 					 ir->type->vector_elements,
 					 ir->type->matrix_columns);
 
-      op0 = new(ir) ir_expression(ir_binop_mul, vec_type, op0, op1);
+      op0 = new(mem_ctx) ir_expression(ir_binop_mul, vec_type, op0, op1);
 
       if (ir->operands[1]->type->base_type == GLSL_TYPE_INT) {
 	 ir->operation = ir_unop_f2i;
 	 ir->operands[0] = op0;
       } else {
 	 ir->operation = ir_unop_i2u;
-	 ir->operands[0] = new(ir) ir_expression(ir_unop_f2i, op0);
+	 ir->operands[0] = new(mem_ctx) ir_expression(ir_unop_f2i, op0);
       }
       ir->operands[1] = NULL;
    }
@@ -188,24 +195,28 @@ lower_instructions_visitor::div_to_mul_rcp(ir_expression *ir)
 void
 lower_instructions_visitor::exp_to_exp2(ir_expression *ir)
 {
-   ir_constant *log2_e = new(ir) ir_constant(float(M_LOG2E));
+   void *mem_ctx = ralloc_parent(ir);
+   ir_constant *log2_e = new(mem_ctx) ir_constant(float(M_LOG2E));
 
    ir->operation = ir_unop_exp2;
-   ir->operands[0] = new(ir) ir_expression(ir_binop_mul, ir->operands[0]->type,
-					   ir->operands[0], log2_e);
+   ir->operands[0] = new(mem_ctx) ir_expression(ir_binop_mul,
+                                                ir->operands[0]->type,
+                                                ir->operands[0], log2_e);
    this->progress = true;
 }
 
 void
 lower_instructions_visitor::pow_to_exp2(ir_expression *ir)
 {
+   void *mem_ctx = ralloc_parent(ir);
    ir_expression *const log2_x =
-      new(ir) ir_expression(ir_unop_log2, ir->operands[0]->type,
-			    ir->operands[0]);
+      new(mem_ctx) ir_expression(ir_unop_log2, ir->operands[0]->type,
+                                 ir->operands[0]);
 
    ir->operation = ir_unop_exp2;
-   ir->operands[0] = new(ir) ir_expression(ir_binop_mul, ir->operands[1]->type,
-					   ir->operands[1], log2_x);
+   ir->operands[0] = new(mem_ctx) ir_expression(ir_binop_mul,
+                                                ir->operands[1]->type,
+                                                ir->operands[1], log2_x);
    ir->operands[1] = NULL;
    this->progress = true;
 }
@@ -213,30 +224,33 @@ lower_instructions_visitor::pow_to_exp2(ir_expression *ir)
 void
 lower_instructions_visitor::log_to_log2(ir_expression *ir)
 {
+   void *mem_ctx = ralloc_parent(ir);
    ir->operation = ir_binop_mul;
-   ir->operands[0] = new(ir) ir_expression(ir_unop_log2, ir->operands[0]->type,
-					   ir->operands[0], NULL);
-   ir->operands[1] = new(ir) ir_constant(float(1.0 / M_LOG2E));
+   ir->operands[0] = new(mem_ctx) ir_expression(ir_unop_log2,
+                                                ir->operands[0]->type,
+                                                ir->operands[0], NULL);
+   ir->operands[1] = new(mem_ctx) ir_constant(float(1.0 / M_LOG2E));
    this->progress = true;
 }
 
 void
 lower_instructions_visitor::mod_to_fract(ir_expression *ir)
 {
-   ir_variable *temp = new(ir) ir_variable(ir->operands[1]->type, "mod_b",
-					   ir_var_temporary);
+   void *mem_ctx = ralloc_parent(ir);
+   ir_variable *temp = new(mem_ctx) ir_variable(ir->operands[1]->type, "mod_b",
+                                                ir_var_temporary);
    this->base_ir->insert_before(temp);
 
    ir_assignment *const assign =
-      new(ir) ir_assignment(new(ir) ir_dereference_variable(temp),
-			    ir->operands[1], NULL);
+      new(mem_ctx) ir_assignment(new(mem_ctx) ir_dereference_variable(temp),
+                                 ir->operands[1], NULL);
 
    this->base_ir->insert_before(assign);
 
    ir_expression *const div_expr =
-      new(ir) ir_expression(ir_binop_div, ir->operands[0]->type,
-			    ir->operands[0],
-			    new(ir) ir_dereference_variable(temp));
+      new(mem_ctx) ir_expression(ir_binop_div, ir->operands[0]->type,
+                                 ir->operands[0],
+                                 new(mem_ctx) ir_dereference_variable(temp));
 
    /* Don't generate new IR that would need to be lowered in an additional
     * pass.
@@ -244,13 +258,13 @@ lower_instructions_visitor::mod_to_fract(ir_expression *ir)
    if (lowering(DIV_TO_MUL_RCP))
       div_to_mul_rcp(div_expr);
 
-   ir_rvalue *expr = new(ir) ir_expression(ir_unop_fract,
-					   ir->operands[0]->type,
-					   div_expr,
-					   NULL);
+   ir_rvalue *expr = new(mem_ctx) ir_expression(ir_unop_fract,
+                                                ir->operands[0]->type,
+                                                div_expr,
+                                                NULL);
 
    ir->operation = ir_binop_mul;
-   ir->operands[0] = new(ir) ir_dereference_variable(temp);
+   ir->operands[0] = new(mem_ctx) ir_dereference_variable(temp);
    ir->operands[1] = expr;
    this->progress = true;
 }
