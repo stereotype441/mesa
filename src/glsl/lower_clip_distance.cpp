@@ -78,7 +78,7 @@ lower_clip_distance_visitor::visit(ir_variable *ir)
       unsigned new_size = (ir->type->array_size() + 3) / 4;
 
       /* Clone the old var so that we inherit all of its properties */
-      this->new_clip_distance_var = ir->clone(ir, NULL);
+      this->new_clip_distance_var = ir->clone(ralloc_parent(ir), NULL);
 
       /* And change the properties that we need to change */
       this->new_clip_distance_var->name
@@ -100,7 +100,7 @@ lower_clip_distance_visitor::create_indices(ir_rvalue *old_index,
 {
    assert (old_index->type == glsl_type::int_type); /* TODO: can I rely on this? */
 
-   void *ctx = old_index;
+   void *ctx = ralloc_parent(old_index);
 
    /* TODO: optimize the constant case */
 
@@ -146,8 +146,9 @@ lower_clip_distance_visitor::visit_leave(ir_dereference_array *ir)
       ir_rvalue *inner_index;
       ir_rvalue *outer_index;
       this->create_indices(ir->array_index, inner_index, outer_index);
-      ir->array = new(ir) ir_dereference_array(this->new_clip_distance_var,
-                                               inner_index);
+      void *mem_ctx = ralloc_parent(ir);
+      ir->array = new(mem_ctx) ir_dereference_array(this->new_clip_distance_var,
+                                                    inner_index);
       ir->array_index = outer_index;
    }
 
