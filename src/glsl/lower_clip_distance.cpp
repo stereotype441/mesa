@@ -82,7 +82,7 @@ lower_clip_distance_visitor::visit(ir_variable *ir)
 
       /* And change the properties that we need to change */
       this->new_clip_distance_var->name
-         = ralloc_strdup(ir, "gl_ClipDistanceMESA");
+         = ralloc_strdup(this->new_clip_distance_var, "gl_ClipDistanceMESA");
       this->new_clip_distance_var->type
          = glsl_type::get_array_instance(glsl_type::vec4_type, new_size);
       this->new_clip_distance_var->max_array_access = ir->max_array_access / 4;
