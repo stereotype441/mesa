@@ -128,7 +128,7 @@ match_function_by_name(exec_list *instructions, const char *name,
 	       emit_function(state, f);
 	    }
 
-	    f->add_signature(sig->clone_prototype(f, NULL));
+	    f->add_signature(sig->clone_prototype(ctx, NULL));
 	    break;
 	 }
       }
