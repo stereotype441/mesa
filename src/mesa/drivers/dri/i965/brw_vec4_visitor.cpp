@@ -1628,19 +1628,18 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
    src_reg pos = src_reg(output_reg[VERT_RESULT_HPOS]);
 
    /* Build ndc coords, which are (x/w, y/w, z/w, 1/w) */
-   dst_reg ndc = dst_reg(this, glsl_type::vec4_type);
-
    current_annotation = "NDC";
-   dst_reg ndc_w = ndc;
-   ndc_w.writemask = WRITEMASK_W;
+
+   /* vec4 ndc = 1.0/pos.wwww; */
+   dst_reg ndc = dst_reg(this, glsl_type::vec4_type);
    src_reg pos_w = pos;
    pos_w.swizzle = BRW_SWIZZLE4(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W);
-   emit_math(SHADER_OPCODE_RCP, ndc_w, pos_w);
+   emit_math(SHADER_OPCODE_RCP, ndc, pos_w);
 
+   /* ndc.xyz = (pos * ndc).xyz; */
    dst_reg ndc_xyz = ndc;
    ndc_xyz.writemask = WRITEMASK_XYZ;
-
-   emit(BRW_OPCODE_MUL, ndc_xyz, pos, src_reg(ndc_w));
+   emit(BRW_OPCODE_MUL, ndc_xyz, pos, src_reg(ndc));
 
    if ((c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) ||
        c->key.nr_userclip || brw->has_negative_rhw_bug) {
