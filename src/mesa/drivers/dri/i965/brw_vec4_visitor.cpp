@@ -1759,8 +1759,19 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
    case BRW_VERT_RESULT_PAD:
       /* No need to write to this slot */
       break;
-   default:
-      assert (!"Unknown slot");
+   default: {
+      assert (vert_result < VERT_RESULT_MAX);
+      /* Copy the register, saturating if necessary */
+      vec4_instruction *inst = emit(BRW_OPCODE_MOV, reg,
+				    src_reg(output_reg[vert_result]));
+      if ((vert_result == VERT_RESULT_COL0 ||
+	   vert_result == VERT_RESULT_COL1 ||
+	   vert_result == VERT_RESULT_BFC0 ||
+	   vert_result == VERT_RESULT_BFC1) &&
+	  c->key.clamp_vertex_color) {
+	 inst->saturate = true;
+      }
+   }
       break;
    }
 }
@@ -1906,16 +1917,7 @@ vec4_visitor::emit_urb_writes()
       if (attr == VERT_RESULT_PSIZ)
 	 continue;
 
-      vec4_instruction *inst = emit(BRW_OPCODE_MOV, brw_message_reg(mrf++),
-				    src_reg(output_reg[attr]));
-
-      if ((attr == VERT_RESULT_COL0 ||
-	   attr == VERT_RESULT_COL1 ||
-	   attr == VERT_RESULT_BFC0 ||
-	   attr == VERT_RESULT_BFC1) &&
-	  c->key.clamp_vertex_color) {
-	 inst->saturate = true;
-      }
+      emit_urb_slot(mrf++, attr);
 
       /* If this was MRF 15, we can't fit anything more into this URB
        * WRITE.  Note that base_mrf of 1 means that MRF 15 is an
@@ -1945,7 +1947,7 @@ vec4_visitor::emit_urb_writes()
 
 	 assert(mrf < max_usable_mrf);
 
-	 emit(BRW_OPCODE_MOV, brw_message_reg(mrf++), src_reg(output_reg[attr]));
+         emit_urb_slot(mrf++, attr);
       }
 
       inst = emit(VS_OPCODE_URB_WRITE);
