@@ -1792,15 +1792,8 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
 
    current_annotation = "user clip distances";
    if (c->key.nr_userclip) {
-      for (int offset = 0; offset < 8; offset += 4) {
-         struct brw_reg reg;
-         if (offset == 0)
-            reg = brw_message_reg(header_mrf);
-         else
-            reg = brw_message_reg(header_mrf + 1);
-         emit_clip_distances_gen6(reg, offset);
-      }
-      header_mrf += 2;
+      emit_clip_distances_gen6(brw_message_reg(header_mrf++), 0);
+      emit_clip_distances_gen6(brw_message_reg(header_mrf++), 4);
    }
 
    current_annotation = NULL;
