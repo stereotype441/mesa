@@ -63,7 +63,7 @@ brw_compute_vue_map(struct brw_vue_map *vue_map,
    vue_map->num_slots = 0;
    for (i = 0; i < BRW_VERT_RESULT_MAX; ++i) {
       vue_map->vert_result_to_slot[i] = -1;
-      vue_map->slot_to_vert_result[i] = -1;
+      vue_map->slot_to_vert_result[i] = BRW_VERT_RESULT_MAX;
    }
 
    /* VUE header: format depends on chip generation and whether clipping is

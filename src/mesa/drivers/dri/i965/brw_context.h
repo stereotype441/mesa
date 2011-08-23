@@ -321,6 +321,10 @@ struct brw_vue_map {
     * Map from VUE slot to gl_vert_result value.  For slots that do not
     * directly correspond to a gl_vert_result, the value comes from
     * brw_vert_result.
+    *
+    * For slots that are not in use, the value is BRW_VERT_RESULT_MAX (this
+    * simplifies code that uses the value stored in slot_to_vert_result to
+    * create a bit mask).
     */
    int slot_to_vert_result[BRW_VERT_RESULT_MAX];
 
