@@ -1645,10 +1645,11 @@ vec4_visitor::emit_ndc_computation()
 }
 
 void
-vec4_visitor::emit_psiz_and_flags_gen4(struct brw_reg reg)
+vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
 {
-   if ((c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) ||
-       c->key.nr_userclip || brw->has_negative_rhw_bug) {
+   if (intel->gen < 6 &&
+       ((c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) ||
+        c->key.nr_userclip || brw->has_negative_rhw_bug)) {
       dst_reg header1 = dst_reg(this, glsl_type::uvec4_type);
       GLuint i;
 
@@ -1701,8 +1702,14 @@ vec4_visitor::emit_psiz_and_flags_gen4(struct brw_reg reg)
 
       header1.writemask = WRITEMASK_XYZW;
       emit(BRW_OPCODE_MOV, reg, src_reg(header1));
-   } else {
+   } else if (intel->gen < 6) {
       emit(BRW_OPCODE_MOV, retype(reg, BRW_REGISTER_TYPE_UD), 0u);
+   } else {
+      emit(BRW_OPCODE_MOV, retype(reg, BRW_REGISTER_TYPE_D), src_reg(0));
+      if (c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) {
+         emit(BRW_OPCODE_MOV, brw_writemask(reg, WRITEMASK_W),
+              src_reg(output_reg[VERT_RESULT_PSIZ]));
+      }
    }
 }
 
@@ -1711,7 +1718,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
 {
    emit_ndc_computation();
 
-   emit_psiz_and_flags_gen4(brw_message_reg(header_mrf++));
+   emit_psiz_and_flags(brw_message_reg(header_mrf++));
 
    if (intel->gen == 5) {
       /* There are 20 DWs (D0-D19) in VUE header on Ironlake:
@@ -1757,8 +1764,6 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
 int
 vec4_visitor::emit_vue_header_gen6(int header_mrf)
 {
-   struct brw_reg reg;
-
    /* There are 8 or 16 DWs (D0-D15) in VUE header on Sandybridge:
     * dword 0-3 (m2) of the header is indices, point width, clip flags.
     * dword 4-7 (m3) is the 4D space position
@@ -1769,12 +1774,7 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
     */
 
    current_annotation = "indices, point width, clip flags";
-   reg = brw_message_reg(header_mrf++);
-   emit(BRW_OPCODE_MOV, retype(reg, BRW_REGISTER_TYPE_D), src_reg(0));
-   if (c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) {
-      emit(BRW_OPCODE_MOV, brw_writemask(reg, WRITEMASK_W),
-	   src_reg(output_reg[VERT_RESULT_PSIZ]));
-   }
+   emit_psiz_and_flags(brw_message_reg(header_mrf++));
 
    current_annotation = "gl_Position";
    emit(BRW_OPCODE_MOV,
