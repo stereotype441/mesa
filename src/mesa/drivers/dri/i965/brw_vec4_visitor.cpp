@@ -1644,11 +1644,9 @@ vec4_visitor::emit_ndc_computation()
    emit(BRW_OPCODE_MUL, ndc_xyz, pos, src_reg(ndc_w));
 }
 
-int
-vec4_visitor::emit_vue_header_gen4(int header_mrf)
+void
+vec4_visitor::emit_psiz_and_flags_gen4(struct brw_reg reg)
 {
-   emit_ndc_computation();
-
    if ((c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) ||
        c->key.nr_userclip || brw->has_negative_rhw_bug) {
       dst_reg header1 = dst_reg(this, glsl_type::uvec4_type);
@@ -1702,11 +1700,18 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
       }
 
       header1.writemask = WRITEMASK_XYZW;
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++), src_reg(header1));
+      emit(BRW_OPCODE_MOV, reg, src_reg(header1));
    } else {
-      emit(BRW_OPCODE_MOV, retype(brw_message_reg(header_mrf++),
-				  BRW_REGISTER_TYPE_UD), 0u);
+      emit(BRW_OPCODE_MOV, retype(reg, BRW_REGISTER_TYPE_UD), 0u);
    }
+}
+
+int
+vec4_visitor::emit_vue_header_gen4(int header_mrf)
+{
+   emit_ndc_computation();
+
+   emit_psiz_and_flags_gen4(brw_message_reg(header_mrf++));
 
    if (intel->gen == 5) {
       /* There are 20 DWs (D0-D19) in VUE header on Ironlake:
