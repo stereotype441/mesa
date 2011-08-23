@@ -1776,73 +1776,6 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
    }
 }
 
-int
-vec4_visitor::emit_vue_header_gen4(int header_mrf)
-{
-   emit_ndc_computation();
-
-   emit_urb_slot(header_mrf++, VERT_RESULT_PSIZ);
-
-   if (intel->gen == 5) {
-      /* There are 20 DWs (D0-D19) in VUE header on Ironlake:
-       * dword 0-3 (m1) of the header is indices, point width, clip flags.
-       * dword 4-7 (m2) is the ndc position (set above)
-       * dword 8-11 (m3) of the vertex header is the 4D space position
-       * dword 12-19 (m4,m5) of the vertex header is the user clip distance.
-       * m6 is a pad so that the vertex element data is aligned
-       * m7 is the first vertex data we fill.
-       */
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
-
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_HPOS_DUPLICATE);
-
-      /* user clip distance. */
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP1);
-
-      /* Pad so that vertex element data is aligned. */
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_PAD);
-   } else {
-      /* There are 8 dwords in VUE header pre-Ironlake:
-       * dword 0-3 (m1) is indices, point width, clip flags.
-       * dword 4-7 (m2) is ndc position (set above)
-       *
-       * dword 8-11 (m3) is the first vertex data.
-       */
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
-
-      emit_urb_slot(header_mrf++, VERT_RESULT_HPOS);
-   }
-
-   return header_mrf;
-}
-
-int
-vec4_visitor::emit_vue_header_gen6(int header_mrf)
-{
-   /* There are 8 or 16 DWs (D0-D15) in VUE header on Sandybridge:
-    * dword 0-3 (m2) of the header is indices, point width, clip flags.
-    * dword 4-7 (m3) is the 4D space position
-    * dword 8-15 (m4,m5) of the vertex header is the user clip distance if
-    * enabled.
-    *
-    * m4 or 6 is the first vertex element data we fill.
-    */
-
-   emit_urb_slot(header_mrf++, VERT_RESULT_PSIZ);
-
-   emit_urb_slot(header_mrf++, VERT_RESULT_HPOS);
-
-   if (c->key.nr_userclip) {
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
-      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP1);
-   }
-
-   current_annotation = NULL;
-
-   return header_mrf;
-}
-
 static int
 align_interleaved_urb_mlen(struct brw_context *brw, int mlen)
 {
@@ -1895,15 +1828,13 @@ vec4_visitor::emit_urb_writes()
     */
    mrf++;
 
-   if (intel->gen >= 6) {
-      mrf = emit_vue_header_gen6(mrf);
-   } else {
-      mrf = emit_vue_header_gen4(mrf);
+   if (intel->gen < 6) {
+      emit_ndc_computation();
    }
 
    /* Set up the VUE data for the first URB write */
    int slot;
-   for (slot = mrf - (base_mrf + 1); slot < c->vue_map.num_slots; ++slot) {
+   for (slot = 0; slot < c->vue_map.num_slots; ++slot) {
       emit_urb_slot(mrf++, c->vue_map.slot_to_vert_result[slot]);
 
       /* If this was MRF 15, we can't fit anything more into this URB
