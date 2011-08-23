@@ -1743,6 +1743,11 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
       current_annotation = "NDC";
       emit(BRW_OPCODE_MOV, reg, src_reg(output_reg[BRW_VERT_RESULT_NDC]));
       break;
+   case BRW_VERT_RESULT_HPOS_DUPLICATE:
+   case VERT_RESULT_HPOS:
+      current_annotation = "gl_Position";
+      emit(BRW_OPCODE_MOV, reg, src_reg(output_reg[VERT_RESULT_HPOS]));
+      break;
    case BRW_VERT_RESULT_CLIP0:
       current_annotation = "user clip distances";
       emit_clip_distances(reg, 0);
@@ -1775,9 +1780,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
        */
       emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
 
-      current_annotation = "gl_Position";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
-           src_reg(output_reg[VERT_RESULT_HPOS]));
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_HPOS_DUPLICATE);
 
       /* user clip distance. */
       emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
@@ -1794,9 +1797,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
        */
       emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
 
-      current_annotation = "gl_Position";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
-           src_reg(output_reg[VERT_RESULT_HPOS]));
+      emit_urb_slot(header_mrf++, VERT_RESULT_HPOS);
    }
 
    return header_mrf;
@@ -1816,9 +1817,7 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
 
    emit_urb_slot(header_mrf++, VERT_RESULT_PSIZ);
 
-   current_annotation = "gl_Position";
-   emit(BRW_OPCODE_MOV,
-	brw_message_reg(header_mrf++), src_reg(output_reg[VERT_RESULT_HPOS]));
+   emit_urb_slot(header_mrf++, VERT_RESULT_HPOS);
 
    if (c->key.nr_userclip) {
       emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
