@@ -1713,6 +1713,16 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
    }
 }
 
+void
+vec4_visitor::emit_clip_distances_gen6(struct brw_reg reg, int offset)
+{
+   for (int i = 0; i + offset < c->key.nr_userclip && i < 4; ++i) {
+      emit(BRW_OPCODE_DP4,
+           dst_reg(brw_writemask(reg, 1 << i)),
+           src_reg(c->userplane[i + offset]));
+   }
+}
+
 int
 vec4_visitor::emit_vue_header_gen4(int header_mrf)
 {
@@ -1783,16 +1793,12 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
    current_annotation = "user clip distances";
    if (c->key.nr_userclip) {
       for (int offset = 0; offset < 8; offset += 4) {
-         struct brw_reg m;
+         struct brw_reg reg;
          if (offset == 0)
-            m = brw_message_reg(header_mrf);
+            reg = brw_message_reg(header_mrf);
          else
-            m = brw_message_reg(header_mrf + 1);
-         for (int i = 0; i + offset < c->key.nr_userclip && i < 4; ++i) {
-            emit(BRW_OPCODE_DP4,
-                 dst_reg(brw_writemask(m, 1 << i)),
-                 src_reg(c->userplane[i + offset]));
-         }
+            reg = brw_message_reg(header_mrf + 1);
+         emit_clip_distances_gen6(reg, offset);
       }
       header_mrf += 2;
    }
