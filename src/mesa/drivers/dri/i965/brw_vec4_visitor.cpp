@@ -1879,7 +1879,6 @@ vec4_visitor::emit_urb_writes()
    int base_mrf = 1;
    int mrf = base_mrf;
    int urb_entry_size;
-   uint64_t outputs_remaining = c->prog_data.outputs_written;
    /* In the process of generating our URB write message contents, we
     * may need to unspill a register or load from an array.  Those
     * reads would use MRFs 14-15.
@@ -1887,6 +1886,9 @@ vec4_visitor::emit_urb_writes()
    int max_usable_mrf = 13;
 
    /* FINISHME: edgeflag */
+
+   brw_compute_vue_map(&c->vue_map, intel, c->key.nr_userclip,
+                       c->key.two_side_color, c->prog_data.outputs_written);
 
    /* First mrf is the g0-based message header containing URB handles and such,
     * which is implied in VS_OPCODE_URB_WRITE.
@@ -1900,24 +1902,9 @@ vec4_visitor::emit_urb_writes()
    }
 
    /* Set up the VUE data for the first URB write */
-   int attr;
-   for (attr = 0; attr < VERT_RESULT_MAX; attr++) {
-      if (!(c->prog_data.outputs_written & BITFIELD64_BIT(attr)))
-	 continue;
-
-      outputs_remaining &= ~BITFIELD64_BIT(attr);
-
-      /* This is set up in the VUE header. */
-      if (attr == VERT_RESULT_HPOS)
-	 continue;
-
-      /* This is loaded into the VUE header, and thus doesn't occupy
-       * an attribute slot.
-       */
-      if (attr == VERT_RESULT_PSIZ)
-	 continue;
-
-      emit_urb_slot(mrf++, attr);
+   int slot;
+   for (slot = mrf - (base_mrf + 1); slot < c->vue_map.num_slots; ++slot) {
+      emit_urb_slot(mrf++, c->vue_map.slot_to_vert_result[slot]);
 
       /* If this was MRF 15, we can't fit anything more into this URB
        * WRITE.  Note that base_mrf of 1 means that MRF 15 is an
@@ -1925,7 +1912,7 @@ vec4_visitor::emit_urb_writes()
        * gen6's requirements for length alignment.
        */
       if (mrf > max_usable_mrf) {
-	 attr++;
+	 slot++;
 	 break;
       }
    }
@@ -1933,21 +1920,18 @@ vec4_visitor::emit_urb_writes()
    vec4_instruction *inst = emit(VS_OPCODE_URB_WRITE);
    inst->base_mrf = base_mrf;
    inst->mlen = align_interleaved_urb_mlen(brw, mrf - base_mrf);
-   inst->eot = !outputs_remaining;
+   inst->eot = (slot >= c->vue_map.num_slots);
 
    urb_entry_size = mrf - base_mrf;
 
    /* Optional second URB write */
-   if (outputs_remaining) {
+   if (!inst->eot) {
       mrf = base_mrf + 1;
 
-      for (; attr < VERT_RESULT_MAX; attr++) {
-	 if (!(c->prog_data.outputs_written & BITFIELD64_BIT(attr)))
-	    continue;
-
+      for (; slot < c->vue_map.num_slots; ++slot) {
 	 assert(mrf < max_usable_mrf);
 
-         emit_urb_slot(mrf++, attr);
+         emit_urb_slot(mrf++, c->vue_map.slot_to_vert_result[slot]);
       }
 
       inst = emit(VS_OPCODE_URB_WRITE);
