@@ -1663,7 +1663,8 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
 	 vec4_instruction *inst;
 
 	 inst = emit(BRW_OPCODE_DP4, dst_reg(brw_null_reg()),
-		     pos, src_reg(c->userplane[i]));
+		     src_reg(output_reg[VERT_RESULT_HPOS]),
+                     src_reg(c->userplane[i]));
 	 inst->conditional_mod = BRW_CONDITIONAL_L;
 
 	 emit(BRW_OPCODE_OR, header1, src_reg(header1), 1u << i);
@@ -1715,7 +1716,8 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
            src_reg(output_reg[BRW_VERT_RESULT_NDC]));
 
       current_annotation = "gl_Position";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++), pos);
+      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
+           src_reg(output_reg[VERT_RESULT_HPOS]));
 
       /* user clip distance. */
       header_mrf += 2;
@@ -1734,7 +1736,8 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
            src_reg(output_reg[BRW_VERT_RESULT_NDC]));
 
       current_annotation = "gl_Position";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++), pos);
+      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
+           src_reg(output_reg[VERT_RESULT_HPOS]));
    }
 
    return header_mrf;
