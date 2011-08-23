@@ -1761,6 +1761,7 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
       break;
    default: {
       assert (vert_result < VERT_RESULT_MAX);
+      current_annotation = NULL;
       /* Copy the register, saturating if necessary */
       vec4_instruction *inst = emit(BRW_OPCODE_MOV, reg,
 				    src_reg(output_reg[vert_result]));
