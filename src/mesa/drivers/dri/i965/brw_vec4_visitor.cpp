@@ -1728,12 +1728,29 @@ vec4_visitor::emit_clip_distances(struct brw_reg reg, int offset)
    }
 }
 
+void
+vec4_visitor::emit_urb_slot(int mrf, int vert_result)
+{
+   struct brw_reg reg = brw_message_reg(mrf);
+
+   switch (vert_result) {
+   case VERT_RESULT_PSIZ:
+      /* PSIZ is always in slot 0, and is coupled with other flags. */
+      current_annotation = "indices, point width, clip flags";
+      emit_psiz_and_flags(reg);
+      break;
+   default:
+      assert (!"Unknown slot");
+      break;
+   }
+}
+
 int
 vec4_visitor::emit_vue_header_gen4(int header_mrf)
 {
    emit_ndc_computation();
 
-   emit_psiz_and_flags(brw_message_reg(header_mrf++));
+   emit_urb_slot(header_mrf++, VERT_RESULT_PSIZ);
 
    if (intel->gen == 5) {
       /* There are 20 DWs (D0-D19) in VUE header on Ironlake:
@@ -1789,8 +1806,7 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
     * m4 or 6 is the first vertex element data we fill.
     */
 
-   current_annotation = "indices, point width, clip flags";
-   emit_psiz_and_flags(brw_message_reg(header_mrf++));
+   emit_urb_slot(header_mrf++, VERT_RESULT_PSIZ);
 
    current_annotation = "gl_Position";
    emit(BRW_OPCODE_MOV,
