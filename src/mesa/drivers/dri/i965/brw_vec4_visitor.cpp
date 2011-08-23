@@ -1714,8 +1714,13 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
 }
 
 void
-vec4_visitor::emit_clip_distances_gen6(struct brw_reg reg, int offset)
+vec4_visitor::emit_clip_distances(struct brw_reg reg, int offset)
 {
+   if (intel->gen < 6)
+      /* Clip distance slots are set aside in gen5 because the hardware
+       * requires them to be, but they are not used. */
+      return;
+
    for (int i = 0; i + offset < c->key.nr_userclip && i < 4; ++i) {
       emit(BRW_OPCODE_DP4,
            dst_reg(brw_writemask(reg, 1 << i)),
@@ -1748,7 +1753,8 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
            src_reg(output_reg[VERT_RESULT_HPOS]));
 
       /* user clip distance. */
-      header_mrf += 2;
+      emit_clip_distances(brw_message_reg(header_mrf++), 0);
+      emit_clip_distances(brw_message_reg(header_mrf++), 4);
 
       /* Pad so that vertex element data is aligned. */
       header_mrf++;
@@ -1792,8 +1798,8 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
 
    current_annotation = "user clip distances";
    if (c->key.nr_userclip) {
-      emit_clip_distances_gen6(brw_message_reg(header_mrf++), 0);
-      emit_clip_distances_gen6(brw_message_reg(header_mrf++), 4);
+      emit_clip_distances(brw_message_reg(header_mrf++), 0);
+      emit_clip_distances(brw_message_reg(header_mrf++), 4);
    }
 
    current_annotation = NULL;
