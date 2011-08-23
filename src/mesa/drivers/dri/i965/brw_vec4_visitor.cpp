@@ -1739,6 +1739,14 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
       current_annotation = "indices, point width, clip flags";
       emit_psiz_and_flags(reg);
       break;
+   case BRW_VERT_RESULT_CLIP0:
+      current_annotation = "user clip distances";
+      emit_clip_distances(reg, 0);
+      break;
+   case BRW_VERT_RESULT_CLIP1:
+      current_annotation = "user clip distances";
+      emit_clip_distances(reg, 4);
+      break;
    default:
       assert (!"Unknown slot");
       break;
@@ -1770,8 +1778,8 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
            src_reg(output_reg[VERT_RESULT_HPOS]));
 
       /* user clip distance. */
-      emit_clip_distances(brw_message_reg(header_mrf++), 0);
-      emit_clip_distances(brw_message_reg(header_mrf++), 4);
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP1);
 
       /* Pad so that vertex element data is aligned. */
       header_mrf++;
@@ -1812,10 +1820,9 @@ vec4_visitor::emit_vue_header_gen6(int header_mrf)
    emit(BRW_OPCODE_MOV,
 	brw_message_reg(header_mrf++), src_reg(output_reg[VERT_RESULT_HPOS]));
 
-   current_annotation = "user clip distances";
    if (c->key.nr_userclip) {
-      emit_clip_distances(brw_message_reg(header_mrf++), 0);
-      emit_clip_distances(brw_message_reg(header_mrf++), 4);
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP0);
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP1);
    }
 
    current_annotation = NULL;
