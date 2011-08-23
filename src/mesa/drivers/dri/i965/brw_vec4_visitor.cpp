@@ -1756,6 +1756,9 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
       current_annotation = "user clip distances";
       emit_clip_distances(reg, 4);
       break;
+   case BRW_VERT_RESULT_PAD:
+      /* No need to write to this slot */
+      break;
    default:
       assert (!"Unknown slot");
       break;
@@ -1787,7 +1790,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
       emit_urb_slot(header_mrf++, BRW_VERT_RESULT_CLIP1);
 
       /* Pad so that vertex element data is aligned. */
-      header_mrf++;
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_PAD);
    } else {
       /* There are 8 dwords in VUE header pre-Ironlake:
        * dword 0-3 (m1) is indices, point width, clip flags.
