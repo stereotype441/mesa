@@ -1739,6 +1739,10 @@ vec4_visitor::emit_urb_slot(int mrf, int vert_result)
       current_annotation = "indices, point width, clip flags";
       emit_psiz_and_flags(reg);
       break;
+   case BRW_VERT_RESULT_NDC:
+      current_annotation = "NDC";
+      emit(BRW_OPCODE_MOV, reg, src_reg(output_reg[BRW_VERT_RESULT_NDC]));
+      break;
    case BRW_VERT_RESULT_CLIP0:
       current_annotation = "user clip distances";
       emit_clip_distances(reg, 0);
@@ -1769,9 +1773,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
        * m6 is a pad so that the vertex element data is aligned
        * m7 is the first vertex data we fill.
        */
-      current_annotation = "NDC";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
-           src_reg(output_reg[BRW_VERT_RESULT_NDC]));
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
 
       current_annotation = "gl_Position";
       emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
@@ -1790,9 +1792,7 @@ vec4_visitor::emit_vue_header_gen4(int header_mrf)
        *
        * dword 8-11 (m3) is the first vertex data.
        */
-      current_annotation = "NDC";
-      emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
-           src_reg(output_reg[BRW_VERT_RESULT_NDC]));
+      emit_urb_slot(header_mrf++, BRW_VERT_RESULT_NDC);
 
       current_annotation = "gl_Position";
       emit(BRW_OPCODE_MOV, brw_message_reg(header_mrf++),
