@@ -43,6 +43,18 @@
 #include "brw_sf.h"
 
 
+/**
+ * Determine the vert_result corresponding to the given half of the given
+ * register.  half=0 means the first half of a register, half=1 means the
+ * second half.
+ */
+static inline int vert_reg_to_vert_result(struct brw_sf_compile *c, GLuint reg,
+                                          int half)
+{
+   int vue_slot = (reg + c->urb_entry_read_offset) * 2 + half;
+   return c->vue_map.slot_to_vert_result[vue_slot];
+}
+
 static struct brw_reg get_vert_attr(struct brw_sf_compile *c,
 				    struct brw_reg vert,
 				    GLuint attr)
@@ -351,18 +363,6 @@ static GLboolean calculate_masks( struct brw_sf_compile *c,
    }
 
    return is_last_attr;
-}
-
-/**
- * Determine the vert_result corresponding to the given half of the given
- * register.  half=0 means the first half of a register, half=1 means the
- * second half.
- */
-static inline int vert_reg_to_vert_result(struct brw_sf_compile *c, GLuint reg,
-                                          int half)
-{
-   int vue_slot = (reg + c->urb_entry_read_offset) * 2 + half;
-   return c->vue_map.slot_to_vert_result[vue_slot];
 }
 
 /* Calculates the predicate control for which channels of a reg
