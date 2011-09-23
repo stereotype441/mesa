@@ -1765,8 +1765,9 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
                          src_reg(c->userplane[i])));
 	 inst->conditional_mod = BRW_CONDITIONAL_L;
 
-	 emit(OR(header1, src_reg(header1), 1u << i));
+	 inst = emit(OR(header1, src_reg(header1), src_reg(1u << i)));
 	 inst->predicate = BRW_PREDICATE_NORMAL;
+         inst->dst.writemask = WRITEMASK_W;
       }
 
       /* i965 clipping workaround:

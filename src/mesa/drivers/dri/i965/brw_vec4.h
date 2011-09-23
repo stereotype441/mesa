@@ -150,7 +150,7 @@ public:
 
       this->file = IMM;
       this->type = BRW_REGISTER_TYPE_UD;
-      this->imm.f = u;
+      this->imm.u = u;
    }
 
    src_reg(int32_t i)
@@ -371,6 +371,7 @@ public:
    bool run(void);
    void fail(const char *msg, ...);
 
+   void setup_userclip();
    int virtual_grf_alloc(int size);
    int setup_uniform_values(int loc, const glsl_type *type);
    void setup_builtin_uniform_values(ir_variable *ir);

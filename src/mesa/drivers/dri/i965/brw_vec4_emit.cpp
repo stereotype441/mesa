@@ -88,6 +88,27 @@ vec4_visitor::setup_attributes(int payload_reg)
    return payload_reg + nr_attributes;
 }
 
+void
+vec4_visitor::setup_userclip()
+{
+   int reg = 1;
+   /* User clip planes from curbe:
+    */
+   if (c->key.nr_userclip) {
+      if (intel->gen >= 6) {
+	 for (int i = 0; i < c->key.nr_userclip; i++) {
+	    c->userplane[i] = stride(brw_vec4_grf(reg + i / 2,
+						  (i % 2) * 4), 0, 4, 1);
+	 }
+      } else {
+	 for (int i = 0; i < c->key.nr_userclip; i++) {
+	    c->userplane[i] = stride(brw_vec4_grf(reg + (6 + i) / 2,
+						  (i % 2) * 4), 0, 4, 1);
+	 }
+      }
+   }
+}
+
 int
 vec4_visitor::setup_uniforms(int reg)
 {
@@ -216,7 +237,7 @@ vec4_instruction::get_src(int i)
       break;
 
    case UNIFORM:
-      brw_reg = stride(brw_vec4_grf(1 + (src[i].reg + src[i].reg_offset) / 2,
+      brw_reg = stride(brw_vec4_grf(7 + (src[i].reg + src[i].reg_offset) / 2,
 				    ((src[i].reg + src[i].reg_offset) % 2) * 4),
 		       0, 4, 1);
       brw_reg = retype(brw_reg, src[i].type);
@@ -592,6 +613,8 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
 bool
 vec4_visitor::run()
 {
+   setup_userclip();
+
    /* Generate VS IR for main().  (the visitor only descends into
     * functions called "main").
     */
