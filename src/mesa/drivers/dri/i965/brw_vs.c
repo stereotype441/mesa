@@ -137,11 +137,17 @@ brw_compute_vue_map(struct brw_vue_map *vue_map,
    /* The hardware doesn't care about the rest of the vertex outputs, so just
     * assign them contiguously.  Don't reassign outputs that already have a
     * slot.
+    *
+    * Also, don't assign a slot for VERT_RESULT_CLIP_VERTEX, since it is
+    * unsupported in pre-GEN6, and in GEN6+ the vertex shader converts it into
+    * clip distances.
     */
    for (int i = 0; i < VERT_RESULT_MAX; ++i) {
       if ((outputs_written & BITFIELD64_BIT(i)) &&
           vue_map->vert_result_to_slot[i] == -1) {
-         assign_vue_slot(vue_map, i);
+         if (i != VERT_RESULT_CLIP_VERTEX) {
+            assign_vue_slot(vue_map, i);
+         }
       }
    }
 }

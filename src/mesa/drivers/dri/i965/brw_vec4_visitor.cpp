@@ -553,7 +553,16 @@ vec4_visitor::setup_uniform_clipplane_values()
          this->userplane[compacted_clipplane_index] = dst_reg(UNIFORM, this->uniforms);
          this->userplane[compacted_clipplane_index].type = BRW_REGISTER_TYPE_F;
          for (int j = 0; j < 4; ++j) {
-            c->prog_data.param[this->uniforms * 4 + j] = &ctx->Transform._ClipUserPlane[i][j];
+            /* For fixed functionality shaders, we need to clip based on
+             * ctx->Transform._ClipUserPlane (which has been transformed by
+             * Mesa core into clip coordinates).  For user-supplied vertex
+             * shaders, we need to use the untransformed clip planes in
+             * ctx->Transform.EyeUserPlane.  Since vec4_visitor is currently
+             * only used for user-supplied vertex shaders, we can hardcode
+             * this to EyeUserPlane for now.
+             */
+            c->prog_data.param[this->uniforms * 4 + j]
+               = &ctx->Transform.EyeUserPlane[i][j];
          }
          ++compacted_clipplane_index;
          ++this->uniforms;
@@ -1846,9 +1855,27 @@ vec4_visitor::emit_clip_distances(struct brw_reg reg, int offset)
       return;
    }
 
+   /* From the GLSL 1.30 spec, section 7.1 (Vertex Shader Special Variables):
+    *
+    *     "If a linked set of shaders forming the vertex stage contains no
+    *     static write to gl_ClipVertex or gl_ClipDistance, but the
+    *     application has requested clipping against user clip planes through
+    *     the API, then the coordinate written to gl_Position is used for
+    *     comparison against the user clip planes."
+    *
+    * This function is only called if the shader didn't write to
+    * gl_ClipDistance.  Accordingly, we use gl_ClipVertex to perform clipping
+    * if the user wrote to it; otherwise we use gl_Position.
+    */
+   gl_vert_result clip_vertex = VERT_RESULT_CLIP_VERTEX;
+   if (!(c->prog_data.outputs_written
+         & BITFIELD64_BIT(VERT_RESULT_CLIP_VERTEX))) {
+      clip_vertex = VERT_RESULT_HPOS;
+   }
+
    for (int i = 0; i + offset < c->key.nr_userclip && i < 4; ++i) {
       emit(DP4(dst_reg(brw_writemask(reg, 1 << i)),
-               src_reg(output_reg[VERT_RESULT_HPOS]),
+               src_reg(output_reg[clip_vertex]),
                src_reg(this->userplane[i + offset])));
    }
 }
