@@ -512,6 +512,27 @@ _mesa_logbase2(GLuint n)
 #endif
 }
 
+/**
+ * Return the floor of the binary logarithm for a 64-bit integer.
+ */
+static INLINE GLuint
+_mesa_logbase2_64(uint64_t n)
+{
+#if defined(__GNUC__) && \
+   ((__GNUC__ == 3 && __GNUC_MINOR__ >= 4) || __GNUC__ >= 4)
+   return (63 - __builtin_clzll(n | 1));
+#else
+   GLuint pos = 0;
+   if (n >= 1<<32) { n >>= 32; pos += 32; }
+   if (n >= 1<<16) { n >>= 16; pos += 16; }
+   if (n >= 1<< 8) { n >>=  8; pos +=  8; }
+   if (n >= 1<< 4) { n >>=  4; pos +=  4; }
+   if (n >= 1<< 2) { n >>=  2; pos +=  2; }
+   if (n >= 1<< 1) {           pos +=  1; }
+   return pos;
+#endif
+}
+
 
 /**
  * Return 1 if this is a little endian machine, 0 if big endian.
