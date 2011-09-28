@@ -35,6 +35,7 @@
 #include "brw_state.h"
 #include "intel_batchbuffer.h"
 #include "intel_buffers.h"
+#include "brw_util.h"
 
 /* This is used to initialize brw->state.atoms[].  We could use this
  * list directly except for a single atom, brw_constant_buffer, which
@@ -237,6 +238,13 @@ const struct brw_tracked_state *gen7_atoms[] =
 
 void brw_init_state( struct brw_context *brw )
 {
+   uint64_t foo = 0xaaaaaaaaaaaaaaaa;
+   printf("sizeof(unsigned int) == %d\n", sizeof(unsigned int));
+   printf("sizeof(unsigned long) == %d\n", sizeof(unsigned long));
+   printf("sizeof(unsigned long long) == %d\n", sizeof(unsigned long long));
+   printf("brw_count_bits(a's) == %d\n", brw_count_bits(foo));
+   assert (brw_count_bits(foo) == 1);
+
    const struct brw_tracked_state **atoms;
    int num_atoms;
 
