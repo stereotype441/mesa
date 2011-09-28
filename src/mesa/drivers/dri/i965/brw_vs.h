@@ -50,6 +50,12 @@ struct brw_vs_prog_key {
    GLuint point_coord_replace:8;
    GLuint clamp_vertex_color:1;
    GLuint uses_clip_distance:1;
+
+   /**
+    * Which user clip planes are active.  Zero if the shader uses
+    * gl_ClipDistance.
+    */
+   GLuint userclip_planes_enabled:MAX_CLIP_PLANES;
 };
 
 
