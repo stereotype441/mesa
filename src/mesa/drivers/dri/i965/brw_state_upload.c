@@ -242,8 +242,9 @@ void brw_init_state( struct brw_context *brw )
    printf("sizeof(unsigned int) == %d\n", sizeof(unsigned int));
    printf("sizeof(unsigned long) == %d\n", sizeof(unsigned long));
    printf("sizeof(unsigned long long) == %d\n", sizeof(unsigned long long));
+   printf("sizeof(uint64_t) == %d\n", sizeof(uint64_t));
    printf("brw_count_bits(a's) == %d\n", brw_count_bits(foo));
-   assert (brw_count_bits(foo) == 1);
+   assert (brw_count_bits(foo) == 32);
 
    const struct brw_tracked_state **atoms;
    int num_atoms;
