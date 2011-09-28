@@ -239,11 +239,22 @@ const struct brw_tracked_state *gen7_atoms[] =
 void brw_init_state( struct brw_context *brw )
 {
    uint64_t foo = 0xaaaaaaaaaaaaaaaa;
+   uint64_t bar = 0x1111111111111111;
    printf("sizeof(unsigned int) == %d\n", sizeof(unsigned int));
    printf("sizeof(unsigned long) == %d\n", sizeof(unsigned long));
    printf("sizeof(unsigned long long) == %d\n", sizeof(unsigned long long));
    printf("sizeof(uint64_t) == %d\n", sizeof(uint64_t));
    printf("brw_count_bits(a's) == %d\n", brw_count_bits(foo));
+   printf("_mesa_logbase2_64(a's) == %d\n", _mesa_logbase2_64(foo));
+   printf("_mesa_logbase2(a's) == %d\n", _mesa_logbase2(foo));
+   printf("_mesa_logbase2_64(1's) == %d\n", _mesa_logbase2_64(bar));
+   printf("_mesa_logbase2(1's) == %d\n", _mesa_logbase2(bar));
+   printf("_mesa_logbase2_64(a) == %d\n", _mesa_logbase2_64(0xa));
+   printf("_mesa_logbase2(a) == %d\n", _mesa_logbase2(0xa));
+   printf("_mesa_logbase2_64(1) == %d\n", _mesa_logbase2_64(1));
+   printf("_mesa_logbase2(1) == %d\n", _mesa_logbase2(1));
+   printf("_mesa_logbase2_64(0) == %d\n", _mesa_logbase2_64(0));
+   printf("_mesa_logbase2(0) == %d\n", _mesa_logbase2(0));
    assert (brw_count_bits(foo) == 32);
 
    const struct brw_tracked_state **atoms;
