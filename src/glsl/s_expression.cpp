@@ -64,21 +64,26 @@ read_atom(void *ctx, const char *&src, char *&symbol_buffer)
    if (n == 0)
       return NULL; // no atom
 
-   // Check if the atom is a number.
-   char *float_end = NULL;
-   double f = glsl_strtod(src, &float_end);
-   if (float_end != src) {
-      char *int_end = NULL;
-      int i = strtol(src, &int_end, 10);
-      // If strtod matched more characters, it must have a decimal part
-      if (float_end > int_end)
-	 expr = new(ctx) s_float(f);
-      else
-	 expr = new(ctx) s_int(i);
+   // Check for the special symbol '#inf', which means +Infinity
+   if (n == 4 && strncmp(src, "#inf", 4) == 0) {
+      expr = new(ctx) s_float(INFINITY);
    } else {
-      // Not a number; return a symbol.
-      symbol_buffer[n] = '\0';
-      expr = new(ctx) s_symbol(symbol_buffer, n);
+      // Check if the atom is a number.
+      char *float_end = NULL;
+      double f = glsl_strtod(src, &float_end);
+      if (float_end != src) {
+         char *int_end = NULL;
+         int i = strtol(src, &int_end, 10);
+         // If strtod matched more characters, it must have a decimal part
+         if (float_end > int_end)
+            expr = new(ctx) s_float(f);
+         else
+            expr = new(ctx) s_int(i);
+      } else {
+         // Not a number; return a symbol.
+         symbol_buffer[n] = '\0';
+         expr = new(ctx) s_symbol(symbol_buffer, n);
+      }
    }
 
    src += n;

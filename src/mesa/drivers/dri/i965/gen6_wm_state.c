@@ -135,9 +135,6 @@ upload_wm_state(struct brw_context *brw)
    dw5 |= GEN6_WM_LINE_AA_WIDTH_1_0;
    dw5 |= GEN6_WM_LINE_END_CAP_AA_WIDTH_0_5;
 
-   /* OpenGL non-ieee floating point mode */
-   dw2 |= GEN6_WM_FLOATING_POINT_MODE_ALT;
-
    /* BRW_NEW_NR_WM_SURFACES */
    dw2 |= brw->wm.nr_surfaces << GEN6_WM_BINDING_TABLE_ENTRY_COUNT_SHIFT;
 
@@ -148,7 +145,7 @@ upload_wm_state(struct brw_context *brw)
    dw4 |= (brw->wm.prog_data->first_curbe_grf_16 <<
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_2);
 
-   dw5 |= (brw->wm_max_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
+   dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
 
    /* CACHE_NEW_WM_PROG */
    if (brw->wm.prog_data->dispatch_width == 8) {
