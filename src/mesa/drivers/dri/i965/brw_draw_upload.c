@@ -65,6 +65,14 @@ static GLuint half_float_types[5] = {
    BRW_SURFACEFORMAT_R16G16B16A16_FLOAT
 };
 
+static GLuint uint_types_direct[5] = {
+   0,
+   BRW_SURFACEFORMAT_R32_UINT,
+   BRW_SURFACEFORMAT_R32G32_UINT,
+   BRW_SURFACEFORMAT_R32G32B32_UINT,
+   BRW_SURFACEFORMAT_R32G32B32A32_UINT
+};
+
 static GLuint uint_types_norm[5] = {
    0,
    BRW_SURFACEFORMAT_R32_UNORM,
@@ -79,6 +87,14 @@ static GLuint uint_types_scale[5] = {
    BRW_SURFACEFORMAT_R32G32_USCALED,
    BRW_SURFACEFORMAT_R32G32B32_USCALED,
    BRW_SURFACEFORMAT_R32G32B32A32_USCALED
+};
+
+static GLuint int_types_direct[5] = {
+   0,
+   BRW_SURFACEFORMAT_R32_SINT,
+   BRW_SURFACEFORMAT_R32G32_SINT,
+   BRW_SURFACEFORMAT_R32G32B32_SINT,
+   BRW_SURFACEFORMAT_R32G32B32A32_SINT
 };
 
 static GLuint int_types_norm[5] = {
@@ -202,10 +218,10 @@ static GLuint get_surface_type( GLenum type, GLuint size,
       case GL_DOUBLE: return double_types[size];
       case GL_FLOAT: return float_types[size];
       case GL_HALF_FLOAT: return half_float_types[size];
-      case GL_INT: return int_types_scale[size];
+      case GL_INT: return int_types_direct[size]; /* HACK */
       case GL_SHORT: return short_types_scale[size];
       case GL_BYTE: return byte_types_scale[size];
-      case GL_UNSIGNED_INT: return uint_types_scale[size];
+      case GL_UNSIGNED_INT: return uint_types_direct[size]; /* HACK */
       case GL_UNSIGNED_SHORT: return ushort_types_scale[size];
       case GL_UNSIGNED_BYTE: return ubyte_types_scale[size];
       /* This produces GL_FIXED inputs as values between INT32_MIN and
