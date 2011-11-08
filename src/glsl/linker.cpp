@@ -1782,8 +1782,8 @@ parse_tfeedback_decls(struct gl_shader_program *prog, const void *mem_ctx,
          if (tfeedback_decl::is_same(decls[i], decls[j])) {
             linker_error(prog, "Transform feedback varying %s specified "
                          "more than once.", varying_names[i]);
+            return false;
          }
-         return false;
       }
    }
    return true;
