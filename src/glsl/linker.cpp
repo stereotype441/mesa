@@ -1681,6 +1681,7 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
                       "%i, but the array size is %i.",
                       this->orig_name, this->array_index,
                       output_var->type->array_size());
+         return false;
       }
       const unsigned matrix_cols =
          output_var->type->fields.array->matrix_columns;
