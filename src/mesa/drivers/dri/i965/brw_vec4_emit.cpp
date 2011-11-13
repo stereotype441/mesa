@@ -657,18 +657,13 @@ vec4_visitor::run()
       return false;
 
    int first_non_payload_grf = setup_payload();
-   prog_data->total_grf = reg_allocate(first_non_payload_grf);
-
-   if (failed)
-      return false;
-
-   generate_code();
+   prog_data->total_grf = generate_code(first_non_payload_grf);
 
    return !failed;
 }
 
-void
-vec4_visitor::generate_code()
+int
+vec4_visitor::generate_code(int first_non_payload_grf)
 {
    int last_native_inst = 0;
    const char *last_annotation_string = NULL;
@@ -682,6 +677,11 @@ vec4_visitor::generate_code()
       rzalloc_array(this->mem_ctx, int, loop_stack_array_size);
 
    brw_set_access_mode(p, BRW_ALIGN_16);
+
+   int total_grf = reg_allocate(first_non_payload_grf);
+
+   if (failed)
+      return 0;
 
    if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
       printf("Native code for vertex shader %d:\n", prog->Name);
@@ -906,6 +906,8 @@ vec4_visitor::generate_code()
 	 }
       }
    }
+
+   return total_grf;
 }
 
 extern "C" {
