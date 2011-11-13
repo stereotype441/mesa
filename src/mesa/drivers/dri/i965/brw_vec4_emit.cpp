@@ -662,8 +662,6 @@ vec4_visitor::run()
    if (failed)
       return false;
 
-   brw_set_access_mode(p, BRW_ALIGN_16);
-
    generate_code();
 
    return !failed;
@@ -683,6 +681,7 @@ vec4_visitor::generate_code()
    int *if_depth_in_loop =
       rzalloc_array(this->mem_ctx, int, loop_stack_array_size);
 
+   brw_set_access_mode(p, BRW_ALIGN_16);
 
    if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
       printf("Native code for vertex shader %d:\n", prog->Name);
