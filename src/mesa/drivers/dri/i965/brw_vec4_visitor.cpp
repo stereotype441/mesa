@@ -2375,7 +2375,7 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->shader = shader;
 
    this->mem_ctx = ralloc_context(NULL);
-   this->failed = false;
+   this->fail_msg = NULL;
 
    this->base_ir = NULL;
    this->current_annotation = NULL;
@@ -2418,10 +2418,8 @@ vec4_visitor::fail(const char *format, ...)
    va_list va;
    char *msg;
 
-   if (failed)
+   if (failed())
       return;
-
-   failed = true;
 
    va_start(va, format);
    msg = ralloc_vasprintf(mem_ctx, format, va);

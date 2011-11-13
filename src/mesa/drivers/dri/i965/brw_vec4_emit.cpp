@@ -619,7 +619,7 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
    }
 }
 
-bool
+void
 vec4_visitor::run()
 {
    if (c->key.userclip_active && !c->key.uses_clip_distance)
@@ -653,13 +653,11 @@ vec4_visitor::run()
    } while (progress);
 
 
-   if (failed)
-      return false;
+   if (failed())
+      return;
 
    int first_non_payload_grf = setup_payload();
    prog_data->total_grf = generate_code(first_non_payload_grf);
-
-   return !failed;
 }
 
 int
@@ -680,7 +678,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
 
    int total_grf = reg_allocate(first_non_payload_grf);
 
-   if (failed)
+   if (failed())
       return 0;
 
    if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
@@ -930,9 +928,10 @@ brw_vs_emit(struct gl_shader_program *prog, struct brw_vs_compile *c)
    }
 
    vec4_visitor v(c, prog, shader);
-   if (!v.run()) {
+   v.run();
+   if (v.failed()) {
       prog->LinkStatus = false;
-      ralloc_strcat(&prog->InfoLog, v.fail_msg);
+      ralloc_strcat(&prog->InfoLog, v.get_fail_msg());
       return false;
    }
 

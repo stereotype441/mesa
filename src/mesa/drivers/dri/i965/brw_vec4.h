@@ -309,7 +309,6 @@ public:
    exec_list instructions;
 
    char *fail_msg;
-   bool failed;
 
    /**
     * GLSL IR currently being processed, which is associated with our
@@ -336,6 +335,16 @@ public:
    bool live_intervals_valid;
 
    dst_reg *variable_storage(ir_variable *var);
+
+   bool failed() const
+   {
+      return fail_msg != NULL;
+   }
+
+   char *get_fail_msg() const
+   {
+      return fail_msg;
+   }
 
    src_reg src_reg_for_float(float val);
 
@@ -379,7 +388,7 @@ public:
 
    struct hash_table *variable_ht;
 
-   bool run(void);
+   void run(void);
    void fail(const char *msg, ...);
 
    int virtual_grf_alloc(int size);
