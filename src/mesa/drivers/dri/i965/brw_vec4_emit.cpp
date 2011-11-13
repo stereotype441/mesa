@@ -638,7 +638,7 @@ vec4_visitor::run()
     * that we have reladdr computations available for CSE, since we'll
     * often do repeated subexpressions for those.
     */
-   move_grf_array_access_to_scratch();
+   c->last_scratch = move_grf_array_access_to_scratch();
    move_uniform_array_access_to_pull_constants();
    pack_uniform_registers();
    move_push_constants_to_pull_constants();

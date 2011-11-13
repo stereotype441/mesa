@@ -2181,10 +2181,11 @@ vec4_visitor::emit_scratch_write(vec4_instruction *inst,
  * registers.  So, we send all GRF arrays that get variable index
  * access to scratch space.
  */
-void
+unsigned
 vec4_visitor::move_grf_array_access_to_scratch()
 {
    int scratch_loc[this->virtual_grf_count];
+   unsigned last_scratch = 0;
 
    for (int i = 0; i < this->virtual_grf_count; i++) {
       scratch_loc[i] = -1;
@@ -2199,8 +2200,8 @@ vec4_visitor::move_grf_array_access_to_scratch()
 
       if (inst->dst.file == GRF && inst->dst.reladdr &&
 	  scratch_loc[inst->dst.reg] == -1) {
-	 scratch_loc[inst->dst.reg] = c->last_scratch;
-	 c->last_scratch += this->virtual_grf_sizes[inst->dst.reg] * 8 * 4;
+	 scratch_loc[inst->dst.reg] = last_scratch;
+	 last_scratch += this->virtual_grf_sizes[inst->dst.reg] * 8 * 4;
       }
 
       for (int i = 0 ; i < 3; i++) {
@@ -2208,8 +2209,8 @@ vec4_visitor::move_grf_array_access_to_scratch()
 
 	 if (src->file == GRF && src->reladdr &&
 	     scratch_loc[src->reg] == -1) {
-	    scratch_loc[src->reg] = c->last_scratch;
-	    c->last_scratch += this->virtual_grf_sizes[src->reg] * 8 * 4;
+	    scratch_loc[src->reg] = last_scratch;
+	    last_scratch += this->virtual_grf_sizes[src->reg] * 8 * 4;
 	 }
       }
    }
@@ -2252,6 +2253,8 @@ vec4_visitor::move_grf_array_access_to_scratch()
 	 inst->src[i].reladdr = NULL;
       }
    }
+
+   return last_scratch;
 }
 
 /**
