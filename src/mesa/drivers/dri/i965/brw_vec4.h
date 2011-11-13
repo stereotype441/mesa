@@ -390,8 +390,8 @@ public:
    int setup_attributes(int payload_reg);
    int setup_uniforms(int payload_reg);
    void setup_payload();
-   void reg_allocate_trivial();
-   void reg_allocate();
+   int reg_allocate_trivial();
+   int reg_allocate();
    void move_grf_array_access_to_scratch();
    void move_uniform_array_access_to_pull_constants();
    void move_push_constants_to_pull_constants();

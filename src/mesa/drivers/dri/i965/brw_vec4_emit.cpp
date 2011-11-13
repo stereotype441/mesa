@@ -657,7 +657,7 @@ vec4_visitor::run()
       return false;
 
    setup_payload();
-   reg_allocate();
+   prog_data->total_grf = reg_allocate();
 
    if (failed)
       return false;

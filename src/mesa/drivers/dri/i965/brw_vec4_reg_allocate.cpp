@@ -41,7 +41,7 @@ assign(int *reg_hw_locations, reg *reg)
    }
 }
 
-void
+int
 vec4_visitor::reg_allocate_trivial()
 {
    int hw_reg_mapping[this->virtual_grf_count];
@@ -76,7 +76,7 @@ vec4_visitor::reg_allocate_trivial()
 	 next += this->virtual_grf_sizes[i];
       }
    }
-   prog_data->total_grf = next;
+   int total_grf = next;
 
    foreach_iter(exec_list_iterator, iter, this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
@@ -87,10 +87,12 @@ vec4_visitor::reg_allocate_trivial()
       assign(hw_reg_mapping, &inst->src[2]);
    }
 
-   if (prog_data->total_grf > BRW_MAX_GRF) {
+   if (total_grf > BRW_MAX_GRF) {
       fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   prog_data->total_grf, BRW_MAX_GRF);
+	   total_grf, BRW_MAX_GRF);
    }
+
+   return total_grf;
 }
 
 static void
@@ -139,7 +141,7 @@ brw_alloc_reg_set_for_classes(struct brw_context *brw,
    ra_set_finalize(brw->vs.regs);
 }
 
-void
+int
 vec4_visitor::reg_allocate()
 {
    int hw_reg_mapping[virtual_grf_count];
@@ -152,8 +154,7 @@ vec4_visitor::reg_allocate()
     * register access as a result of broken optimization passes.
     */
    if (0) {
-      reg_allocate_trivial();
-      return;
+      return reg_allocate_trivial();
    }
 
    calculate_live_intervals();
@@ -205,20 +206,19 @@ vec4_visitor::reg_allocate()
    if (!ra_allocate_no_spills(g)) {
       ralloc_free(g);
       fail("No register spilling support yet\n");
-      return;
+      return 0;
    }
 
    /* Get the chosen virtual registers for each node, and map virtual
     * regs in the register classes back down to real hardware reg
     * numbers.
     */
-   prog_data->total_grf = first_assigned_grf;
+   int total_grf = first_assigned_grf;
    for (int i = 0; i < virtual_grf_count; i++) {
       int reg = ra_get_node_reg(g, i);
 
       hw_reg_mapping[i] = first_assigned_grf + brw->vs.ra_reg_to_grf[reg];
-      prog_data->total_grf = MAX2(prog_data->total_grf,
-				  hw_reg_mapping[i] + virtual_grf_sizes[i]);
+      total_grf = MAX2(total_grf, hw_reg_mapping[i] + virtual_grf_sizes[i]);
    }
 
    foreach_list(node, &this->instructions) {
@@ -231,6 +231,8 @@ vec4_visitor::reg_allocate()
    }
 
    ralloc_free(g);
+
+   return total_grf;
 }
 
 } /* namespace brw */
