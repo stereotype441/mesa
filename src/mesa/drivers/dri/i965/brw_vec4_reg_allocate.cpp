@@ -42,7 +42,7 @@ assign(int *reg_hw_locations, reg *reg)
 }
 
 int
-vec4_visitor::reg_allocate_trivial()
+vec4_visitor::reg_allocate_trivial(int first_non_payload_grf)
 {
    int hw_reg_mapping[this->virtual_grf_count];
    bool virtual_grf_used[this->virtual_grf_count];
@@ -68,7 +68,7 @@ vec4_visitor::reg_allocate_trivial()
       }
    }
 
-   hw_reg_mapping[0] = this->first_non_payload_grf;
+   hw_reg_mapping[0] = first_non_payload_grf;
    next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
    for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
@@ -142,10 +142,10 @@ brw_alloc_reg_set_for_classes(struct brw_context *brw,
 }
 
 int
-vec4_visitor::reg_allocate()
+vec4_visitor::reg_allocate(int first_non_payload_grf)
 {
    int hw_reg_mapping[virtual_grf_count];
-   int first_assigned_grf = this->first_non_payload_grf;
+   int first_assigned_grf = first_non_payload_grf;
    int base_reg_count = BRW_MAX_GRF - first_assigned_grf;
    int class_sizes[base_reg_count];
    int class_count = 0;
@@ -154,7 +154,7 @@ vec4_visitor::reg_allocate()
     * register access as a result of broken optimization passes.
     */
    if (0) {
-      return reg_allocate_trivial();
+      return reg_allocate_trivial(first_non_payload_grf);
    }
 
    calculate_live_intervals();

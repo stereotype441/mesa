@@ -321,7 +321,6 @@ public:
    int *virtual_grf_sizes;
    int virtual_grf_count;
    int virtual_grf_array_size;
-   int first_non_payload_grf;
    int *virtual_grf_def;
    int *virtual_grf_use;
    dst_reg userplane[MAX_CLIP_PLANES];
@@ -389,9 +388,9 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_attributes(int payload_reg);
    int setup_uniforms(int payload_reg);
-   void setup_payload();
-   int reg_allocate_trivial();
-   int reg_allocate();
+   int setup_payload();
+   int reg_allocate_trivial(int first_non_payload_grf);
+   int reg_allocate(int first_non_payload_grf);
    unsigned move_grf_array_access_to_scratch();
    void move_uniform_array_access_to_pull_constants();
    void move_push_constants_to_pull_constants();

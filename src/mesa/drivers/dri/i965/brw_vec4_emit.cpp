@@ -127,7 +127,7 @@ vec4_visitor::setup_uniforms(int reg)
    return reg;
 }
 
-void
+int
 vec4_visitor::setup_payload(void)
 {
    int reg = 0;
@@ -142,7 +142,7 @@ vec4_visitor::setup_payload(void)
 
    reg = setup_attributes(reg);
 
-   this->first_non_payload_grf = reg;
+   return reg;
 }
 
 struct brw_reg
@@ -656,8 +656,8 @@ vec4_visitor::run()
    if (failed)
       return false;
 
-   setup_payload();
-   prog_data->total_grf = reg_allocate();
+   int first_non_payload_grf = setup_payload();
+   prog_data->total_grf = reg_allocate(first_non_payload_grf);
 
    if (failed)
       return false;
