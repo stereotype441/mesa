@@ -411,6 +411,7 @@ public:
    bool opt_copy_propagation();
    bool opt_algebraic();
    bool opt_compute_to_mrf();
+   void optimize();
 
    vec4_instruction *emit(vec4_instruction *inst);
 

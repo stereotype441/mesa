@@ -622,6 +622,19 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
 }
 
 void
+vec4_visitor::optimize()
+{
+   bool progress;
+   do {
+      progress = false;
+      progress = dead_code_eliminate() || progress;
+      progress = opt_copy_propagation() || progress;
+      progress = opt_algebraic() || progress;
+      progress = opt_compute_to_mrf() || progress;
+   } while (progress);
+}
+
+void
 vec4_visitor::run()
 {
    if (c->key.userclip_active && !c->key.uses_clip_distance)
@@ -645,15 +658,7 @@ vec4_visitor::run()
    pack_uniform_registers();
    move_push_constants_to_pull_constants();
 
-   bool progress;
-   do {
-      progress = false;
-      progress = dead_code_eliminate() || progress;
-      progress = opt_copy_propagation() || progress;
-      progress = opt_algebraic() || progress;
-      progress = opt_compute_to_mrf() || progress;
-   } while (progress);
-
+   optimize();
 
    if (failed())
       return;
