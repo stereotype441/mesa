@@ -63,7 +63,7 @@ src_reg::equals(src_reg *r)
 }
 
 void
-vec4_visitor::calculate_live_intervals()
+vec4_generator::calculate_live_intervals()
 {
    int *def = ralloc_array(mem_ctx, int, virtual_grf_count);
    int *use = ralloc_array(mem_ctx, int, virtual_grf_count);
@@ -139,7 +139,7 @@ vec4_visitor::calculate_live_intervals()
 }
 
 bool
-vec4_visitor::virtual_grf_interferes(int a, int b)
+vec4_generator::virtual_grf_interferes(int a, int b)
 {
    int start = MAX2(this->virtual_grf_def[a], this->virtual_grf_def[b]);
    int end = MIN2(this->virtual_grf_use[a], this->virtual_grf_use[b]);
@@ -165,7 +165,7 @@ vec4_visitor::virtual_grf_interferes(int a, int b)
  * interfere with other regs.
  */
 bool
-vec4_visitor::dead_code_eliminate()
+vec4_generator::dead_code_eliminate()
 {
    bool progress = false;
    int pc = 0;
@@ -347,7 +347,7 @@ src_reg::is_one() const
  * instructions involving 0.
  */
 bool
-vec4_visitor::opt_algebraic()
+vec4_generator::opt_algebraic()
 {
    bool progress = false;
 
@@ -491,7 +491,7 @@ vec4_visitor::move_push_constants_to_pull_constants()
  * the GRF write directly to the MRF instead.
  */
 bool
-vec4_visitor::opt_compute_to_mrf()
+vec4_generator::opt_compute_to_mrf()
 {
    bool progress = false;
    int next_ip = 0;

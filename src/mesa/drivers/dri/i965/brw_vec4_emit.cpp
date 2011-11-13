@@ -247,9 +247,9 @@ vec4_instruction::get_src(int i)
 }
 
 void
-vec4_visitor::generate_math1_gen4(vec4_instruction *inst,
-				  struct brw_reg dst,
-				  struct brw_reg src)
+vec4_generator::generate_math1_gen4(vec4_instruction *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src)
 {
    brw_math(p,
 	    dst,
@@ -271,9 +271,9 @@ check_gen6_math_src_arg(struct brw_reg src)
 }
 
 void
-vec4_visitor::generate_math1_gen6(vec4_instruction *inst,
-				  struct brw_reg dst,
-				  struct brw_reg src)
+vec4_generator::generate_math1_gen6(vec4_instruction *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src)
 {
    /* Can't do writemask because math can't be align16. */
    assert(dst.dw1.bits.writemask == WRITEMASK_XYZW);
@@ -292,10 +292,10 @@ vec4_visitor::generate_math1_gen6(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_math2_gen7(vec4_instruction *inst,
-				  struct brw_reg dst,
-				  struct brw_reg src0,
-				  struct brw_reg src1)
+vec4_generator::generate_math2_gen7(vec4_instruction *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0,
+                                    struct brw_reg src1)
 {
    brw_math2(p,
 	     dst,
@@ -304,10 +304,10 @@ vec4_visitor::generate_math2_gen7(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_math2_gen6(vec4_instruction *inst,
-				  struct brw_reg dst,
-				  struct brw_reg src0,
-				  struct brw_reg src1)
+vec4_generator::generate_math2_gen6(vec4_instruction *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0,
+                                    struct brw_reg src1)
 {
    /* Can't do writemask because math can't be align16. */
    assert(dst.dw1.bits.writemask == WRITEMASK_XYZW);
@@ -324,10 +324,10 @@ vec4_visitor::generate_math2_gen6(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_math2_gen4(vec4_instruction *inst,
-				  struct brw_reg dst,
-				  struct brw_reg src0,
-				  struct brw_reg src1)
+vec4_generator::generate_math2_gen4(vec4_instruction *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0,
+                                    struct brw_reg src1)
 {
    /* From the Ironlake PRM, Volume 4, Part 1, Section 6.1.13
     * "Message Payload":
@@ -355,7 +355,7 @@ vec4_visitor::generate_math2_gen4(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_urb_write(vec4_instruction *inst)
+vec4_generator::generate_urb_write(vec4_instruction *inst)
 {
    brw_urb_WRITE(p,
 		 brw_null_reg(), /* dest */
@@ -372,8 +372,8 @@ vec4_visitor::generate_urb_write(vec4_instruction *inst)
 }
 
 void
-vec4_visitor::generate_oword_dual_block_offsets(struct brw_reg m1,
-						struct brw_reg index)
+vec4_generator::generate_oword_dual_block_offsets(struct brw_reg m1,
+                                                  struct brw_reg index)
 {
    int second_vertex_offset;
 
@@ -410,9 +410,9 @@ vec4_visitor::generate_oword_dual_block_offsets(struct brw_reg m1,
 }
 
 void
-vec4_visitor::generate_scratch_read(vec4_instruction *inst,
-				    struct brw_reg dst,
-				    struct brw_reg index)
+vec4_generator::generate_scratch_read(vec4_instruction *inst,
+                                      struct brw_reg dst,
+                                      struct brw_reg index)
 {
    struct brw_reg header = brw_vec8_grf(0, 0);
 
@@ -448,10 +448,10 @@ vec4_visitor::generate_scratch_read(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_scratch_write(vec4_instruction *inst,
-				     struct brw_reg dst,
-				     struct brw_reg src,
-				     struct brw_reg index)
+vec4_generator::generate_scratch_write(vec4_instruction *inst,
+                                       struct brw_reg dst,
+                                       struct brw_reg src,
+                                       struct brw_reg index)
 {
    struct brw_reg header = brw_vec8_grf(0, 0);
    bool write_commit;
@@ -521,9 +521,9 @@ vec4_visitor::generate_scratch_write(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_pull_constant_load(vec4_instruction *inst,
-					  struct brw_reg dst,
-					  struct brw_reg index)
+vec4_generator::generate_pull_constant_load(vec4_instruction *inst,
+                                            struct brw_reg dst,
+                                            struct brw_reg index)
 {
    struct brw_reg header = brw_vec8_grf(0, 0);
 
@@ -559,9 +559,9 @@ vec4_visitor::generate_pull_constant_load(vec4_instruction *inst,
 }
 
 void
-vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
-				      struct brw_reg dst,
-				      struct brw_reg *src)
+vec4_generator::generate_vs_instruction(vec4_instruction *instruction,
+                                        struct brw_reg dst,
+                                        struct brw_reg *src)
 {
    vec4_instruction *inst = (vec4_instruction *)instruction;
 
@@ -622,7 +622,7 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
 }
 
 void
-vec4_visitor::optimize()
+vec4_generator::optimize()
 {
    bool progress;
    do {
@@ -667,20 +667,12 @@ vec4_visitor::run()
    prog_data->total_grf = generate_code(first_non_payload_grf);
 }
 
-/**
- * Return a bool indicating whether debugging output should be generated
- * for this shader.
- */
 bool
 vec4_visitor::get_debug_flag() const
 {
    return INTEL_DEBUG & DEBUG_VS;
 }
 
-/**
- * Return a string describing the program being compiled, for debugging
- * purposes.  Caller should not free this string.
- */
 const char *
 vec4_visitor::get_debug_name() const
 {
@@ -688,7 +680,7 @@ vec4_visitor::get_debug_name() const
 }
 
 int
-vec4_visitor::generate_code(int first_non_payload_grf)
+vec4_generator::generate_code(int first_non_payload_grf)
 {
    bool debug_flag = get_debug_flag();
    int last_native_inst = 0;

@@ -72,7 +72,7 @@ dst_reg::dst_reg(src_reg reg)
    this->fixed_hw_reg = reg.fixed_hw_reg;
 }
 
-vec4_instruction::vec4_instruction(vec4_visitor *v,
+vec4_instruction::vec4_instruction(vec4_generator *v,
 				   enum opcode opcode, dst_reg dst,
 				   src_reg src0, src_reg src1, src_reg src2)
 {
@@ -86,7 +86,7 @@ vec4_instruction::vec4_instruction(vec4_visitor *v,
 }
 
 vec4_instruction *
-vec4_visitor::emit(vec4_instruction *inst)
+vec4_generator::emit(vec4_instruction *inst)
 {
    this->instructions.push_tail(inst);
 
@@ -94,7 +94,7 @@ vec4_visitor::emit(vec4_instruction *inst)
 }
 
 vec4_instruction *
-vec4_visitor::emit_before(vec4_instruction *inst, vec4_instruction *new_inst)
+vec4_generator::emit_before(vec4_instruction *inst, vec4_instruction *new_inst)
 {
    new_inst->ir = inst->ir;
    new_inst->annotation = inst->annotation;
@@ -105,8 +105,8 @@ vec4_visitor::emit_before(vec4_instruction *inst, vec4_instruction *new_inst)
 }
 
 vec4_instruction *
-vec4_visitor::emit(enum opcode opcode, dst_reg dst,
-		   src_reg src0, src_reg src1, src_reg src2)
+vec4_generator::emit(enum opcode opcode, dst_reg dst,
+                     src_reg src0, src_reg src1, src_reg src2)
 {
    return emit(new(mem_ctx) vec4_instruction(this, opcode, dst,
 					     src0, src1, src2));
@@ -114,26 +114,26 @@ vec4_visitor::emit(enum opcode opcode, dst_reg dst,
 
 
 vec4_instruction *
-vec4_visitor::emit(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1)
+vec4_generator::emit(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1)
 {
    return emit(new(mem_ctx) vec4_instruction(this, opcode, dst, src0, src1));
 }
 
 vec4_instruction *
-vec4_visitor::emit(enum opcode opcode, dst_reg dst, src_reg src0)
+vec4_generator::emit(enum opcode opcode, dst_reg dst, src_reg src0)
 {
    return emit(new(mem_ctx) vec4_instruction(this, opcode, dst, src0));
 }
 
 vec4_instruction *
-vec4_visitor::emit(enum opcode opcode)
+vec4_generator::emit(enum opcode opcode)
 {
    return emit(new(mem_ctx) vec4_instruction(this, opcode, dst_reg()));
 }
 
 #define ALU1(op)							\
    vec4_instruction *							\
-   vec4_visitor::op(dst_reg dst, src_reg src0)				\
+   vec4_generator::op(dst_reg dst, src_reg src0)			\
    {									\
       return new(mem_ctx) vec4_instruction(this, BRW_OPCODE_##op, dst,	\
 					   src0);			\
@@ -141,7 +141,7 @@ vec4_visitor::emit(enum opcode opcode)
 
 #define ALU2(op)							\
    vec4_instruction *							\
-   vec4_visitor::op(dst_reg dst, src_reg src0, src_reg src1)		\
+   vec4_generator::op(dst_reg dst, src_reg src0, src_reg src1)		\
    {									\
       return new(mem_ctx) vec4_instruction(this, BRW_OPCODE_##op, dst,	\
 					   src0, src1);			\
@@ -164,7 +164,7 @@ ALU2(DP4)
 
 /** Gen4 predicated IF. */
 vec4_instruction *
-vec4_visitor::IF(uint32_t predicate)
+vec4_generator::IF(uint32_t predicate)
 {
    vec4_instruction *inst;
 
@@ -176,7 +176,7 @@ vec4_visitor::IF(uint32_t predicate)
 
 /** Gen6+ IF with embedded comparison. */
 vec4_instruction *
-vec4_visitor::IF(src_reg src0, src_reg src1, uint32_t condition)
+vec4_generator::IF(src_reg src0, src_reg src1, uint32_t condition)
 {
    assert(intel->gen >= 6);
 
@@ -198,7 +198,7 @@ vec4_visitor::IF(src_reg src0, src_reg src1, uint32_t condition)
  * the flag register with the packed 16 bits of the result.
  */
 vec4_instruction *
-vec4_visitor::CMP(dst_reg dst, src_reg src0, src_reg src1, uint32_t condition)
+vec4_generator::CMP(dst_reg dst, src_reg src0, src_reg src1, uint32_t condition)
 {
    vec4_instruction *inst;
 
@@ -222,7 +222,7 @@ vec4_visitor::CMP(dst_reg dst, src_reg src0, src_reg src1, uint32_t condition)
 }
 
 vec4_instruction *
-vec4_visitor::SCRATCH_READ(dst_reg dst, src_reg index)
+vec4_generator::SCRATCH_READ(dst_reg dst, src_reg index)
 {
    vec4_instruction *inst;
 
@@ -235,7 +235,7 @@ vec4_visitor::SCRATCH_READ(dst_reg dst, src_reg index)
 }
 
 vec4_instruction *
-vec4_visitor::SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index)
+vec4_generator::SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index)
 {
    vec4_instruction *inst;
 
@@ -248,7 +248,7 @@ vec4_visitor::SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index)
 }
 
 void
-vec4_visitor::emit_dp(dst_reg dst, src_reg src0, src_reg src1, unsigned elements)
+vec4_generator::emit_dp(dst_reg dst, src_reg src0, src_reg src1, unsigned elements)
 {
    static enum opcode dot_opcodes[] = {
       BRW_OPCODE_DP2, BRW_OPCODE_DP3, BRW_OPCODE_DP4
@@ -258,7 +258,7 @@ vec4_visitor::emit_dp(dst_reg dst, src_reg src0, src_reg src1, unsigned elements
 }
 
 void
-vec4_visitor::emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src)
+vec4_generator::emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src)
 {
    /* The gen6 math instruction ignores the source modifiers --
     * swizzle, abs, negate, and at least some parts of the register
@@ -288,7 +288,7 @@ vec4_visitor::emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src)
 }
 
 void
-vec4_visitor::emit_math1_gen4(enum opcode opcode, dst_reg dst, src_reg src)
+vec4_generator::emit_math1_gen4(enum opcode opcode, dst_reg dst, src_reg src)
 {
    vec4_instruction *inst = emit(opcode, dst, src);
    inst->base_mrf = 1;
@@ -296,7 +296,7 @@ vec4_visitor::emit_math1_gen4(enum opcode opcode, dst_reg dst, src_reg src)
 }
 
 void
-vec4_visitor::emit_math(opcode opcode, dst_reg dst, src_reg src)
+vec4_generator::emit_math(opcode opcode, dst_reg dst, src_reg src)
 {
    switch (opcode) {
    case SHADER_OPCODE_RCP:
@@ -320,8 +320,8 @@ vec4_visitor::emit_math(opcode opcode, dst_reg dst, src_reg src)
 }
 
 void
-vec4_visitor::emit_math2_gen6(enum opcode opcode,
-			      dst_reg dst, src_reg src0, src_reg src1)
+vec4_generator::emit_math2_gen6(enum opcode opcode,
+                                dst_reg dst, src_reg src0, src_reg src1)
 {
    src_reg expanded;
 
@@ -357,8 +357,8 @@ vec4_visitor::emit_math2_gen6(enum opcode opcode,
 }
 
 void
-vec4_visitor::emit_math2_gen4(enum opcode opcode,
-			      dst_reg dst, src_reg src0, src_reg src1)
+vec4_generator::emit_math2_gen4(enum opcode opcode,
+                                dst_reg dst, src_reg src0, src_reg src1)
 {
    vec4_instruction *inst = emit(opcode, dst, src0, src1);
    inst->base_mrf = 1;
@@ -366,8 +366,8 @@ vec4_visitor::emit_math2_gen4(enum opcode opcode,
 }
 
 void
-vec4_visitor::emit_math(enum opcode opcode,
-			dst_reg dst, src_reg src0, src_reg src1)
+vec4_generator::emit_math(enum opcode opcode,
+                          dst_reg dst, src_reg src0, src_reg src1)
 {
    switch (opcode) {
    case SHADER_OPCODE_POW:
@@ -440,7 +440,7 @@ type_size(const struct glsl_type *type)
 }
 
 int
-vec4_visitor::virtual_grf_alloc(int size)
+vec4_generator::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_count) {
       if (virtual_grf_array_size == 0)
@@ -458,7 +458,7 @@ vec4_visitor::virtual_grf_alloc(int size)
    return virtual_grf_count++;
 }
 
-src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
+src_reg::src_reg(class vec4_generator *v, const struct glsl_type *type)
 {
    init();
 
@@ -474,7 +474,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
    this->type = brw_type_for_base_type(type);
 }
 
-dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
+dst_reg::dst_reg(class vec4_generator *v, const struct glsl_type *type)
 {
    init();
 
@@ -1482,7 +1482,7 @@ vec4_visitor::get_assignment_lhs(ir_dereference *ir)
 
 void
 vec4_visitor::emit_block_move(dst_reg *dst, src_reg *src,
-			      const struct glsl_type *type, uint32_t predicate)
+                              const struct glsl_type *type, uint32_t predicate)
 {
    if (type->base_type == GLSL_TYPE_STRUCT) {
       for (unsigned int i = 0; i < type->length; i++) {
@@ -1537,11 +1537,11 @@ vec4_visitor::emit_block_move(dst_reg *dst, src_reg *src,
  * later without real UD chain information.
  */
 bool
-vec4_visitor::try_rewrite_rhs_to_dst(ir_assignment *ir,
-				     dst_reg dst,
-				     src_reg src,
-				     vec4_instruction *pre_rhs_inst,
-				     vec4_instruction *last_rhs_inst)
+vec4_generator::try_rewrite_rhs_to_dst(ir_assignment *ir,
+                                       dst_reg dst,
+                                       src_reg src,
+                                       vec4_instruction *pre_rhs_inst,
+                                       vec4_instruction *last_rhs_inst)
 {
    /* This could be supported, but it would take more smarts. */
    if (ir->condition)
@@ -2089,8 +2089,8 @@ vec4_visitor::emit_urb_writes()
 }
 
 src_reg
-vec4_visitor::get_scratch_offset(vec4_instruction *inst,
-				 src_reg *reladdr, int reg_offset)
+vec4_generator::get_scratch_offset(vec4_instruction *inst,
+                                   src_reg *reladdr, int reg_offset)
 {
    /* Because we store the values to scratch interleaved like our
     * vertex data, we need to scale the vec4 index by 2.
@@ -2117,8 +2117,8 @@ vec4_visitor::get_scratch_offset(vec4_instruction *inst,
 }
 
 src_reg
-vec4_visitor::get_pull_constant_offset(vec4_instruction *inst,
-				       src_reg *reladdr, int reg_offset)
+vec4_generator::get_pull_constant_offset(vec4_instruction *inst,
+                                         src_reg *reladdr, int reg_offset)
 {
    if (reladdr) {
       src_reg index = src_reg(this, glsl_type::int_type);
@@ -2144,9 +2144,9 @@ vec4_visitor::get_pull_constant_offset(vec4_instruction *inst,
  * from scratch space at @base_offset to @temp.
  */
 void
-vec4_visitor::emit_scratch_read(vec4_instruction *inst,
-				dst_reg temp, src_reg orig_src,
-				int base_offset)
+vec4_generator::emit_scratch_read(vec4_instruction *inst,
+                                  dst_reg temp, src_reg orig_src,
+                                  int base_offset)
 {
    int reg_offset = base_offset + orig_src.reg_offset;
    src_reg index = get_scratch_offset(inst, orig_src.reladdr, reg_offset);
@@ -2159,9 +2159,9 @@ vec4_visitor::emit_scratch_read(vec4_instruction *inst,
  * to @orig_dst to scratch space at @base_offset, from @temp.
  */
 void
-vec4_visitor::emit_scratch_write(vec4_instruction *inst,
-				 src_reg temp, dst_reg orig_dst,
-				 int base_offset)
+vec4_generator::emit_scratch_write(vec4_instruction *inst,
+                                   src_reg temp, dst_reg orig_dst,
+                                   int base_offset)
 {
    int reg_offset = base_offset + orig_dst.reg_offset;
    src_reg index = get_scratch_offset(inst, orig_dst.reladdr, reg_offset);
@@ -2182,7 +2182,7 @@ vec4_visitor::emit_scratch_write(vec4_instruction *inst,
  * access to scratch space.
  */
 unsigned
-vec4_visitor::move_grf_array_access_to_scratch()
+vec4_generator::move_grf_array_access_to_scratch()
 {
    int scratch_loc[this->virtual_grf_count];
    unsigned last_scratch = 0;
@@ -2262,9 +2262,9 @@ vec4_visitor::move_grf_array_access_to_scratch()
  * from the pull constant buffer (surface) at @base_offset to @temp.
  */
 void
-vec4_visitor::emit_pull_constant_load(vec4_instruction *inst,
-				      dst_reg temp, src_reg orig_src,
-				      int base_offset)
+vec4_generator::emit_pull_constant_load(vec4_instruction *inst,
+                                        dst_reg temp, src_reg orig_src,
+                                        int base_offset)
 {
    int reg_offset = base_offset + orig_src.reg_offset;
    src_reg index = get_pull_constant_offset(inst, orig_src.reladdr, reg_offset);
@@ -2351,7 +2351,7 @@ vec4_visitor::move_uniform_array_access_to_pull_constants()
 }
 
 void
-vec4_visitor::resolve_ud_negate(src_reg *reg)
+vec4_generator::resolve_ud_negate(src_reg *reg)
 {
    if (reg->type != BRW_REGISTER_TYPE_UD ||
        !reg->negate)
@@ -2362,32 +2362,18 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
    *reg = temp;
 }
 
-vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
-			   struct gl_shader_program *prog,
-			   struct brw_shader *shader)
+vec4_generator::vec4_generator(struct brw_compile *p)
 {
-   this->c = c;
-   this->p = &c->func;
+   this->p = p;
    this->brw = p->brw;
    this->intel = &brw->intel;
    this->ctx = &intel->ctx;
-   this->prog = prog;
-   this->shader = shader;
 
    this->mem_ctx = ralloc_context(NULL);
    this->fail_msg = NULL;
 
    this->base_ir = NULL;
    this->current_annotation = NULL;
-
-   this->c = c;
-   this->vp = (struct gl_vertex_program *)
-     prog->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
-   this->prog_data = &c->prog_data;
-
-   this->variable_ht = hash_table_ctor(0,
-				       hash_table_pointer_hash,
-				       hash_table_pointer_compare);
 
    this->virtual_grf_def = NULL;
    this->virtual_grf_use = NULL;
@@ -2397,23 +2383,41 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->virtual_grf_reg_count = 0;
    this->virtual_grf_array_size = 0;
    this->live_intervals_valid = false;
+}
 
-   this->uniforms = 0;
+vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
+                           struct gl_shader_program *prog,
+                           struct brw_shader *shader)
+   : vec4_generator(&c->func)
+{
+   this->c = c;
+   this->prog = prog;
+   this->shader = shader;
+
+   this->vp = (struct gl_vertex_program *)
+     prog->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
+   this->prog_data = &c->prog_data;
 
    this->variable_ht = hash_table_ctor(0,
 				       hash_table_pointer_hash,
 				       hash_table_pointer_compare);
+
+   this->uniforms = 0;
+}
+
+vec4_generator::~vec4_generator()
+{
+   ralloc_free(this->mem_ctx);
 }
 
 vec4_visitor::~vec4_visitor()
 {
-   ralloc_free(this->mem_ctx);
    hash_table_dtor(this->variable_ht);
 }
 
 
 void
-vec4_visitor::fail(const char *format, ...)
+vec4_generator::fail(const char *format, ...)
 {
    va_list va;
    char *msg;

@@ -229,7 +229,7 @@ try_copy_propagation(struct intel_context *intel,
 }
 
 bool
-vec4_visitor::opt_copy_propagation()
+vec4_generator::opt_copy_propagation()
 {
    bool progress = false;
    src_reg *cur_value[virtual_grf_reg_count][4];

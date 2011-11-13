@@ -164,7 +164,7 @@ public:
    bool is_zero() const;
    bool is_one() const;
 
-   src_reg(class vec4_visitor *v, const struct glsl_type *type);
+   src_reg(class vec4_generator *v, const struct glsl_type *type);
 
    explicit src_reg(dst_reg reg);
 
@@ -218,7 +218,7 @@ public:
       this->fixed_hw_reg = reg;
    }
 
-   dst_reg(class vec4_visitor *v, const struct glsl_type *type);
+   dst_reg(class vec4_generator *v, const struct glsl_type *type);
 
    explicit dst_reg(src_reg reg);
 
@@ -241,7 +241,7 @@ public:
       return node;
    }
 
-   vec4_instruction(vec4_visitor *v, enum opcode opcode,
+   vec4_instruction(vec4_generator *v, enum opcode opcode,
 		    dst_reg dst = dst_reg(),
 		    src_reg src0 = src_reg(),
 		    src_reg src1 = src_reg(),
@@ -279,12 +279,11 @@ public:
    bool is_math();
 };
 
-class vec4_visitor : public ir_visitor
+class vec4_generator
 {
 public:
-   vec4_visitor(struct brw_vs_compile *c,
-		struct gl_shader_program *prog, struct brw_shader *shader);
-   ~vec4_visitor();
+   vec4_generator(struct brw_compile *p);
+   ~vec4_generator();
 
    dst_reg dst_null_f()
    {
@@ -297,14 +296,9 @@ public:
    }
 
    struct brw_context *brw;
-   const struct gl_vertex_program *vp;
    struct intel_context *intel;
    struct gl_context *ctx;
-   struct brw_vs_compile *c;
-   struct brw_vs_prog_data *prog_data;
    struct brw_compile *p;
-   struct brw_shader *shader;
-   struct gl_shader_program *prog;
    void *mem_ctx;
    exec_list instructions;
 
@@ -322,7 +316,6 @@ public:
    int virtual_grf_array_size;
    int *virtual_grf_def;
    int *virtual_grf_use;
-   dst_reg userplane[MAX_CLIP_PLANES];
 
    /**
     * This is the size to be used for an array with an element per
@@ -333,8 +326,6 @@ public:
    int *virtual_grf_reg_map;
 
    bool live_intervals_valid;
-
-   dst_reg *variable_storage(ir_variable *var);
 
    bool failed() const
    {
@@ -348,63 +339,12 @@ public:
 
    src_reg src_reg_for_float(float val);
 
-   /**
-    * \name Visit methods
-    *
-    * As typical for the visitor pattern, there must be one \c visit method for
-    * each concrete subclass of \c ir_instruction.  Virtual base classes within
-    * the hierarchy should not have \c visit methods.
-    */
-   /*@{*/
-   virtual void visit(ir_variable *);
-   virtual void visit(ir_loop *);
-   virtual void visit(ir_loop_jump *);
-   virtual void visit(ir_function_signature *);
-   virtual void visit(ir_function *);
-   virtual void visit(ir_expression *);
-   virtual void visit(ir_swizzle *);
-   virtual void visit(ir_dereference_variable  *);
-   virtual void visit(ir_dereference_array *);
-   virtual void visit(ir_dereference_record *);
-   virtual void visit(ir_assignment *);
-   virtual void visit(ir_constant *);
-   virtual void visit(ir_call *);
-   virtual void visit(ir_return *);
-   virtual void visit(ir_discard *);
-   virtual void visit(ir_texture *);
-   virtual void visit(ir_if *);
-   /*@}*/
-
-   src_reg result;
-
-   /* Regs for vertex results.  Generated at ir_variable visiting time
-    * for the ir->location's used.
-    */
-   dst_reg output_reg[BRW_VERT_RESULT_MAX];
-   const char *output_reg_annotation[BRW_VERT_RESULT_MAX];
-   int uniform_size[MAX_UNIFORMS];
-   int uniform_vector_size[MAX_UNIFORMS];
-   int uniforms;
-
-   struct hash_table *variable_ht;
-
-   void run(void);
    void fail(const char *msg, ...);
 
    int virtual_grf_alloc(int size);
-   void setup_uniform_clipplane_values();
-   int setup_uniform_values(int loc, const glsl_type *type);
-   void setup_builtin_uniform_values(ir_variable *ir);
-   int setup_attributes(int payload_reg);
-   int setup_uniforms(int payload_reg);
-   int setup_payload();
    int reg_allocate_trivial(int first_non_payload_grf);
    int reg_allocate(int first_non_payload_grf);
    unsigned move_grf_array_access_to_scratch();
-   void move_uniform_array_access_to_pull_constants();
-   void move_push_constants_to_pull_constants();
-   void split_uniform_registers();
-   void pack_uniform_registers();
    void calculate_live_intervals();
    bool dead_code_eliminate();
    bool virtual_grf_interferes(int a, int b);
@@ -457,17 +397,6 @@ public:
 			       vec4_instruction *pre_rhs_inst,
 			       vec4_instruction *last_rhs_inst);
 
-   /** Walks an exec_list of ir_instruction and sends it through this visitor. */
-   void visit_instructions(const exec_list *list);
-
-   void emit_bool_to_cond_code(ir_rvalue *ir, uint32_t *predicate);
-   void emit_if_gen6(ir_if *ir);
-
-   void emit_block_move(dst_reg *dst, src_reg *src,
-			const struct glsl_type *type, uint32_t predicate);
-
-   void emit_constant_values(dst_reg *dst, ir_constant *value);
-
    /**
     * Emit the correct dot-product instruction for the type of arguments
     */
@@ -489,13 +418,6 @@ public:
    void emit_math2_gen4(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
    void emit_math(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
 
-   void emit_ndc_computation();
-   void emit_psiz_and_flags(struct brw_reg reg);
-   void emit_clip_distances(struct brw_reg reg, int offset);
-   void emit_generic_urb_slot(dst_reg reg, int vert_result);
-   void emit_urb_slot(int mrf, int vert_result);
-   void emit_urb_writes(void);
-
    src_reg get_scratch_offset(vec4_instruction *inst,
 			      src_reg *reladdr, int reg_offset);
    src_reg get_pull_constant_offset(vec4_instruction *inst,
@@ -513,11 +435,19 @@ public:
 				src_reg orig_src,
 				int base_offset);
 
-   bool try_emit_sat(ir_expression *ir);
    void resolve_ud_negate(src_reg *reg);
 
-   bool get_debug_flag() const;
-   const char *get_debug_name() const;
+   /**
+    * Return a bool indicating whether debugging output should be generated
+    * for this shader.
+    */
+   virtual bool get_debug_flag() const = 0;
+
+   /**
+    * Return a string describing the program being compiled, for debugging
+    * purposes.  Caller should not free this string.
+    */
+   virtual const char *get_debug_name() const = 0;
 
    int generate_code(int first_non_payload_grf);
    void generate_vs_instruction(vec4_instruction *inst,
@@ -557,6 +487,101 @@ public:
 				    struct brw_reg dst,
 				    struct brw_reg index);
    dst_reg get_assignment_lhs(ir_dereference *ir);
+};
+
+class vec4_visitor : public vec4_generator, public ir_visitor
+{
+public:
+   vec4_visitor(struct brw_vs_compile *c,
+		struct gl_shader_program *prog, struct brw_shader *shader);
+
+   ~vec4_visitor();
+
+   const struct gl_vertex_program *vp;
+   struct brw_vs_compile *c;
+   struct brw_vs_prog_data *prog_data;
+   struct brw_shader *shader;
+   struct gl_shader_program *prog;
+
+   dst_reg userplane[MAX_CLIP_PLANES];
+
+   dst_reg *variable_storage(ir_variable *var);
+
+   /**
+    * \name Visit methods
+    *
+    * As typical for the visitor pattern, there must be one \c visit method for
+    * each concrete subclass of \c ir_instruction.  Virtual base classes within
+    * the hierarchy should not have \c visit methods.
+    */
+   /*@{*/
+   virtual void visit(ir_variable *);
+   virtual void visit(ir_loop *);
+   virtual void visit(ir_loop_jump *);
+   virtual void visit(ir_function_signature *);
+   virtual void visit(ir_function *);
+   virtual void visit(ir_expression *);
+   virtual void visit(ir_swizzle *);
+   virtual void visit(ir_dereference_variable  *);
+   virtual void visit(ir_dereference_array *);
+   virtual void visit(ir_dereference_record *);
+   virtual void visit(ir_assignment *);
+   virtual void visit(ir_constant *);
+   virtual void visit(ir_call *);
+   virtual void visit(ir_return *);
+   virtual void visit(ir_discard *);
+   virtual void visit(ir_texture *);
+   virtual void visit(ir_if *);
+   /*@}*/
+
+   src_reg result;
+
+   /* Regs for vertex results.  Generated at ir_variable visiting time
+    * for the ir->location's used.
+    */
+   dst_reg output_reg[BRW_VERT_RESULT_MAX];
+   const char *output_reg_annotation[BRW_VERT_RESULT_MAX];
+   int uniform_size[MAX_UNIFORMS];
+   int uniform_vector_size[MAX_UNIFORMS];
+   int uniforms;
+
+   struct hash_table *variable_ht;
+
+   void run(void);
+
+   void setup_uniform_clipplane_values();
+   int setup_uniform_values(int loc, const glsl_type *type);
+   void setup_builtin_uniform_values(ir_variable *ir);
+   int setup_attributes(int payload_reg);
+   int setup_uniforms(int payload_reg);
+   int setup_payload();
+   void move_uniform_array_access_to_pull_constants();
+   void move_push_constants_to_pull_constants();
+   void split_uniform_registers();
+   void pack_uniform_registers();
+
+   /** Walks an exec_list of ir_instruction and sends it through this visitor. */
+   void visit_instructions(const exec_list *list);
+
+   void emit_bool_to_cond_code(ir_rvalue *ir, uint32_t *predicate);
+   void emit_if_gen6(ir_if *ir);
+
+   void emit_block_move(dst_reg *dst, src_reg *src,
+			const struct glsl_type *type, uint32_t predicate);
+
+   void emit_constant_values(dst_reg *dst, ir_constant *value);
+
+   void emit_ndc_computation();
+   void emit_psiz_and_flags(struct brw_reg reg);
+   void emit_clip_distances(struct brw_reg reg, int offset);
+   void emit_generic_urb_slot(dst_reg reg, int vert_result);
+   void emit_urb_slot(int mrf, int vert_result);
+   void emit_urb_writes(void);
+
+   bool try_emit_sat(ir_expression *ir);
+
+   virtual bool get_debug_flag() const;
+   virtual const char *get_debug_name() const;
 };
 
 } /* namespace brw */

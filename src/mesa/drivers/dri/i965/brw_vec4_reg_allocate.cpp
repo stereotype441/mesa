@@ -42,7 +42,7 @@ assign(int *reg_hw_locations, reg *reg)
 }
 
 int
-vec4_visitor::reg_allocate_trivial(int first_non_payload_grf)
+vec4_generator::reg_allocate_trivial(int first_non_payload_grf)
 {
    int hw_reg_mapping[this->virtual_grf_count];
    bool virtual_grf_used[this->virtual_grf_count];
@@ -142,7 +142,7 @@ brw_alloc_reg_set_for_classes(struct brw_context *brw,
 }
 
 int
-vec4_visitor::reg_allocate(int first_non_payload_grf)
+vec4_generator::reg_allocate(int first_non_payload_grf)
 {
    int hw_reg_mapping[virtual_grf_count];
    int first_assigned_grf = first_non_payload_grf;
