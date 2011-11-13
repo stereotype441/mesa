@@ -285,48 +285,6 @@ public:
    vec4_generator(struct brw_compile *p);
    ~vec4_generator();
 
-   dst_reg dst_null_f()
-   {
-      return dst_reg(brw_null_reg());
-   }
-
-   dst_reg dst_null_d()
-   {
-      return dst_reg(retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
-   }
-
-   struct brw_context *brw;
-   struct intel_context *intel;
-   struct gl_context *ctx;
-   struct brw_compile *p;
-   void *mem_ctx;
-   exec_list instructions;
-
-   char *fail_msg;
-
-   /**
-    * GLSL IR currently being processed, which is associated with our
-    * driver IR instructions for debugging purposes.
-    */
-   ir_instruction *base_ir;
-   const char *current_annotation;
-
-   int *virtual_grf_sizes;
-   int virtual_grf_count;
-   int virtual_grf_array_size;
-   int *virtual_grf_def;
-   int *virtual_grf_use;
-
-   /**
-    * This is the size to be used for an array with an element per
-    * reg_offset
-    */
-   int virtual_grf_reg_count;
-   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
-   int *virtual_grf_reg_map;
-
-   bool live_intervals_valid;
-
    bool failed() const
    {
       return fail_msg != NULL;
@@ -337,36 +295,26 @@ public:
       return fail_msg;
    }
 
-   src_reg src_reg_for_float(float val);
+protected:
+   /**
+    * Return a bool indicating whether debugging output should be generated
+    * for this shader.
+    */
+   virtual bool get_debug_flag() const = 0;
 
-   void fail(const char *msg, ...);
+   /**
+    * Return a string describing the program being compiled, for debugging
+    * purposes.  Caller should not free this string.
+    */
+   virtual const char *get_debug_name() const = 0;
 
-   int virtual_grf_alloc(int size);
-   int reg_allocate_trivial(int first_non_payload_grf);
-   int reg_allocate(int first_non_payload_grf);
-   unsigned move_grf_array_access_to_scratch();
-   void calculate_live_intervals();
-   bool dead_code_eliminate();
-   bool virtual_grf_interferes(int a, int b);
-   bool opt_copy_propagation();
-   bool opt_algebraic();
-   bool opt_compute_to_mrf();
-   void optimize();
-
-   vec4_instruction *emit(vec4_instruction *inst);
-
-   vec4_instruction *emit(enum opcode opcode);
-
-   vec4_instruction *emit(enum opcode opcode, dst_reg dst, src_reg src0);
-
-   vec4_instruction *emit(enum opcode opcode, dst_reg dst,
-			  src_reg src0, src_reg src1);
-
-   vec4_instruction *emit(enum opcode opcode, dst_reg dst,
-			  src_reg src0, src_reg src1, src_reg src2);
-
-   vec4_instruction *emit_before(vec4_instruction *inst,
-				 vec4_instruction *new_inst);
+   /**
+    * \name Instruction constructors
+    *
+    * These functions create new vec4_instruction objects.
+    *
+    * @{
+    */
 
    vec4_instruction *MOV(dst_reg dst, src_reg src0);
    vec4_instruction *NOT(dst_reg dst, src_reg src0);
@@ -387,15 +335,32 @@ public:
 			 uint32_t condition);
    vec4_instruction *IF(src_reg src0, src_reg src1, uint32_t condition);
    vec4_instruction *IF(uint32_t predicate);
-   vec4_instruction *PULL_CONSTANT_LOAD(dst_reg dst, src_reg index);
-   vec4_instruction *SCRATCH_READ(dst_reg dst, src_reg index);
-   vec4_instruction *SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index);
 
-   bool try_rewrite_rhs_to_dst(ir_assignment *ir,
-			       dst_reg dst,
-			       src_reg src,
-			       vec4_instruction *pre_rhs_inst,
-			       vec4_instruction *last_rhs_inst);
+   /** @} */
+
+   /**
+    * \name Emitter functions
+    *
+    * These functions place new vec4_instruction objects in the generator's
+    * instruction list.
+    *
+    * @{
+    */
+
+   vec4_instruction *emit(vec4_instruction *inst);
+
+   vec4_instruction *emit(enum opcode opcode);
+
+   vec4_instruction *emit(enum opcode opcode, dst_reg dst, src_reg src0);
+
+   vec4_instruction *emit(enum opcode opcode, dst_reg dst,
+			  src_reg src0, src_reg src1);
+
+   vec4_instruction *emit(enum opcode opcode, dst_reg dst,
+			  src_reg src0, src_reg src1, src_reg src2);
+
+   vec4_instruction *emit_before(vec4_instruction *inst,
+				 vec4_instruction *new_inst);
 
    /**
     * Emit the correct dot-product instruction for the type of arguments
@@ -411,17 +376,9 @@ public:
    void emit_scs(ir_instruction *ir, enum prog_opcode op,
 		 dst_reg dst, const src_reg &src);
 
-   void emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src);
-   void emit_math1_gen4(enum opcode opcode, dst_reg dst, src_reg src);
    void emit_math(enum opcode opcode, dst_reg dst, src_reg src);
-   void emit_math2_gen6(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
-   void emit_math2_gen4(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
    void emit_math(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
 
-   src_reg get_scratch_offset(vec4_instruction *inst,
-			      src_reg *reladdr, int reg_offset);
-   src_reg get_pull_constant_offset(vec4_instruction *inst,
-				    src_reg *reladdr, int reg_offset);
    void emit_scratch_read(vec4_instruction *inst,
 			  dst_reg dst,
 			  src_reg orig_src,
@@ -435,21 +392,85 @@ public:
 				src_reg orig_src,
 				int base_offset);
 
+   /** @} */
+
+   /**
+    * \name Optimization and rewriting functions
+    *
+    * Use these after emitting functions to the instruction list.
+    *
+    * @{
+    */
+
+   unsigned move_grf_array_access_to_scratch();
+
+   void optimize();
+
+   /** @} */
+
+   /**
+    * Generate final machine code
+    *
+    * Call this after emitting functions to the instruction list and
+    * optimizing.
+    */
+   int generate_code(int first_non_payload_grf);
+
+   /**
+    * \name Utility functions
+    *
+    * @{
+    */
+
+   bool try_rewrite_rhs_to_dst(ir_assignment *ir,
+			       dst_reg dst,
+			       src_reg src,
+			       vec4_instruction *pre_rhs_inst,
+			       vec4_instruction *last_rhs_inst);
+
+   dst_reg dst_null_f()
+   {
+      return dst_reg(brw_null_reg());
+   }
+
+   dst_reg dst_null_d()
+   {
+      return dst_reg(retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
+   }
+
    void resolve_ud_negate(src_reg *reg);
 
-   /**
-    * Return a bool indicating whether debugging output should be generated
-    * for this shader.
-    */
-   virtual bool get_debug_flag() const = 0;
+   void fail(const char *msg, ...);
 
-   /**
-    * Return a string describing the program being compiled, for debugging
-    * purposes.  Caller should not free this string.
-    */
-   virtual const char *get_debug_name() const = 0;
+   /** @} */
 
-   int generate_code(int first_non_payload_grf);
+private:
+   src_reg src_reg_for_float(float val);
+
+   int virtual_grf_alloc(int size);
+   int reg_allocate_trivial(int first_non_payload_grf);
+   int reg_allocate(int first_non_payload_grf);
+   void calculate_live_intervals();
+   bool dead_code_eliminate();
+   bool virtual_grf_interferes(int a, int b);
+   bool opt_copy_propagation();
+   bool opt_algebraic();
+   bool opt_compute_to_mrf();
+
+   vec4_instruction *PULL_CONSTANT_LOAD(dst_reg dst, src_reg index);
+   vec4_instruction *SCRATCH_READ(dst_reg dst, src_reg index);
+   vec4_instruction *SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index);
+
+   void emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src);
+   void emit_math1_gen4(enum opcode opcode, dst_reg dst, src_reg src);
+   void emit_math2_gen6(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
+   void emit_math2_gen4(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1);
+
+   src_reg get_scratch_offset(vec4_instruction *inst,
+			      src_reg *reladdr, int reg_offset);
+   src_reg get_pull_constant_offset(vec4_instruction *inst,
+				    src_reg *reladdr, int reg_offset);
+
    void generate_vs_instruction(vec4_instruction *inst,
 				struct brw_reg dst,
 				struct brw_reg *src);
@@ -486,10 +507,54 @@ public:
    void generate_pull_constant_load(vec4_instruction *inst,
 				    struct brw_reg dst,
 				    struct brw_reg index);
-   dst_reg get_assignment_lhs(ir_dereference *ir);
+
+protected:
+   struct brw_context *brw;
+   struct intel_context *intel;
+   struct gl_context *ctx;
+
+   void *mem_ctx;
+   exec_list instructions;
+
+   /**
+    * GLSL IR currently being processed, which is associated with our
+    * driver IR instructions for debugging purposes.
+    */
+   ir_instruction *base_ir;
+   const char *current_annotation;
+
+private:
+   struct brw_compile *p;
+
+   char *fail_msg;
+
+   int *virtual_grf_sizes;
+   int virtual_grf_count;
+   int virtual_grf_array_size;
+   int *virtual_grf_def;
+   int *virtual_grf_use;
+
+   /**
+    * This is the size to be used for an array with an element per
+    * reg_offset
+    */
+   int virtual_grf_reg_count;
+   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
+   int *virtual_grf_reg_map;
+
+   bool live_intervals_valid;
+
+   friend vec4_instruction::vec4_instruction(vec4_generator *v,
+                                             enum opcode opcode, dst_reg dst,
+                                             src_reg src0, src_reg src1,
+                                             src_reg src2);
+   friend src_reg::src_reg(class vec4_generator *v,
+                           const struct glsl_type *type);
+   friend dst_reg::dst_reg(class vec4_generator *v,
+                           const struct glsl_type *type);
 };
 
-class vec4_visitor : public vec4_generator, public ir_visitor
+class vec4_visitor : public vec4_generator, private ir_visitor
 {
 public:
    vec4_visitor(struct brw_vs_compile *c,
@@ -497,16 +562,13 @@ public:
 
    ~vec4_visitor();
 
-   const struct gl_vertex_program *vp;
-   struct brw_vs_compile *c;
-   struct brw_vs_prog_data *prog_data;
-   struct brw_shader *shader;
-   struct gl_shader_program *prog;
+   void run(void);
 
-   dst_reg userplane[MAX_CLIP_PLANES];
+protected:
+   virtual bool get_debug_flag() const;
+   virtual const char *get_debug_name() const;
 
-   dst_reg *variable_storage(ir_variable *var);
-
+private:
    /**
     * \name Visit methods
     *
@@ -533,21 +595,6 @@ public:
    virtual void visit(ir_texture *);
    virtual void visit(ir_if *);
    /*@}*/
-
-   src_reg result;
-
-   /* Regs for vertex results.  Generated at ir_variable visiting time
-    * for the ir->location's used.
-    */
-   dst_reg output_reg[BRW_VERT_RESULT_MAX];
-   const char *output_reg_annotation[BRW_VERT_RESULT_MAX];
-   int uniform_size[MAX_UNIFORMS];
-   int uniform_vector_size[MAX_UNIFORMS];
-   int uniforms;
-
-   struct hash_table *variable_ht;
-
-   void run(void);
 
    void setup_uniform_clipplane_values();
    int setup_uniform_values(int loc, const glsl_type *type);
@@ -580,8 +627,29 @@ public:
 
    bool try_emit_sat(ir_expression *ir);
 
-   virtual bool get_debug_flag() const;
-   virtual const char *get_debug_name() const;
+   dst_reg get_assignment_lhs(ir_dereference *ir);
+
+   const struct gl_vertex_program *vp;
+   struct brw_vs_compile *c;
+   struct brw_vs_prog_data *prog_data;
+   struct brw_shader *shader;
+   struct gl_shader_program *prog;
+   dst_reg userplane[MAX_CLIP_PLANES];
+
+   dst_reg *variable_storage(ir_variable *var);
+
+   src_reg result;
+
+   /* Regs for vertex results.  Generated at ir_variable visiting time
+    * for the ir->location's used.
+    */
+   dst_reg output_reg[BRW_VERT_RESULT_MAX];
+   const char *output_reg_annotation[BRW_VERT_RESULT_MAX];
+   int uniform_size[MAX_UNIFORMS];
+   int uniform_vector_size[MAX_UNIFORMS];
+   int uniforms;
+
+   struct hash_table *variable_ht;
 };
 
 } /* namespace brw */
