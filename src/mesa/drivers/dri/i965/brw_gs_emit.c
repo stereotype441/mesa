@@ -75,13 +75,7 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
    bool allocate = !last;
    struct brw_reg temp;
 
-   if (intel->gen < 6)
-      temp = c->reg.R0;
-   else {
-      temp = c->reg.temp;
-      brw_MOV(p, retype(temp, BRW_REGISTER_TYPE_UD),
-	      retype(c->reg.R0, BRW_REGISTER_TYPE_UD));
-   }
+   temp = c->reg.R0;
 
    /* Overwrite PrimType and PrimStart in the message header, for
     * each vertex in turn:
@@ -110,9 +104,6 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
 		 1,		/* writes_complete */
 		 0,		/* urb offset */
 		 BRW_URB_SWIZZLE_NONE);
-
-   if (intel->gen >= 6 && allocate)
-       brw_MOV(p, get_element_ud(c->reg.R0, 0), get_element_ud(temp, 0));
 }
 
 static void brw_gs_ff_sync(struct brw_gs_compile *c, int num_prim)
@@ -120,29 +111,14 @@ static void brw_gs_ff_sync(struct brw_gs_compile *c, int num_prim)
    struct brw_compile *p = &c->func;
    struct intel_context *intel = &c->func.brw->intel;
 
-   if (intel->gen < 6) {
-      brw_MOV(p, get_element_ud(c->reg.R0, 1), brw_imm_ud(num_prim));
-      brw_ff_sync(p,
-		  c->reg.R0,
-		  0,
-		  c->reg.R0,
-		  1, /* allocate */
-		  1, /* response length */
-		  0 /* eot */);
-   } else {
-      brw_MOV(p, retype(c->reg.temp, BRW_REGISTER_TYPE_UD),
-	      retype(c->reg.R0, BRW_REGISTER_TYPE_UD));
-      brw_MOV(p, get_element_ud(c->reg.temp, 1), brw_imm_ud(num_prim));
-      brw_ff_sync(p,
-		  c->reg.temp,
-		  0,
-		  c->reg.temp,
-		  1, /* allocate */
-		  1, /* response length */
-		  0 /* eot */);
-      brw_MOV(p, get_element_ud(c->reg.R0, 0),
-      get_element_ud(c->reg.temp, 0));
-   }
+   brw_MOV(p, get_element_ud(c->reg.R0, 1), brw_imm_ud(num_prim));
+   brw_ff_sync(p,
+	       c->reg.R0,
+	       0,
+	       c->reg.R0,
+	       1, /* allocate */
+	       1, /* response length */
+	       0 /* eot */);
 }
 
 
