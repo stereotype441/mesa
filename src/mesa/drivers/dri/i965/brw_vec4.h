@@ -516,6 +516,7 @@ public:
    void resolve_ud_negate(src_reg *reg);
 
    bool get_debug_flag() const;
+   const char *get_debug_name() const;
 
    int generate_code(int first_non_payload_grf);
    void generate_vs_instruction(vec4_instruction *inst,

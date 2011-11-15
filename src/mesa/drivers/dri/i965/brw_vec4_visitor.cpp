@@ -2424,7 +2424,8 @@ vec4_visitor::fail(const char *format, ...)
    va_start(va, format);
    msg = ralloc_vasprintf(mem_ctx, format, va);
    va_end(va);
-   msg = ralloc_asprintf(mem_ctx, "VS compile failed: %s\n", msg);
+   msg = ralloc_asprintf(mem_ctx, "compile failed for %s: %s\n",
+                         get_debug_name(), msg);
 
    this->fail_msg = msg;
 

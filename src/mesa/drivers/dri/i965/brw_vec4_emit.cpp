@@ -611,10 +611,12 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
 
    default:
       if (inst->opcode < (int)ARRAY_SIZE(brw_opcodes)) {
-	 fail("unsupported opcode in `%s' in VS\n",
-	      brw_opcodes[inst->opcode].name);
+	 fail("unsupported opcode in `%s' in %s\n",
+	      brw_opcodes[inst->opcode].name,
+              get_debug_name());
       } else {
-	 fail("Unsupported opcode %d in VS", inst->opcode);
+	 fail("Unsupported opcode %d in %s", inst->opcode,
+              get_debug_name());
       }
    }
 }
@@ -670,6 +672,16 @@ vec4_visitor::get_debug_flag() const
    return INTEL_DEBUG & DEBUG_VS;
 }
 
+/**
+ * Return a string describing the program being compiled, for debugging
+ * purposes.  Caller should not free this string.
+ */
+const char *
+vec4_visitor::get_debug_name() const
+{
+   return ralloc_asprintf(mem_ctx, "vertex shader %d", prog->Name);
+}
+
 int
 vec4_visitor::generate_code(int first_non_payload_grf)
 {
@@ -693,7 +705,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
       return 0;
 
    if (unlikely(debug_flag)) {
-      printf("Native code for vertex shader %d:\n", prog->Name);
+      printf("Native code for %s:\n", get_debug_name());
    }
 
    foreach_list(node, &this->instructions) {
