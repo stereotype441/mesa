@@ -98,6 +98,12 @@ static void compile_gs_prog( struct brw_context *brw,
       case _3DPRIM_TRIFAN:
 	 assert(!"FINISHME: trifan.");
 	 break;
+      case _3DPRIM_QUADLIST:
+	 num_verts = 4;
+	 break;
+      case _3DPRIM_QUADSTRIP:
+	 assert(!"FINISHME: quadstrip. can this even happen?");
+	 break;
       default:
 	 assert(!"Unexpected primitive type in Gen6 SOL program.");
 	 return;
