@@ -111,11 +111,13 @@ static void brw_gs_ff_sync(struct brw_gs_compile *c, int num_prim)
    struct brw_compile *p = &c->func;
    struct intel_context *intel = &c->func.brw->intel;
 
-   brw_MOV(p, get_element_ud(c->reg.R0, 1), brw_imm_ud(num_prim));
+   struct brw_reg m2 = retype(brw_message_reg(2), BRW_REGISTER_TYPE_UD);
+   brw_MOV(p, m2, retype(brw_vec8_grf(0, 0), BRW_REGISTER_TYPE_UD));
+   brw_MOV(p, get_element_ud(m2, 1), brw_imm_ud(num_prim));
    brw_ff_sync(p,
-	       c->reg.R0,
-	       0,
-	       c->reg.R0,
+	       c->reg.temp,
+	       2,
+	       m2,
 	       1, /* allocate */
 	       1, /* response length */
 	       0 /* eot */);
