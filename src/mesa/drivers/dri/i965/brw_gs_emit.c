@@ -180,3 +180,23 @@ void brw_gs_lines( struct brw_gs_compile *c )
    brw_gs_emit_vue(c, c->reg.vertex[0], 0, ((_3DPRIM_LINESTRIP << 2) | R02_PRIM_START));
    brw_gs_emit_vue(c, c->reg.vertex[1], 1, ((_3DPRIM_LINESTRIP << 2) | R02_PRIM_END));
 }
+
+void
+gen6_sol_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
+	         unsigned num_verts)
+{
+   brw_gs_alloc_regs(c, num_verts);
+
+   brw_gs_ff_sync(c, 1);
+
+   for (int i = 0; i < num_verts; i++) {
+      unsigned tag = 0;
+      if (i == 0)
+	 tag = R02_PRIM_START;
+      else if (i == num_verts)
+	 tag = R02_PRIM_END;
+
+      brw_gs_emit_vue(c, c->reg.vertex[i], i == num_verts,
+		      ((_3DPRIM_LINESTRIP << 2) | tag));
+   }
+}
