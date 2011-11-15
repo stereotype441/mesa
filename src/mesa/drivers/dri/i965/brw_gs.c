@@ -187,7 +187,7 @@ static void populate_key( struct brw_context *brw,
    key->userclip_active = (ctx->Transform.ClipPlanesEnabled != 0);
 
    key->need_gs_prog = (intel->gen >= 6)
-      ? 0
+      ? 1
       : (brw->primitive == _3DPRIM_QUADLIST ||
 	 brw->primitive == _3DPRIM_QUADSTRIP ||
 	 brw->primitive == _3DPRIM_LINELOOP);
