@@ -195,10 +195,10 @@ gen6_sol_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
       unsigned tag = 0;
       if (i == 0)
 	 tag = R02_PRIM_START;
-      else if (i == num_verts)
+      else if (i == num_verts - 1)
 	 tag = R02_PRIM_END;
 
-      brw_gs_emit_vue(c, c->reg.vertex[i], i == num_verts,
+      brw_gs_emit_vue(c, c->reg.vertex[i], i == num_verts - 1,
 		      ((_3DPRIM_LINESTRIP << 2) | tag));
    }
 }
