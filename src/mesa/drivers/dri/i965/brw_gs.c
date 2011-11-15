@@ -90,7 +90,7 @@ static void compile_gs_prog( struct brw_context *brw,
 	 assert(!"FINISHME: linestrip.");
 	 break;
       case _3DPRIM_TRILIST:
-	 assert(!"FINISHME: trilist.");
+	 num_verts = 3;
 	 break;
       case _3DPRIM_TRISTRIP:
 	 assert(!"FINISHME: tristrip.");
