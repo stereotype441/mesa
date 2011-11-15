@@ -55,7 +55,7 @@ upload_gs_state(struct brw_context *brw)
       OUT_BATCH(((brw->max_gs_threads - 1) << GEN6_GS_MAX_THREADS_SHIFT) |
 	        GEN6_GS_STATISTICS_ENABLE |
 		GEN6_GS_SO_STATISTICS_ENABLE |
-		GEN6_GS_RENDERING_ENABLE);
+		0); //GEN6_GS_RENDERING_ENABLE);
       OUT_BATCH(GEN6_GS_ENABLE);
       ADVANCE_BATCH();
    } else {
