@@ -73,18 +73,17 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
    struct brw_compile *p = &c->func;
    struct intel_context *intel = &c->func.brw->intel;
    bool allocate = !last;
-   struct brw_reg temp;
-
-   temp = c->reg.R0;
 
    /* Overwrite PrimType and PrimStart in the message header, for
     * each vertex in turn:
     */
-   brw_MOV(p, get_element_ud(temp, 2), brw_imm_ud(header));
+   struct brw_reg m2 = retype(brw_message_reg(2), BRW_REGISTER_TYPE_UD);
+   brw_MOV(p, m2, retype(brw_vec8_grf(0, 0), BRW_REGISTER_TYPE_UD));
+   brw_MOV(p, get_element_ud(m2, 2), brw_imm_ud(header));
 
-   /* Copy the vertex from vertn into m1..mN+1:
+   /* Copy the vertex from vertn into m3..mN+3:
     */
-   brw_copy8(p, brw_message_reg(1), vert, c->nr_regs);
+   brw_copy8(p, brw_message_reg(3), vert, c->nr_regs);
 
    /* Send each vertex as a seperate write to the urb.  This is
     * different to the concept in brw_sf_emit.c, where subsequent
@@ -93,9 +92,9 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
     * allocated each time.
     */
    brw_urb_WRITE(p, 
-		 allocate ? temp : retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
-		 0,
-		 temp,
+		 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
+		 2,
+		 m2,
 		 allocate,
 		 1,		/* used */
 		 c->nr_regs + 1, /* msg length */
