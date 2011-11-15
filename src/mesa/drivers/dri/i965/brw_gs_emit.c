@@ -78,7 +78,8 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
     * each vertex in turn:
     */
    struct brw_reg m2 = retype(brw_message_reg(2), BRW_REGISTER_TYPE_UD);
-   brw_MOV(p, m2, retype(brw_vec8_grf(0, 0), BRW_REGISTER_TYPE_UD));
+   /* load up the URB handle. */
+   brw_MOV(p, m2, retype(c->reg.temp, BRW_REGISTER_TYPE_UD));
    brw_MOV(p, get_element_ud(m2, 2), brw_imm_ud(header));
 
    /* Copy the vertex from vertn into m3..mN+3:
@@ -95,11 +96,11 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
 		 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
 		 2,
 		 m2,
-		 allocate,
+		 false,
 		 1,		/* used */
 		 c->nr_regs + 1, /* msg length */
-		 allocate ? 1 : 0, /* response length */
-		 allocate ? 0 : 1, /* eot */
+		 0, /* rlen */
+		 last, /* eot */
 		 1,		/* writes_complete */
 		 0,		/* urb offset */
 		 BRW_URB_SWIZZLE_NONE);
