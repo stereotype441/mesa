@@ -79,7 +79,10 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
     */
    struct brw_reg m2 = retype(brw_message_reg(2), BRW_REGISTER_TYPE_UD);
    /* load up the URB handle. */
-   brw_MOV(p, m2, retype(c->reg.temp, BRW_REGISTER_TYPE_UD));
+   brw_MOV(p, m2, c->reg.temp);
+   /* load FFTID */
+   brw_MOV(p, retype(brw_vec1_reg(BRW_MESSAGE_REGISTER_FILE, 2, 5), BRW_REGISTER_TYPE_UD),
+   retype(brw_vec1_grf(0, 5), BRW_REGISTER_TYPE_UD));
    brw_MOV(p, get_element_ud(m2, 2), brw_imm_ud(header));
 
    /* Copy the vertex from vertn into m3..mN+3:
@@ -199,6 +202,6 @@ gen6_sol_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
 	 tag = R02_PRIM_END;
 
       brw_gs_emit_vue(c, c->reg.vertex[i], i == num_verts - 1,
-		      ((_3DPRIM_LINESTRIP << 2) | tag));
+		      ((_3DPRIM_POLYGON << 2) | tag));
    }
 }
