@@ -162,7 +162,8 @@ brw_alloc_reg_set_for_classes(reg_allocator *allocator,
 }
 
 int
-vec4_generator::reg_allocate(reg_allocator *allocator)
+vec4_generator::reg_allocate(reg_allocator *allocator,
+                             const live_interval_data *live_intervals)
 {
    int hw_reg_mapping[allocator->virtual_grf_count];
    int first_assigned_grf = allocator->first_non_payload_grf;
@@ -176,8 +177,6 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
    if (0) {
       return reg_allocate_trivial(allocator);
    }
-
-   calculate_live_intervals();
 
    /* Set up the register classes.
     *
@@ -220,7 +219,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       }
 
       for (int j = 0; j < i; j++) {
-	 if (this->live_intervals->virtual_grf_interferes(i, j)) {
+	 if (live_intervals->virtual_grf_interferes(i, j)) {
 	    ra_add_node_interference(g, i, j);
 	 }
       }

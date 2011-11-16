@@ -696,9 +696,11 @@ vec4_generator::generate_code(int first_non_payload_grf)
 
    brw_set_access_mode(p, BRW_ALIGN_16);
 
+   calculate_live_intervals();
+
    reg_allocator allocator(first_non_payload_grf, this->virtual_grf_count,
                            this->virtual_grf_sizes, this->instructions, this);
-   int total_grf = reg_allocate(&allocator);
+   int total_grf = reg_allocate(&allocator, this->live_intervals);
 
    if (failed())
       return 0;
