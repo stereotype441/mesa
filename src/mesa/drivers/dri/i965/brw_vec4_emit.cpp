@@ -700,7 +700,7 @@ vec4_generator::generate_code(int first_non_payload_grf)
 
    reg_allocator allocator(first_non_payload_grf, this->virtual_grf_count,
                            this->virtual_grf_sizes, this->instructions, this);
-   int total_grf = reg_allocator::allocate(&allocator, this->live_intervals);
+   int total_grf = allocator.allocate(this->live_intervals);
 
    if (failed())
       return 0;

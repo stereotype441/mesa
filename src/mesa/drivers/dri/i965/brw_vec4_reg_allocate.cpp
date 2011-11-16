@@ -60,21 +60,21 @@ reg_allocator::assign(int *reg_hw_locations, reg *reg) const
 }
 
 int
-reg_allocator::allocate_trivial(reg_allocator *allocator)
+reg_allocator::allocate_trivial()
 {
-   int hw_reg_mapping[allocator->virtual_grf_count];
-   bool virtual_grf_used[allocator->virtual_grf_count];
+   int hw_reg_mapping[this->virtual_grf_count];
+   bool virtual_grf_used[this->virtual_grf_count];
    int i;
    int next;
 
    /* Calculate which virtual GRFs are actually in use after whatever
     * optimization passes have occurred.
     */
-   for (int i = 0; i < allocator->virtual_grf_count; i++) {
+   for (int i = 0; i < this->virtual_grf_count; i++) {
       virtual_grf_used[i] = false;
    }
 
-   foreach_iter(exec_list_iterator, iter, allocator->instructions) {
+   foreach_iter(exec_list_iterator, iter, this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
       if (inst->dst.file == GRF)
@@ -86,28 +86,27 @@ reg_allocator::allocate_trivial(reg_allocator *allocator)
       }
    }
 
-   hw_reg_mapping[0] = allocator->first_non_payload_grf;
-   next = hw_reg_mapping[0] + allocator->virtual_grf_sizes[0];
-   for (i = 1; i < allocator->virtual_grf_count; i++) {
+   hw_reg_mapping[0] = this->first_non_payload_grf;
+   next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
+   for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
 	 hw_reg_mapping[i] = next;
-	 next += allocator->virtual_grf_sizes[i];
+	 next += this->virtual_grf_sizes[i];
       }
    }
    int total_grf = next;
 
-   foreach_iter(exec_list_iterator, iter, allocator->instructions) {
+   foreach_iter(exec_list_iterator, iter, this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
-      allocator->assign(hw_reg_mapping, &inst->dst);
-      allocator->assign(hw_reg_mapping, &inst->src[0]);
-      allocator->assign(hw_reg_mapping, &inst->src[1]);
-      allocator->assign(hw_reg_mapping, &inst->src[2]);
+      assign(hw_reg_mapping, &inst->dst);
+      assign(hw_reg_mapping, &inst->src[0]);
+      assign(hw_reg_mapping, &inst->src[1]);
+      assign(hw_reg_mapping, &inst->src[2]);
    }
 
    if (total_grf > BRW_MAX_GRF) {
-      allocator->fail_notify->fail(
-           "Ran out of regs on trivial allocator (%d/%d)\n",
+      this->fail_notify->fail("Ran out of regs on trivial allocator (%d/%d)\n",
 	   total_grf, BRW_MAX_GRF);
    }
 
@@ -115,8 +114,7 @@ reg_allocator::allocate_trivial(reg_allocator *allocator)
 }
 
 void
-reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
-                                         int *class_sizes,
+reg_allocator::alloc_reg_set_for_classes(int *class_sizes,
                                          int class_count,
                                          int base_reg_count)
 {
@@ -126,13 +124,12 @@ reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
       ra_reg_count += base_reg_count - (class_sizes[i] - 1);
    }
 
-   ralloc_free(allocator->ra_reg_to_grf);
-   allocator->ra_reg_to_grf = ralloc_array(allocator->mem_ctx, uint8_t,
-                                           ra_reg_count);
-   ralloc_free(allocator->regs);
-   allocator->regs = ra_alloc_reg_set(ra_reg_count);
-   ralloc_free(allocator->classes);
-   allocator->classes = ralloc_array(allocator->mem_ctx, int, class_count + 1);
+   ralloc_free(this->ra_reg_to_grf);
+   this->ra_reg_to_grf = ralloc_array(this->mem_ctx, uint8_t, ra_reg_count);
+   ralloc_free(this->regs);
+   this->regs = ra_alloc_reg_set(ra_reg_count);
+   ralloc_free(this->classes);
+   this->classes = ralloc_array(this->mem_ctx, int, class_count + 1);
 
    /* Now, add the registers to their classes, and add the conflicts
     * between them and the base GRF registers (and also each other).
@@ -140,17 +137,17 @@ reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
    int reg = 0;
    for (int i = 0; i < class_count; i++) {
       int class_reg_count = base_reg_count - (class_sizes[i] - 1);
-      allocator->classes[i] = ra_alloc_reg_class(allocator->regs);
+      this->classes[i] = ra_alloc_reg_class(this->regs);
 
       for (int j = 0; j < class_reg_count; j++) {
-	 ra_class_add_reg(allocator->regs, allocator->classes[i], reg);
+	 ra_class_add_reg(this->regs, this->classes[i], reg);
 
-	 allocator->ra_reg_to_grf[reg] = j;
+	 this->ra_reg_to_grf[reg] = j;
 
 	 for (int base_reg = j;
 	      base_reg < j + class_sizes[i];
 	      base_reg++) {
-	    ra_add_transitive_reg_conflict(allocator->regs, base_reg, reg);
+	    ra_add_transitive_reg_conflict(this->regs, base_reg, reg);
 	 }
 
 	 reg++;
@@ -158,15 +155,14 @@ reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
    }
    assert(reg == ra_reg_count);
 
-   ra_set_finalize(allocator->regs);
+   ra_set_finalize(this->regs);
 }
 
 int
-reg_allocator::allocate(reg_allocator *allocator,
-                        const live_interval_data *live_intervals)
+reg_allocator::allocate(const live_interval_data *live_intervals)
 {
-   int hw_reg_mapping[allocator->virtual_grf_count];
-   int first_assigned_grf = allocator->first_non_payload_grf;
+   int hw_reg_mapping[this->virtual_grf_count];
+   int first_assigned_grf = this->first_non_payload_grf;
    int base_reg_count = BRW_MAX_GRF - first_assigned_grf;
    int class_sizes[base_reg_count];
    int class_count = 0;
@@ -175,7 +171,7 @@ reg_allocator::allocate(reg_allocator *allocator,
     * register access as a result of broken optimization passes.
     */
    if (0) {
-      return allocate_trivial(allocator);
+      return allocate_trivial();
    }
 
    /* Set up the register classes.
@@ -186,34 +182,32 @@ reg_allocator::allocate(reg_allocator *allocator,
     */
    class_sizes[class_count++] = 1;
 
-   for (int r = 0; r < allocator->virtual_grf_count; r++) {
+   for (int r = 0; r < this->virtual_grf_count; r++) {
       int i;
 
       for (i = 0; i < class_count; i++) {
-	 if (class_sizes[i] == allocator->virtual_grf_sizes[r])
+	 if (class_sizes[i] == this->virtual_grf_sizes[r])
 	    break;
       }
       if (i == class_count) {
-	 if (allocator->virtual_grf_sizes[r] >= base_reg_count) {
-	    allocator->fail_notify->fail(
+	 if (this->virtual_grf_sizes[r] >= base_reg_count) {
+	    this->fail_notify->fail(
                "Object too large to register allocate.\n");
 	 }
 
-	 class_sizes[class_count++] = allocator->virtual_grf_sizes[r];
+	 class_sizes[class_count++] = this->virtual_grf_sizes[r];
       }
    }
 
-   allocator->alloc_reg_set_for_classes(allocator, class_sizes, class_count,
-                                        base_reg_count);
+   alloc_reg_set_for_classes(class_sizes, class_count, base_reg_count);
 
    struct ra_graph *g =
-      ra_alloc_interference_graph(allocator->regs,
-                                  allocator->virtual_grf_count);
+      ra_alloc_interference_graph(this->regs, this->virtual_grf_count);
 
-   for (int i = 0; i < allocator->virtual_grf_count; i++) {
+   for (int i = 0; i < this->virtual_grf_count; i++) {
       for (int c = 0; c < class_count; c++) {
-	 if (class_sizes[c] == allocator->virtual_grf_sizes[i]) {
-	    ra_set_node_class(g, i, allocator->classes[c]);
+	 if (class_sizes[c] == this->virtual_grf_sizes[i]) {
+	    ra_set_node_class(g, i, this->classes[c]);
 	    break;
 	 }
       }
@@ -227,7 +221,7 @@ reg_allocator::allocate(reg_allocator *allocator,
 
    if (!ra_allocate_no_spills(g)) {
       ralloc_free(g);
-      allocator->fail_notify->fail("No register spilling support yet\n");
+      this->fail_notify->fail("No register spilling support yet\n");
       return 0;
    }
 
@@ -236,21 +230,21 @@ reg_allocator::allocate(reg_allocator *allocator,
     * numbers.
     */
    int total_grf = first_assigned_grf;
-   for (int i = 0; i < allocator->virtual_grf_count; i++) {
+   for (int i = 0; i < this->virtual_grf_count; i++) {
       int reg = ra_get_node_reg(g, i);
 
-      hw_reg_mapping[i] = first_assigned_grf + allocator->ra_reg_to_grf[reg];
+      hw_reg_mapping[i] = first_assigned_grf + this->ra_reg_to_grf[reg];
       total_grf = MAX2(total_grf,
-                       hw_reg_mapping[i] + allocator->virtual_grf_sizes[i]);
+                       hw_reg_mapping[i] + this->virtual_grf_sizes[i]);
    }
 
-   foreach_list(node, &allocator->instructions) {
+   foreach_list(node, &this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
-      allocator->assign(hw_reg_mapping, &inst->dst);
-      allocator->assign(hw_reg_mapping, &inst->src[0]);
-      allocator->assign(hw_reg_mapping, &inst->src[1]);
-      allocator->assign(hw_reg_mapping, &inst->src[2]);
+      assign(hw_reg_mapping, &inst->dst);
+      assign(hw_reg_mapping, &inst->src[0]);
+      assign(hw_reg_mapping, &inst->src[1]);
+      assign(hw_reg_mapping, &inst->src[2]);
    }
 
    ralloc_free(g);

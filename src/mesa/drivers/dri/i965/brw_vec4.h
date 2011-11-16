@@ -334,15 +334,12 @@ public:
                  fail_tracker *fail_notify);
    ~reg_allocator();
 
-   static int allocate(reg_allocator *allocator,
-                       const live_interval_data *live_intervals);
+   int allocate(const live_interval_data *live_intervals);
 
 private:
-   static int allocate_trivial(reg_allocator *allocator);
-   static void alloc_reg_set_for_classes(reg_allocator *allocator,
-                                         int *class_sizes,
-                                         int class_count,
-                                         int base_reg_count);
+   int allocate_trivial();
+   void alloc_reg_set_for_classes(int *class_sizes, int class_count,
+                                  int base_reg_count);
    void assign(int *reg_hw_locations, reg *reg) const;
 
    void *mem_ctx;
