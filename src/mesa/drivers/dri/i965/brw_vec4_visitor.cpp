@@ -2370,7 +2370,6 @@ vec4_generator::vec4_generator(struct brw_compile *p)
    this->ctx = &intel->ctx;
 
    this->mem_ctx = ralloc_context(NULL);
-   this->fail_msg = NULL;
 
    this->base_ir = NULL;
    this->current_annotation = NULL;
@@ -2416,8 +2415,13 @@ vec4_visitor::~vec4_visitor()
 }
 
 
+fail_tracker::fail_tracker()
+   : fail_msg(NULL)
+{
+}
+
 void
-vec4_generator::fail(const char *format, ...)
+fail_tracker::fail(const char *format, ...)
 {
    va_list va;
    char *msg;
@@ -2426,16 +2430,20 @@ vec4_generator::fail(const char *format, ...)
       return;
 
    va_start(va, format);
-   msg = ralloc_vasprintf(mem_ctx, format, va);
+   msg = ralloc_vasprintf(NULL, format, va);
    va_end(va);
-   msg = ralloc_asprintf(mem_ctx, "compile failed for %s: %s\n",
-                         get_debug_name(), msg);
-
-   this->fail_msg = msg;
+   this->fail_msg = ralloc_asprintf(NULL, "compile failed for %s: %s\n",
+                                    get_debug_name(), msg);
 
    if (get_debug_flag()) {
-      fprintf(stderr, "%s",  msg);
+      fprintf(stderr, "%s",  this->fail_msg);
    }
+}
+
+fail_tracker::~fail_tracker()
+{
+   if (this->fail_msg)
+      ralloc_free(this->fail_msg);
 }
 
 } /* namespace brw */

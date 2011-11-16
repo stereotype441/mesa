@@ -279,6 +279,41 @@ public:
    bool is_math();
 };
 
+class fail_tracker
+{
+public:
+   fail_tracker();
+   ~fail_tracker();
+
+   bool failed() const
+   {
+      return fail_msg != NULL;
+   }
+
+   char *get_fail_msg() const
+   {
+      return fail_msg;
+   }
+
+   void fail(const char *msg, ...);
+
+protected:
+   /**
+    * Return a bool indicating whether debugging output should be generated
+    * for this shader.
+    */
+   virtual bool get_debug_flag() const = 0;
+
+   /**
+    * Return a string describing the program being compiled, for debugging
+    * purposes.  Caller should not free this string.
+    */
+   virtual const char *get_debug_name() const = 0;
+
+private:
+   char *fail_msg;
+};
+
 class reg_allocator
 {
 public:
@@ -322,35 +357,13 @@ public:
    void assign(int *reg_hw_locations, reg *reg) const;
 };
 
-class vec4_generator
+class vec4_generator : public fail_tracker
 {
 public:
    vec4_generator(struct brw_compile *p);
    ~vec4_generator();
 
-   bool failed() const
-   {
-      return fail_msg != NULL;
-   }
-
-   char *get_fail_msg() const
-   {
-      return fail_msg;
-   }
-
 protected:
-   /**
-    * Return a bool indicating whether debugging output should be generated
-    * for this shader.
-    */
-   virtual bool get_debug_flag() const = 0;
-
-   /**
-    * Return a string describing the program being compiled, for debugging
-    * purposes.  Caller should not free this string.
-    */
-   virtual const char *get_debug_name() const = 0;
-
    /**
     * \name Instruction constructors
     *
@@ -483,8 +496,6 @@ protected:
 
    void resolve_ud_negate(src_reg *reg);
 
-   void fail(const char *msg, ...);
-
    /** @} */
 
 private:
@@ -568,8 +579,6 @@ protected:
 
 private:
    struct brw_compile *p;
-
-   char *fail_msg;
 
    int *virtual_grf_sizes;
    int virtual_grf_count;
