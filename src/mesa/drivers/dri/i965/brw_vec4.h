@@ -282,7 +282,7 @@ public:
 class reg_allocator
 {
 public:
-   reg_allocator(int first_non_payload_grf);
+   reg_allocator(int first_non_payload_grf, int virtual_grf_count);
 
    struct ra_regs *regs;
 
@@ -301,7 +301,12 @@ public:
    /**
     * First GRF available for register allocation.
     */
-   int first_non_payload_grf;
+   const int first_non_payload_grf;
+
+   /**
+    * Number of virtual GRF registers that need to be allocated.
+    */
+   const int virtual_grf_count;
 
    void assign(int *reg_hw_locations, reg *reg) const;
 };

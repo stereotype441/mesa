@@ -33,8 +33,9 @@ using namespace brw;
 
 namespace brw {
 
-reg_allocator::reg_allocator(int first_non_payload_grf)
-   : first_non_payload_grf(first_non_payload_grf)
+reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count)
+   : first_non_payload_grf(first_non_payload_grf),
+     virtual_grf_count(virtual_grf_count)
 {
 }
 
@@ -49,15 +50,15 @@ reg_allocator::assign(int *reg_hw_locations, reg *reg) const
 int
 vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
 {
-   int hw_reg_mapping[this->virtual_grf_count];
-   bool virtual_grf_used[this->virtual_grf_count];
+   int hw_reg_mapping[allocator->virtual_grf_count];
+   bool virtual_grf_used[allocator->virtual_grf_count];
    int i;
    int next;
 
    /* Calculate which virtual GRFs are actually in use after whatever
     * optimization passes have occurred.
     */
-   for (int i = 0; i < this->virtual_grf_count; i++) {
+   for (int i = 0; i < allocator->virtual_grf_count; i++) {
       virtual_grf_used[i] = false;
    }
 
@@ -75,7 +76,7 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
 
    hw_reg_mapping[0] = allocator->first_non_payload_grf;
    next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
-   for (i = 1; i < this->virtual_grf_count; i++) {
+   for (i = 1; i < allocator->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
 	 hw_reg_mapping[i] = next;
 	 next += this->virtual_grf_sizes[i];
