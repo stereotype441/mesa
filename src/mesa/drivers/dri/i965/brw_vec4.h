@@ -318,7 +318,8 @@ class reg_allocator
 {
 public:
    reg_allocator(int first_non_payload_grf, int virtual_grf_count,
-                 const int *virtual_grf_sizes, const exec_list &instructions);
+                 const int *virtual_grf_sizes, const exec_list &instructions,
+                 fail_tracker *fail_notify);
 
    struct ra_regs *regs;
 
@@ -353,6 +354,11 @@ public:
     * Instructions for which registers need to be allocated.
     */
    const exec_list &instructions;
+
+   /**
+    * Object which should be notified if a register allocation failure occurs.
+    */
+   fail_tracker * const fail_notify;
 
    void assign(int *reg_hw_locations, reg *reg) const;
 };

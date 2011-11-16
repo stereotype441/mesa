@@ -35,11 +35,13 @@ namespace brw {
 
 reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
                              const int *virtual_grf_sizes,
-                             const exec_list &instructions)
+                             const exec_list &instructions,
+                             fail_tracker *fail_notify)
    : first_non_payload_grf(first_non_payload_grf),
      virtual_grf_count(virtual_grf_count),
      virtual_grf_sizes(virtual_grf_sizes),
-     instructions(instructions)
+     instructions(instructions),
+     fail_notify(fail_notify)
 {
 }
 
@@ -98,7 +100,8 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
    }
 
    if (total_grf > BRW_MAX_GRF) {
-      fail("Ran out of regs on trivial allocator (%d/%d)\n",
+      allocator->fail_notify->fail(
+           "Ran out of regs on trivial allocator (%d/%d)\n",
 	   total_grf, BRW_MAX_GRF);
    }
 
