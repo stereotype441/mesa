@@ -2374,14 +2374,12 @@ vec4_generator::vec4_generator(struct brw_compile *p)
    this->base_ir = NULL;
    this->current_annotation = NULL;
 
-   this->virtual_grf_def = NULL;
-   this->virtual_grf_use = NULL;
+   this->live_intervals = NULL;
    this->virtual_grf_sizes = NULL;
    this->virtual_grf_count = 0;
    this->virtual_grf_reg_map = NULL;
    this->virtual_grf_reg_count = 0;
    this->virtual_grf_array_size = 0;
-   this->live_intervals_valid = false;
 }
 
 vec4_visitor::vec4_visitor(struct brw_vs_compile *c,

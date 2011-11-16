@@ -314,6 +314,18 @@ private:
    char *fail_msg;
 };
 
+class live_interval_data
+{
+public:
+   live_interval_data(int *def, int *use);
+   ~live_interval_data();
+
+   bool virtual_grf_interferes(int a, int b) const;
+
+   int *virtual_grf_def;
+   int *virtual_grf_use;
+};
+
 class reg_allocator
 {
 public:
@@ -514,8 +526,8 @@ private:
    static int reg_allocate_trivial(reg_allocator *allocator);
    int reg_allocate(reg_allocator *allocator);
    void calculate_live_intervals();
+   void invalidate_live_intervals();
    bool dead_code_eliminate();
-   bool virtual_grf_interferes(int a, int b);
    bool opt_copy_propagation();
    bool opt_algebraic();
    bool opt_compute_to_mrf();
@@ -592,8 +604,7 @@ private:
    int *virtual_grf_sizes;
    int virtual_grf_count;
    int virtual_grf_array_size;
-   int *virtual_grf_def;
-   int *virtual_grf_use;
+   live_interval_data *live_intervals;
 
    /**
     * This is the size to be used for an array with an element per
@@ -602,8 +613,6 @@ private:
    int virtual_grf_reg_count;
    /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
    int *virtual_grf_reg_map;
-
-   bool live_intervals_valid;
 
    friend vec4_instruction::vec4_instruction(vec4_generator *v,
                                              enum opcode opcode, dst_reg dst,

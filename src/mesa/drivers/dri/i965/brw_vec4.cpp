@@ -63,6 +63,26 @@ src_reg::equals(src_reg *r)
 }
 
 void
+vec4_generator::invalidate_live_intervals()
+{
+   if (live_intervals)
+      delete live_intervals;
+   live_intervals = NULL;
+}
+
+live_interval_data::live_interval_data(int *def, int *use)
+   : virtual_grf_def(def),
+     virtual_grf_use(use)
+{
+}
+
+live_interval_data::~live_interval_data()
+{
+   ralloc_free(this->virtual_grf_def);
+   ralloc_free(this->virtual_grf_use);
+}
+
+void
 vec4_generator::calculate_live_intervals()
 {
    int *def = ralloc_array(mem_ctx, int, virtual_grf_count);
@@ -70,7 +90,7 @@ vec4_generator::calculate_live_intervals()
    int loop_depth = 0;
    int loop_start = 0;
 
-   if (this->live_intervals_valid)
+   if (this->live_intervals)
       return;
 
    for (int i = 0; i < virtual_grf_count; i++) {
@@ -130,16 +150,11 @@ vec4_generator::calculate_live_intervals()
       ip++;
    }
 
-   ralloc_free(this->virtual_grf_def);
-   ralloc_free(this->virtual_grf_use);
-   this->virtual_grf_def = def;
-   this->virtual_grf_use = use;
-
-   this->live_intervals_valid = true;
+   this->live_intervals = new live_interval_data(def, use);
 }
 
 bool
-vec4_generator::virtual_grf_interferes(int a, int b)
+live_interval_data::virtual_grf_interferes(int a, int b) const
 {
    int start = MAX2(this->virtual_grf_def[a], this->virtual_grf_def[b]);
    int end = MIN2(this->virtual_grf_use[a], this->virtual_grf_use[b]);
@@ -175,7 +190,8 @@ vec4_generator::dead_code_eliminate()
    foreach_list_safe(node, &this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
-      if (inst->dst.file == GRF && this->virtual_grf_use[inst->dst.reg] <= pc) {
+      if (inst->dst.file == GRF &&
+          this->live_intervals->virtual_grf_use[inst->dst.reg] <= pc) {
 	 inst->remove();
 	 progress = true;
       }
@@ -184,7 +200,7 @@ vec4_generator::dead_code_eliminate()
    }
 
    if (progress)
-      live_intervals_valid = false;
+      invalidate_live_intervals();
 
    return progress;
 }
@@ -395,7 +411,7 @@ vec4_generator::opt_algebraic()
    }
 
    if (progress)
-      this->live_intervals_valid = false;
+      invalidate_live_intervals();
 
    return progress;
 }
@@ -516,7 +532,7 @@ vec4_generator::opt_compute_to_mrf()
       /* Can't compute-to-MRF this GRF if someone else was going to
        * read it later.
        */
-      if (this->virtual_grf_use[inst->src[0].reg] > ip)
+      if (this->live_intervals->virtual_grf_use[inst->src[0].reg] > ip)
 	 continue;
 
       /* We need to check interference with the MRF between this
@@ -657,7 +673,7 @@ vec4_generator::opt_compute_to_mrf()
    }
 
    if (progress)
-      live_intervals_valid = false;
+      invalidate_live_intervals();
 
    return progress;
 }

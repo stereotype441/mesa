@@ -220,7 +220,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       }
 
       for (int j = 0; j < i; j++) {
-	 if (virtual_grf_interferes(i, j)) {
+	 if (this->live_intervals->virtual_grf_interferes(i, j)) {
 	    ra_add_node_interference(g, i, j);
 	 }
       }

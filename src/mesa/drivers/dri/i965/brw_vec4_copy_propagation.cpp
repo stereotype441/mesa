@@ -337,7 +337,7 @@ vec4_generator::opt_copy_propagation()
    }
 
    if (progress)
-      live_intervals_valid = false;
+      invalidate_live_intervals();
 
    return progress;
 }
