@@ -279,6 +279,23 @@ public:
    bool is_math();
 };
 
+struct reg_allocator
+{
+   struct ra_regs *regs;
+
+   /**
+    * Array of the ra classes for the unaligned contiguous register
+    * block sizes used.
+    */
+   int *classes;
+
+   /**
+    * Mapping for register-allocated objects in *regs to the first
+    * GRF for that object.
+    */
+   uint8_t *ra_reg_to_grf;
+};
+
 class vec4_generator
 {
 public:
