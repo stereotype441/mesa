@@ -376,6 +376,10 @@ public:
    fail_tracker * const fail_notify;
 
    void assign(int *reg_hw_locations, reg *reg) const;
+   static void alloc_reg_set_for_classes(reg_allocator *allocator,
+                                         int *class_sizes,
+                                         int class_count,
+                                         int base_reg_count);
 };
 
 class vec4_generator : public fail_tracker

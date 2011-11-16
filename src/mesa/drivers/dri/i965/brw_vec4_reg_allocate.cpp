@@ -114,11 +114,11 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
    return total_grf;
 }
 
-static void
-brw_alloc_reg_set_for_classes(reg_allocator *allocator,
-			      int *class_sizes,
-			      int class_count,
-			      int base_reg_count)
+void
+reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
+                                         int *class_sizes,
+                                         int class_count,
+                                         int base_reg_count)
 {
    /* Compute the total number of registers across all classes. */
    int ra_reg_count = 0;
@@ -203,8 +203,8 @@ vec4_generator::reg_allocate(reg_allocator *allocator,
       }
    }
 
-   brw_alloc_reg_set_for_classes(allocator, class_sizes, class_count,
-                                 base_reg_count);
+   allocator->alloc_reg_set_for_classes(allocator, class_sizes, class_count,
+                                        base_reg_count);
 
    struct ra_graph *g =
       ra_alloc_interference_graph(allocator->regs,
