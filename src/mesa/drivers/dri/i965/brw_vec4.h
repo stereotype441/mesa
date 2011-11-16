@@ -524,8 +524,8 @@ private:
 
    int virtual_grf_alloc(int size);
    static int reg_allocate_trivial(reg_allocator *allocator);
-   int reg_allocate(reg_allocator *allocator,
-                    const live_interval_data *live_intervals);
+   static int reg_allocate(reg_allocator *allocator,
+                           const live_interval_data *live_intervals);
    void calculate_live_intervals();
    void invalidate_live_intervals();
    bool dead_code_eliminate();
