@@ -164,7 +164,7 @@ brw_alloc_reg_set_for_classes(reg_allocator *allocator,
 int
 vec4_generator::reg_allocate(reg_allocator *allocator)
 {
-   int hw_reg_mapping[virtual_grf_count];
+   int hw_reg_mapping[allocator->virtual_grf_count];
    int first_assigned_grf = allocator->first_non_payload_grf;
    int base_reg_count = BRW_MAX_GRF - first_assigned_grf;
    int class_sizes[base_reg_count];
@@ -187,7 +187,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
     */
    class_sizes[class_count++] = 1;
 
-   for (int r = 0; r < virtual_grf_count; r++) {
+   for (int r = 0; r < allocator->virtual_grf_count; r++) {
       int i;
 
       for (i = 0; i < class_count; i++) {
@@ -196,7 +196,8 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       }
       if (i == class_count) {
 	 if (allocator->virtual_grf_sizes[r] >= base_reg_count) {
-	    fail("Object too large to register allocate.\n");
+	    allocator->fail_notify->fail(
+               "Object too large to register allocate.\n");
 	 }
 
 	 class_sizes[class_count++] = allocator->virtual_grf_sizes[r];
@@ -206,10 +207,11 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
    brw_alloc_reg_set_for_classes(allocator, class_sizes, class_count,
                                  base_reg_count);
 
-   struct ra_graph *g = ra_alloc_interference_graph(allocator->regs,
-						    virtual_grf_count);
+   struct ra_graph *g =
+      ra_alloc_interference_graph(allocator->regs,
+                                  allocator->virtual_grf_count);
 
-   for (int i = 0; i < virtual_grf_count; i++) {
+   for (int i = 0; i < allocator->virtual_grf_count; i++) {
       for (int c = 0; c < class_count; c++) {
 	 if (class_sizes[c] == allocator->virtual_grf_sizes[i]) {
 	    ra_set_node_class(g, i, allocator->classes[c]);
@@ -226,7 +228,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
 
    if (!ra_allocate_no_spills(g)) {
       ralloc_free(g);
-      fail("No register spilling support yet\n");
+      allocator->fail_notify->fail("No register spilling support yet\n");
       return 0;
    }
 
@@ -235,11 +237,12 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
     * numbers.
     */
    int total_grf = first_assigned_grf;
-   for (int i = 0; i < virtual_grf_count; i++) {
+   for (int i = 0; i < allocator->virtual_grf_count; i++) {
       int reg = ra_get_node_reg(g, i);
 
       hw_reg_mapping[i] = first_assigned_grf + allocator->ra_reg_to_grf[reg];
-      total_grf = MAX2(total_grf, hw_reg_mapping[i] + virtual_grf_sizes[i]);
+      total_grf = MAX2(total_grf,
+                       hw_reg_mapping[i] + allocator->virtual_grf_sizes[i]);
    }
 
    foreach_list(node, &allocator->instructions) {
