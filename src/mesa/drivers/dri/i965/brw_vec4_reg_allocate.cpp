@@ -97,7 +97,7 @@ vec4_generator::reg_allocate_trivial(int first_non_payload_grf)
 
 static void
 brw_alloc_reg_set_for_classes(void *mem_ctx,
-                              struct reg_allocator *allocator,
+                              reg_allocator *allocator,
 			      int *class_sizes,
 			      int class_count,
 			      int base_reg_count)
@@ -143,7 +143,7 @@ brw_alloc_reg_set_for_classes(void *mem_ctx,
 }
 
 int
-vec4_generator::reg_allocate(struct reg_allocator *allocator,
+vec4_generator::reg_allocate(reg_allocator *allocator,
                              int first_non_payload_grf)
 {
    int hw_reg_mapping[virtual_grf_count];
