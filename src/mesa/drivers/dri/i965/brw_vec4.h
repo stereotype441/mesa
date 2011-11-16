@@ -556,6 +556,7 @@ public:
    void generate_pull_constant_load(vec4_instruction *inst,
 				    struct brw_reg dst,
 				    struct brw_reg index);
+   dst_reg get_assignment_lhs(ir_dereference *ir);
 };
 
 } /* namespace brw */

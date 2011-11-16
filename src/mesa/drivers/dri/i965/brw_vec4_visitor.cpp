@@ -1460,8 +1460,8 @@ vec4_visitor::visit(ir_dereference_record *ir)
  * instead of potentially using a temporary like we might with the
  * ir_dereference handler.
  */
-static dst_reg
-get_assignment_lhs(ir_dereference *ir, vec4_visitor *v)
+dst_reg
+vec4_visitor::get_assignment_lhs(ir_dereference *ir)
 {
    /* The LHS must be a dereference.  If the LHS is a variable indexed array
     * access of a vector, it must be separated into a series conditional moves
@@ -1476,8 +1476,8 @@ get_assignment_lhs(ir_dereference *ir, vec4_visitor *v)
    /* Use the rvalue deref handler for the most part.  We'll ignore
     * swizzles in it and write swizzles using writemask, though.
     */
-   ir->accept(v);
-   return dst_reg(v->result);
+   ir->accept(this);
+   return dst_reg(this->result);
 }
 
 void
@@ -1590,7 +1590,7 @@ vec4_visitor::try_rewrite_rhs_to_dst(ir_assignment *ir,
 void
 vec4_visitor::visit(ir_assignment *ir)
 {
-   dst_reg dst = get_assignment_lhs(ir->lhs, this);
+   dst_reg dst = get_assignment_lhs(ir->lhs);
    uint32_t predicate = BRW_PREDICATE_NONE;
 
    if (!ir->lhs->type->is_scalar() &&
