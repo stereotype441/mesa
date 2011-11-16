@@ -334,6 +334,12 @@ public:
                  fail_tracker *fail_notify);
    ~reg_allocator();
 
+   static int allocate(reg_allocator *allocator,
+                       const live_interval_data *live_intervals);
+
+private:
+   static int allocate_trivial(reg_allocator *allocator);
+
    void *mem_ctx;
 
    struct ra_regs *regs;
@@ -527,9 +533,6 @@ private:
    src_reg src_reg_for_float(float val);
 
    int virtual_grf_alloc(int size);
-   static int reg_allocate_trivial(reg_allocator *allocator);
-   static int reg_allocate(reg_allocator *allocator,
-                           const live_interval_data *live_intervals);
    void calculate_live_intervals();
    void invalidate_live_intervals();
    bool dead_code_eliminate();

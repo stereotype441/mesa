@@ -60,7 +60,7 @@ reg_allocator::assign(int *reg_hw_locations, reg *reg) const
 }
 
 int
-vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
+reg_allocator::allocate_trivial(reg_allocator *allocator)
 {
    int hw_reg_mapping[allocator->virtual_grf_count];
    bool virtual_grf_used[allocator->virtual_grf_count];
@@ -162,8 +162,8 @@ reg_allocator::alloc_reg_set_for_classes(reg_allocator *allocator,
 }
 
 int
-vec4_generator::reg_allocate(reg_allocator *allocator,
-                             const live_interval_data *live_intervals)
+reg_allocator::allocate(reg_allocator *allocator,
+                        const live_interval_data *live_intervals)
 {
    int hw_reg_mapping[allocator->virtual_grf_count];
    int first_assigned_grf = allocator->first_non_payload_grf;
@@ -175,7 +175,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator,
     * register access as a result of broken optimization passes.
     */
    if (0) {
-      return reg_allocate_trivial(allocator);
+      return allocate_trivial(allocator);
    }
 
    /* Set up the register classes.
