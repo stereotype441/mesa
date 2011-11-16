@@ -449,7 +449,8 @@ private:
 
    int virtual_grf_alloc(int size);
    int reg_allocate_trivial(int first_non_payload_grf);
-   int reg_allocate(int first_non_payload_grf);
+   int reg_allocate(struct reg_allocator *allocator,
+                    int first_non_payload_grf);
    void calculate_live_intervals();
    bool dead_code_eliminate();
    bool virtual_grf_interferes(int a, int b);
