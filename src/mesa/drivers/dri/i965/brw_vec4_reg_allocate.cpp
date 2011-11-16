@@ -34,9 +34,11 @@ using namespace brw;
 namespace brw {
 
 reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
+                             const int *virtual_grf_sizes,
                              const exec_list &instructions)
    : first_non_payload_grf(first_non_payload_grf),
      virtual_grf_count(virtual_grf_count),
+     virtual_grf_sizes(virtual_grf_sizes),
      instructions(instructions)
 {
 }
@@ -77,11 +79,11 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
    }
 
    hw_reg_mapping[0] = allocator->first_non_payload_grf;
-   next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
+   next = hw_reg_mapping[0] + allocator->virtual_grf_sizes[0];
    for (i = 1; i < allocator->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
 	 hw_reg_mapping[i] = next;
-	 next += this->virtual_grf_sizes[i];
+	 next += allocator->virtual_grf_sizes[i];
       }
    }
    int total_grf = next;
@@ -180,15 +182,15 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       int i;
 
       for (i = 0; i < class_count; i++) {
-	 if (class_sizes[i] == this->virtual_grf_sizes[r])
+	 if (class_sizes[i] == allocator->virtual_grf_sizes[r])
 	    break;
       }
       if (i == class_count) {
-	 if (this->virtual_grf_sizes[r] >= base_reg_count) {
+	 if (allocator->virtual_grf_sizes[r] >= base_reg_count) {
 	    fail("Object too large to register allocate.\n");
 	 }
 
-	 class_sizes[class_count++] = this->virtual_grf_sizes[r];
+	 class_sizes[class_count++] = allocator->virtual_grf_sizes[r];
       }
    }
 
@@ -200,7 +202,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
 
    for (int i = 0; i < virtual_grf_count; i++) {
       for (int c = 0; c < class_count; c++) {
-	 if (class_sizes[c] == this->virtual_grf_sizes[i]) {
+	 if (class_sizes[c] == allocator->virtual_grf_sizes[i]) {
 	    ra_set_node_class(g, i, allocator->classes[c]);
 	    break;
 	 }

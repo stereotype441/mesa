@@ -283,7 +283,7 @@ class reg_allocator
 {
 public:
    reg_allocator(int first_non_payload_grf, int virtual_grf_count,
-                 const exec_list &instructions);
+                 const int *virtual_grf_sizes, const exec_list &instructions);
 
    struct ra_regs *regs;
 
@@ -308,6 +308,11 @@ public:
     * Number of virtual GRF registers that need to be allocated.
     */
    const int virtual_grf_count;
+
+   /**
+    * Array containing the size of each virtual GRF register.
+    */
+   const int * const virtual_grf_sizes;
 
    /**
     * Instructions for which registers need to be allocated.
