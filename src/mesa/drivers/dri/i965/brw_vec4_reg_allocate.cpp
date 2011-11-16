@@ -37,12 +37,18 @@ reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
                              const int *virtual_grf_sizes,
                              const exec_list &instructions,
                              fail_tracker *fail_notify)
-   : first_non_payload_grf(first_non_payload_grf),
+   : mem_ctx(ralloc_context(NULL)),
+     first_non_payload_grf(first_non_payload_grf),
      virtual_grf_count(virtual_grf_count),
      virtual_grf_sizes(virtual_grf_sizes),
      instructions(instructions),
      fail_notify(fail_notify)
 {
+}
+
+reg_allocator::~reg_allocator()
+{
+   ralloc_free(this->mem_ctx);
 }
 
 void
@@ -109,8 +115,7 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
 }
 
 static void
-brw_alloc_reg_set_for_classes(void *mem_ctx,
-                              reg_allocator *allocator,
+brw_alloc_reg_set_for_classes(reg_allocator *allocator,
 			      int *class_sizes,
 			      int class_count,
 			      int base_reg_count)
@@ -122,11 +127,12 @@ brw_alloc_reg_set_for_classes(void *mem_ctx,
    }
 
    ralloc_free(allocator->ra_reg_to_grf);
-   allocator->ra_reg_to_grf = ralloc_array(mem_ctx, uint8_t, ra_reg_count);
+   allocator->ra_reg_to_grf = ralloc_array(allocator->mem_ctx, uint8_t,
+                                           ra_reg_count);
    ralloc_free(allocator->regs);
    allocator->regs = ra_alloc_reg_set(ra_reg_count);
    ralloc_free(allocator->classes);
-   allocator->classes = ralloc_array(mem_ctx, int, class_count + 1);
+   allocator->classes = ralloc_array(allocator->mem_ctx, int, class_count + 1);
 
    /* Now, add the registers to their classes, and add the conflicts
     * between them and the base GRF registers (and also each other).
@@ -197,7 +203,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       }
    }
 
-   brw_alloc_reg_set_for_classes(mem_ctx, allocator, class_sizes, class_count,
+   brw_alloc_reg_set_for_classes(allocator, class_sizes, class_count,
                                  base_reg_count);
 
    struct ra_graph *g = ra_alloc_interference_graph(allocator->regs,

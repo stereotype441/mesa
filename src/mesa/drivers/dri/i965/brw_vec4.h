@@ -320,6 +320,9 @@ public:
    reg_allocator(int first_non_payload_grf, int virtual_grf_count,
                  const int *virtual_grf_sizes, const exec_list &instructions,
                  fail_tracker *fail_notify);
+   ~reg_allocator();
+
+   void *mem_ctx;
 
    struct ra_regs *regs;
 
