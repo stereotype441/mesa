@@ -338,8 +338,6 @@ public:
 
    dst_reg *variable_storage(ir_variable *var);
 
-   void reladdr_to_temp(ir_instruction *ir, src_reg *reg, int *num_reladdr);
-
    src_reg src_reg_for_float(float val);
 
    /**
@@ -444,8 +442,6 @@ public:
    vec4_instruction *SCRATCH_READ(dst_reg dst, src_reg index);
    vec4_instruction *SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index);
 
-   int implied_mrf_writes(vec4_instruction *inst);
-
    bool try_rewrite_rhs_to_dst(ir_assignment *ir,
 			       dst_reg dst,
 			       src_reg src,
@@ -456,7 +452,6 @@ public:
    void visit_instructions(const exec_list *list);
 
    void emit_bool_to_cond_code(ir_rvalue *ir, uint32_t *predicate);
-   void emit_bool_comparison(unsigned int op, dst_reg dst, src_reg src0, src_reg src1);
    void emit_if_gen6(ir_if *ir);
 
    void emit_block_move(dst_reg *dst, src_reg *src,
@@ -511,8 +506,6 @@ public:
 
    bool try_emit_sat(ir_expression *ir);
    void resolve_ud_negate(src_reg *reg);
-
-   bool process_move_condition(ir_rvalue *ir);
 
    void generate_code();
    void generate_vs_instruction(vec4_instruction *inst,
