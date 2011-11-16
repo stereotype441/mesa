@@ -38,8 +38,8 @@ reg_allocator::reg_allocator(int first_non_payload_grf)
 {
 }
 
-static void
-assign(int *reg_hw_locations, reg *reg)
+void
+reg_allocator::assign(int *reg_hw_locations, reg *reg) const
 {
    if (reg->file == GRF) {
       reg->reg = reg_hw_locations[reg->reg];
@@ -86,10 +86,10 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
    foreach_iter(exec_list_iterator, iter, this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
-      assign(hw_reg_mapping, &inst->dst);
-      assign(hw_reg_mapping, &inst->src[0]);
-      assign(hw_reg_mapping, &inst->src[1]);
-      assign(hw_reg_mapping, &inst->src[2]);
+      allocator->assign(hw_reg_mapping, &inst->dst);
+      allocator->assign(hw_reg_mapping, &inst->src[0]);
+      allocator->assign(hw_reg_mapping, &inst->src[1]);
+      allocator->assign(hw_reg_mapping, &inst->src[2]);
    }
 
    if (total_grf > BRW_MAX_GRF) {
@@ -231,10 +231,10 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
    foreach_list(node, &this->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
-      assign(hw_reg_mapping, &inst->dst);
-      assign(hw_reg_mapping, &inst->src[0]);
-      assign(hw_reg_mapping, &inst->src[1]);
-      assign(hw_reg_mapping, &inst->src[2]);
+      allocator->assign(hw_reg_mapping, &inst->dst);
+      allocator->assign(hw_reg_mapping, &inst->src[0]);
+      allocator->assign(hw_reg_mapping, &inst->src[1]);
+      allocator->assign(hw_reg_mapping, &inst->src[2]);
    }
 
    ralloc_free(g);

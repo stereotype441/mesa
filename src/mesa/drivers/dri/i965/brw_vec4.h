@@ -302,6 +302,8 @@ public:
     * First GRF available for register allocation.
     */
    int first_non_payload_grf;
+
+   void assign(int *reg_hw_locations, reg *reg) const;
 };
 
 class vec4_generator
