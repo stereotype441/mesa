@@ -33,6 +33,11 @@ using namespace brw;
 
 namespace brw {
 
+reg_allocator::reg_allocator(int first_non_payload_grf)
+   : first_non_payload_grf(first_non_payload_grf)
+{
+}
+
 static void
 assign(int *reg_hw_locations, reg *reg)
 {
@@ -42,7 +47,7 @@ assign(int *reg_hw_locations, reg *reg)
 }
 
 int
-vec4_generator::reg_allocate_trivial(int first_non_payload_grf)
+vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
 {
    int hw_reg_mapping[this->virtual_grf_count];
    bool virtual_grf_used[this->virtual_grf_count];
@@ -68,7 +73,7 @@ vec4_generator::reg_allocate_trivial(int first_non_payload_grf)
       }
    }
 
-   hw_reg_mapping[0] = first_non_payload_grf;
+   hw_reg_mapping[0] = allocator->first_non_payload_grf;
    next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
    for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
@@ -143,11 +148,10 @@ brw_alloc_reg_set_for_classes(void *mem_ctx,
 }
 
 int
-vec4_generator::reg_allocate(reg_allocator *allocator,
-                             int first_non_payload_grf)
+vec4_generator::reg_allocate(reg_allocator *allocator)
 {
    int hw_reg_mapping[virtual_grf_count];
-   int first_assigned_grf = first_non_payload_grf;
+   int first_assigned_grf = allocator->first_non_payload_grf;
    int base_reg_count = BRW_MAX_GRF - first_assigned_grf;
    int class_sizes[base_reg_count];
    int class_count = 0;
@@ -156,7 +160,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator,
     * register access as a result of broken optimization passes.
     */
    if (0) {
-      return reg_allocate_trivial(first_non_payload_grf);
+      return reg_allocate_trivial(allocator);
    }
 
    calculate_live_intervals();

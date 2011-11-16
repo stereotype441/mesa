@@ -282,6 +282,8 @@ public:
 class reg_allocator
 {
 public:
+   reg_allocator(int first_non_payload_grf);
+
    struct ra_regs *regs;
 
    /**
@@ -295,6 +297,11 @@ public:
     * GRF for that object.
     */
    uint8_t *ra_reg_to_grf;
+
+   /**
+    * First GRF available for register allocation.
+    */
+   int first_non_payload_grf;
 };
 
 class vec4_generator
@@ -466,9 +473,8 @@ private:
    src_reg src_reg_for_float(float val);
 
    int virtual_grf_alloc(int size);
-   int reg_allocate_trivial(int first_non_payload_grf);
-   int reg_allocate(reg_allocator *allocator,
-                    int first_non_payload_grf);
+   int reg_allocate_trivial(reg_allocator *allocator);
+   int reg_allocate(reg_allocator *allocator);
    void calculate_live_intervals();
    bool dead_code_eliminate();
    bool virtual_grf_interferes(int a, int b);

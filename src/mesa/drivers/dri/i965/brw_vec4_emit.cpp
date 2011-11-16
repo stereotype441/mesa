@@ -696,8 +696,8 @@ vec4_generator::generate_code(int first_non_payload_grf)
 
    brw_set_access_mode(p, BRW_ALIGN_16);
 
-   reg_allocator allocator;
-   int total_grf = reg_allocate(&allocator, first_non_payload_grf);
+   reg_allocator allocator(first_non_payload_grf);
+   int total_grf = reg_allocate(&allocator);
 
    if (failed())
       return 0;
