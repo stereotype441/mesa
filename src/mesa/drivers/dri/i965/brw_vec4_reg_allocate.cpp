@@ -33,9 +33,11 @@ using namespace brw;
 
 namespace brw {
 
-reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count)
+reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
+                             const exec_list &instructions)
    : first_non_payload_grf(first_non_payload_grf),
-     virtual_grf_count(virtual_grf_count)
+     virtual_grf_count(virtual_grf_count),
+     instructions(instructions)
 {
 }
 
@@ -62,7 +64,7 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
       virtual_grf_used[i] = false;
    }
 
-   foreach_iter(exec_list_iterator, iter, this->instructions) {
+   foreach_iter(exec_list_iterator, iter, allocator->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
       if (inst->dst.file == GRF)
@@ -84,7 +86,7 @@ vec4_generator::reg_allocate_trivial(reg_allocator *allocator)
    }
    int total_grf = next;
 
-   foreach_iter(exec_list_iterator, iter, this->instructions) {
+   foreach_iter(exec_list_iterator, iter, allocator->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
       allocator->assign(hw_reg_mapping, &inst->dst);
@@ -229,7 +231,7 @@ vec4_generator::reg_allocate(reg_allocator *allocator)
       total_grf = MAX2(total_grf, hw_reg_mapping[i] + virtual_grf_sizes[i]);
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &allocator->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
       allocator->assign(hw_reg_mapping, &inst->dst);
