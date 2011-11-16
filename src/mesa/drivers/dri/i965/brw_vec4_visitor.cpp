@@ -2428,7 +2428,7 @@ vec4_visitor::fail(const char *format, ...)
 
    this->fail_msg = msg;
 
-   if (INTEL_DEBUG & DEBUG_VS) {
+   if (get_debug_flag()) {
       fprintf(stderr, "%s",  msg);
    }
 }

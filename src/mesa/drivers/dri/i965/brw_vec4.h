@@ -515,6 +515,8 @@ public:
    bool try_emit_sat(ir_expression *ir);
    void resolve_ud_negate(src_reg *reg);
 
+   bool get_debug_flag() const;
+
    int generate_code(int first_non_payload_grf);
    void generate_vs_instruction(vec4_instruction *inst,
 				struct brw_reg dst,

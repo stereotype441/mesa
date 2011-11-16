@@ -660,9 +660,20 @@ vec4_visitor::run()
    prog_data->total_grf = generate_code(first_non_payload_grf);
 }
 
+/**
+ * Return a bool indicating whether debugging output should be generated
+ * for this shader.
+ */
+bool
+vec4_visitor::get_debug_flag() const
+{
+   return INTEL_DEBUG & DEBUG_VS;
+}
+
 int
 vec4_visitor::generate_code(int first_non_payload_grf)
 {
+   bool debug_flag = get_debug_flag();
    int last_native_inst = 0;
    const char *last_annotation_string = NULL;
    ir_instruction *last_annotation_ir = NULL;
@@ -681,7 +692,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
    if (failed())
       return 0;
 
-   if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
+   if (unlikely(debug_flag)) {
       printf("Native code for vertex shader %d:\n", prog->Name);
    }
 
@@ -689,7 +700,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
       vec4_instruction *inst = (vec4_instruction *)node;
       struct brw_reg src[3], dst;
 
-      if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
+      if (unlikely(debug_flag)) {
 	 if (last_annotation_ir != inst->ir) {
 	    last_annotation_ir = inst->ir;
 	    if (last_annotation_ir) {
@@ -862,7 +873,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
 	 break;
       }
 
-      if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
+      if (unlikely(debug_flag)) {
 	 for (unsigned int i = last_native_inst; i < p->nr_insn; i++) {
 	    if (0) {
 	       printf("0x%08x 0x%08x 0x%08x 0x%08x ",
@@ -878,7 +889,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
       last_native_inst = p->nr_insn;
    }
 
-   if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
+   if (unlikely(debug_flag)) {
       printf("\n");
    }
 
@@ -893,7 +904,7 @@ vec4_visitor::generate_code(int first_non_payload_grf)
     * case you're doing that.
     */
    if (0) {
-      if (unlikely(INTEL_DEBUG & DEBUG_VS)) {
+      if (unlikely(debug_flag)) {
 	 for (unsigned int i = 0; i < p->nr_insn; i++) {
 	    printf("0x%08x 0x%08x 0x%08x 0x%08x ",
 		   ((uint32_t *)&p->store[i])[3],
