@@ -508,7 +508,7 @@ private:
    src_reg src_reg_for_float(float val);
 
    int virtual_grf_alloc(int size);
-   int reg_allocate_trivial(reg_allocator *allocator);
+   static int reg_allocate_trivial(reg_allocator *allocator);
    int reg_allocate(reg_allocator *allocator);
    void calculate_live_intervals();
    bool dead_code_eliminate();
