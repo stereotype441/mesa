@@ -247,8 +247,8 @@ public:
 		    src_reg src1 = src_reg(),
 		    src_reg src2 = src_reg());
 
-   struct brw_reg get_dst(void);
-   struct brw_reg get_src(int i);
+   struct brw_reg get_dst(bool single_program_flow);
+   struct brw_reg get_src(bool single_program_flow, int i);
 
    enum opcode opcode; /* BRW_OPCODE_* or FS_OPCODE_* */
    dst_reg dst;
@@ -331,7 +331,7 @@ class reg_allocator
 public:
    reg_allocator(int first_non_payload_grf, int virtual_grf_count,
                  const int *virtual_grf_sizes, const exec_list &instructions,
-                 fail_tracker *fail_notify);
+                 fail_tracker *fail_notify, bool single_program_flow);
    ~reg_allocator();
 
    int allocate(const live_interval_data *live_intervals);
@@ -382,6 +382,11 @@ private:
     * Object which should be notified if a register allocation failure occurs.
     */
    fail_tracker * const fail_notify;
+
+   /**
+    * True if we are compiling a SIMD4 shader, false for SIMD4x2.
+    */
+   const bool single_program_flow;
 };
 
 class vec4_generator : public fail_tracker

@@ -146,13 +146,18 @@ vec4_visitor::setup_payload(void)
 }
 
 struct brw_reg
-vec4_instruction::get_dst(void)
+vec4_instruction::get_dst(bool single_program_flow)
 {
    struct brw_reg brw_reg;
 
    switch (dst.file) {
    case GRF:
-      brw_reg = brw_vec8_grf(dst.reg + dst.reg_offset, 0);
+      if (single_program_flow) {
+         brw_reg = brw_vec4_grf((dst.reg + dst.reg_offset) / 2,
+                                ((dst.reg + dst.reg_offset) % 2) * 4);
+      } else {
+         brw_reg = brw_vec8_grf(dst.reg + dst.reg_offset, 0);
+      }
       brw_reg = retype(brw_reg, dst.type);
       brw_reg.dw1.bits.writemask = dst.writemask;
       break;
@@ -180,13 +185,18 @@ vec4_instruction::get_dst(void)
 }
 
 struct brw_reg
-vec4_instruction::get_src(int i)
+vec4_instruction::get_src(bool single_program_flow, int i)
 {
    struct brw_reg brw_reg;
 
    switch (src[i].file) {
    case GRF:
-      brw_reg = brw_vec8_grf(src[i].reg + src[i].reg_offset, 0);
+      if (single_program_flow) {
+         brw_reg = brw_vec4_grf((src[i].reg + src[i].reg_offset) / 2,
+                                ((src[i].reg + src[i].reg_offset) % 2) * 4);
+      } else {
+         brw_reg = brw_vec8_grf(src[i].reg + src[i].reg_offset, 0);
+      }
       brw_reg = retype(brw_reg, src[i].type);
       brw_reg.dw1.bits.swizzle = src[i].swizzle;
       if (src[i].abs)
@@ -699,7 +709,8 @@ vec4_generator::generate_code(int first_non_payload_grf)
    calculate_live_intervals();
 
    reg_allocator allocator(first_non_payload_grf, this->virtual_grf_count,
-                           this->virtual_grf_sizes, this->instructions, this);
+                           this->virtual_grf_sizes, this->instructions, this,
+                           p->single_program_flow);
    int total_grf = allocator.allocate(this->live_intervals);
 
    if (failed())
@@ -730,9 +741,9 @@ vec4_generator::generate_code(int first_non_payload_grf)
       }
 
       for (unsigned int i = 0; i < 3; i++) {
-	 src[i] = inst->get_src(i);
+	 src[i] = inst->get_src(this->p->single_program_flow, i);
       }
-      dst = inst->get_dst();
+      dst = inst->get_dst(this->p->single_program_flow);
 
       brw_set_conditionalmod(p, inst->conditional_mod);
       brw_set_predicate_control(p, inst->predicate);
