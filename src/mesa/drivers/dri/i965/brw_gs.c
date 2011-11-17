@@ -53,12 +53,6 @@ static void compile_gs_prog( struct brw_context *brw,
    void *mem_ctx;
    GLuint program_size;
 
-   /* Gen6: VF has already converted into polygon, and LINELOOP is
-    * converted to LINESTRIP at the beginning of the 3D pipeline.
-    */
-   if (intel->gen >= 6)
-      return;
-
    memset(&c, 0, sizeof(c));
    
    c.key = *key;
@@ -80,24 +74,60 @@ static void compile_gs_prog( struct brw_context *brw,
     */
    brw_set_mask_control(&c.func, BRW_MASK_DISABLE);
 
-
-   /* Note that primitives which don't require a GS program have
-    * already been weeded out by this stage:
-    */
-
-   switch (key->primitive) {
-   case _3DPRIM_QUADLIST:
-      brw_gs_quads( &c, key );
-      break;
-   case _3DPRIM_QUADSTRIP:
-      brw_gs_quad_strip( &c, key );
-      break;
-   case _3DPRIM_LINELOOP:
-      brw_gs_lines( &c );
-      break;
-   default:
-      ralloc_free(mem_ctx);
-      return;
+   if (intel->gen >= 6) {
+      unsigned num_verts;
+      /* On Sandybridge, we use the GS for implementing transform feedback
+       * (called "Stream Out" in the PRM).
+       */
+      switch (key->primitive) {
+      case _3DPRIM_POINTLIST:
+	 assert(!"FINISHME: pointlist.");
+	 break;
+      case _3DPRIM_LINELIST:
+	 assert(!"FINISHME: linelist.");
+	 break;
+      case _3DPRIM_LINESTRIP:
+	 assert(!"FINISHME: linestrip.");
+	 break;
+      case _3DPRIM_TRILIST:
+	 num_verts = 3;
+	 break;
+      case _3DPRIM_TRISTRIP:
+	 assert(!"FINISHME: tristrip.");
+	 break;
+      case _3DPRIM_TRIFAN:
+	 assert(!"FINISHME: trifan.");
+	 break;
+      case _3DPRIM_QUADLIST:
+	 num_verts = 4;
+	 break;
+      case _3DPRIM_QUADSTRIP:
+	 assert(!"FINISHME: quadstrip. can this even happen?");
+	 break;
+      default:
+	 assert(!"Unexpected primitive type in Gen6 SOL program.");
+	 return;
+      }
+      gen6_sol_program(&c, key, num_verts);
+   } else {
+      /* On Gen4-5, we use the GS to decompose certain types of primitives.
+       * Note that primitives which don't require a GS program have already
+       * been weeded out by now.
+       */
+      switch (key->primitive) {
+      case _3DPRIM_QUADLIST:
+	 brw_gs_quads( &c, key );
+	 break;
+      case _3DPRIM_QUADSTRIP:
+	 brw_gs_quad_strip( &c, key );
+	 break;
+      case _3DPRIM_LINELOOP:
+	 brw_gs_lines( &c );
+	 break;
+      default:
+	 ralloc_free(mem_ctx);
+	 return;
+      }
    }
 
    /* get the program
@@ -163,7 +193,7 @@ static void populate_key( struct brw_context *brw,
    key->userclip_active = (ctx->Transform.ClipPlanesEnabled != 0);
 
    key->need_gs_prog = (intel->gen >= 6)
-      ? 0
+      ? 1
       : (brw->primitive == _3DPRIM_QUADLIST ||
 	 brw->primitive == _3DPRIM_QUADSTRIP ||
 	 brw->primitive == _3DPRIM_LINELOOP);

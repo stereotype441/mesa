@@ -476,6 +476,7 @@ static const struct dri_debug_control debug_control[] = {
    { "urb",   DEBUG_URB },
    { "vs",    DEBUG_VS },
    { "clip",  DEBUG_CLIP },
+   { "aub",   DEBUG_AUB },
    { NULL,    0 }
 };
 
@@ -880,6 +881,15 @@ intelInitContext(struct intel_context *intel,
    INTEL_DEBUG = driParseDebugString(getenv("INTEL_DEBUG"), debug_control);
    if (INTEL_DEBUG & DEBUG_BUFMGR)
       dri_bufmgr_set_debug(intel->bufmgr, true);
+
+   if (INTEL_DEBUG & DEBUG_AUB) {
+       fprintf(stderr, "Enable Aub file dump.\n");
+       intel->aub_file = fopen("i965.aub", "w");
+       if (intel->aub_file)
+          drm_intel_bufmgr_gem_set_aubfile(intel->bufmgr, intel->aub_file);
+       else
+          fprintf(stderr, "Fail to create aub file.\n");
+   }
 
    intel_batchbuffer_init(intel);
 
