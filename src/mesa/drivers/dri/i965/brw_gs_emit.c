@@ -79,7 +79,7 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
     */
    struct brw_reg m2 = retype(brw_message_reg(2), BRW_REGISTER_TYPE_UD);
    /* load up the URB handle. */
-   brw_MOV(p, m2, c->reg.temp);
+   brw_MOV(p, m2, retype(c->reg.temp, BRW_REGISTER_TYPE_UD));
    /* load FFTID */
    brw_MOV(p, retype(brw_vec1_reg(BRW_MESSAGE_REGISTER_FILE, 2, 5), BRW_REGISTER_TYPE_UD),
    retype(brw_vec1_grf(0, 5), BRW_REGISTER_TYPE_UD));
@@ -96,13 +96,13 @@ static void brw_gs_emit_vue(struct brw_gs_compile *c,
     * allocated each time.
     */
    brw_urb_WRITE(p, 
-		 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
+		 last ? retype(brw_null_reg(), BRW_REGISTER_TYPE_UD) : c->reg.temp,
 		 2,
 		 m2,
-		 false,
+		 allocate,
 		 1,		/* used */
 		 c->nr_regs + 1, /* msg length */
-		 0, /* rlen */
+		 allocate, /* rlen */
 		 last, /* eot */
 		 1,		/* writes_complete */
 		 0,		/* urb offset */
@@ -118,7 +118,7 @@ static void brw_gs_ff_sync(struct brw_gs_compile *c, int num_prim)
    brw_MOV(p, m2, retype(brw_vec8_grf(0, 0), BRW_REGISTER_TYPE_UD));
    brw_MOV(p, get_element_ud(m2, 1), brw_imm_ud(num_prim));
    brw_ff_sync(p,
-	       c->reg.temp,
+	       retype(c->reg.temp, BRW_REGISTER_TYPE_UD),
 	       2,
 	       m2,
 	       1, /* allocate */

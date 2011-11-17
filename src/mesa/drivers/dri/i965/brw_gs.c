@@ -99,7 +99,8 @@ static void compile_gs_prog( struct brw_context *brw,
 	 assert(!"FINISHME: trifan.");
 	 break;
       case _3DPRIM_QUADLIST:
-	 num_verts = 4;
+	 key->primitive = _3DPRIM_POLYGON;
+	 num_verts = 3;
 	 break;
       case _3DPRIM_QUADSTRIP:
 	 assert(!"FINISHME: quadstrip. can this even happen?");
