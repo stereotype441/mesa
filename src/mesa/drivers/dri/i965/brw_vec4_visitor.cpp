@@ -126,6 +126,12 @@ vec4_generator::emit(enum opcode opcode, dst_reg dst, src_reg src0)
 }
 
 vec4_instruction *
+vec4_generator::emit(enum opcode opcode, dst_reg dst)
+{
+   return emit(new(mem_ctx) vec4_instruction(this, opcode, dst));
+}
+
+vec4_instruction *
 vec4_generator::emit(enum opcode opcode)
 {
    return emit(new(mem_ctx) vec4_instruction(this, opcode, dst_reg()));
@@ -488,6 +494,16 @@ dst_reg::dst_reg(class vec4_generator *v, const struct glsl_type *type)
    }
 
    this->type = brw_type_for_base_type(type);
+}
+
+dst_reg::dst_reg(class vec4_generator *v, int size, int type)
+{
+   init();
+
+   this->file = GRF;
+   this->reg = v->virtual_grf_alloc(size);
+   this->writemask = WRITEMASK_XYZW;
+   this->type = type;
 }
 
 /* Our support for uniforms is piggy-backed on the struct

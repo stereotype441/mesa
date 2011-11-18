@@ -89,7 +89,7 @@ gs_vec4_compiler::setup_payload()
 
    for (unsigned i = 0; i < this->key->num_vertices; ++i) {
       this->vertex_data[i] =
-         retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD);
+         src_reg(dst_reg(retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD)));
       reg += this->urb_entry_read_length;
    }
 
@@ -99,6 +99,14 @@ gs_vec4_compiler::setup_payload()
 void
 gs_vec4_compiler::emit_code()
 {
+   dst_reg m1(brw_message_reg(1));
+   dst_reg m1_0 = m1;
+   m1_0.writemask = WRITEMASK_Y;
+   m1_0.height = 1;
+   dst_reg m1_1 = m1;
+   m1_1.writemask = WRITEMASK_Y;
+   m1_1.height = 1;
+
    /* Writeback register used to hold the value returned from FF sync and URB
     * writes
     */
@@ -107,23 +115,22 @@ gs_vec4_compiler::emit_code()
    /* TODO: don't emit vertices if rendering disabled */
 
    current_annotation = "FF sync";
-   emit(MOV(dst_reg(brw_message_reg(1)), src_reg(this->r0)));
-   emit(MOV(dst_reg(brw_message_reg(1)).subreg(1).width(1),
-            src_reg((unsigned) 1)));
+   emit(MOV(m1, src_reg(this->r0)));
+   emit(MOV(m1_1, src_reg((unsigned) 1)));
    vec4_instruction *ff_sync = emit(GS_OPCODE_FF_SYNC, writeback);
    ff_sync->base_mrf = 1;
 
    for (unsigned vertex = 0; vertex < this->key->num_vertices; ++vertex) {
       /* TODO: need to set more fields in the URB header */
       current_annotation = "URB header";
-      emit(MOV(dst_reg(brw_message_reg(1)), src_reg(this->r0)));
-      emit(MOV(dst_reg(brw_message_reg(1)).width(1),
-               src_reg(writeback).width(1)));
+      emit(MOV(m1, src_reg(this->r0)));
+      emit(MOV(m1_0, src_reg(writeback)));
 
       current_annotation = "Vertex data";
       for (unsigned urb_reg = 0; urb_reg < this->urb_entry_read_length; ++urb_reg) {
-         emit(MOV(dst_reg(brw_message_reg(2 + urb_reg)),
-                  this->vertex_data[vertex].offset(urb_reg)));
+         src_reg src(this->vertex_data[vertex]);
+         src.reg_offset += urb_reg;
+         emit(MOV(dst_reg(brw_message_reg(2 + urb_reg)), src));
       }
 
       // TODO: GS_OPCODE_URB_WRITE is like VS_OPCODE_URB_WRITE, except:

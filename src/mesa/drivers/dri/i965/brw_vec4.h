@@ -85,6 +85,8 @@ public:
    int type;
    struct brw_reg fixed_hw_reg;
 
+   unsigned height; // TODO
+
    /** Value for file == BRW_IMMMEDIATE_FILE */
    union {
       int32_t i;
@@ -160,8 +162,6 @@ public:
       this->imm.i = i;
    }
 
-   src_reg(struct brw_reg reg); // TODO
-
    bool equals(src_reg *r);
    bool is_zero() const;
    bool is_one() const;
@@ -169,9 +169,6 @@ public:
    src_reg(class vec4_generator *v, const struct glsl_type *type);
 
    explicit src_reg(dst_reg reg);
-
-   src_reg offset(unsigned value) const; // TODO
-   src_reg width(unsigned value) const; // TODO
 
    GLuint swizzle; /**< SWIZZLE_XYZW swizzles from Mesa. */
    bool negate;
@@ -224,12 +221,9 @@ public:
    }
 
    dst_reg(class vec4_generator *v, const struct glsl_type *type);
-   dst_reg(class vec4_generator *v, unsigned size, int type); // TODO: make type an enum
+   dst_reg(class vec4_generator *v, int size, int type);
 
    explicit dst_reg(src_reg reg);
-
-   dst_reg subreg(unsigned value) const; // TODO
-   dst_reg width(unsigned value) const; // TODO
 
    int writemask; /**< Bitfield of WRITEMASK_[XYZW] */
 
@@ -448,7 +442,7 @@ protected:
 
    vec4_instruction *emit(enum opcode opcode);
 
-   vec4_instruction *emit(enum opcode opcode, dst_reg dst); // TODO
+   vec4_instruction *emit(enum opcode opcode, dst_reg dst);
 
    vec4_instruction *emit(enum opcode opcode, dst_reg dst, src_reg src0);
 
@@ -642,6 +636,7 @@ private:
                            const struct glsl_type *type);
    friend dst_reg::dst_reg(class vec4_generator *v,
                            const struct glsl_type *type);
+   friend dst_reg::dst_reg(class vec4_generator *v, int size, int type);
 };
 
 class vec4_visitor : public vec4_generator, private ir_visitor
