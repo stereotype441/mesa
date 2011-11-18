@@ -383,6 +383,20 @@ vec4_generator::generate_urb_write(vec4_instruction *inst)
 }
 
 void
+vec4_generator::generate_ff_sync(vec4_instruction *inst, struct brw_reg dst)
+{
+   struct brw_reg mrf =
+      retype(brw_message_reg(inst->base_mrf), BRW_REGISTER_TYPE_UD);
+   brw_ff_sync(p,
+               stride(dst, 8, 8, 1), // TODO: why is this necessary?
+               inst->base_mrf,                  /* msg_reg_nr */
+               mrf,                             /* src0 */
+               true,                            /* allocate */
+               1,                               /* response_length */
+               false);                          /* eot */
+}
+
+void
 vec4_generator::generate_oword_dual_block_offsets(struct brw_reg m1,
                                                   struct brw_reg index)
 {
@@ -618,6 +632,10 @@ vec4_generator::generate_vs_instruction(vec4_instruction *instruction,
 
    case VS_OPCODE_PULL_CONSTANT_LOAD:
       generate_pull_constant_load(inst, dst, src[0]);
+      break;
+
+   case GS_OPCODE_FF_SYNC:
+      generate_ff_sync(inst, dst);
       break;
 
    default:
