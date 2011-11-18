@@ -36,8 +36,7 @@ namespace brw {
 reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
                              const int *virtual_grf_sizes,
                              const exec_list &instructions,
-                             fail_tracker *fail_notify,
-                             bool single_program_flow)
+                             fail_tracker *fail_notify)
    : mem_ctx(ralloc_context(NULL)),
      regs(NULL),
      classes(NULL),
@@ -46,8 +45,7 @@ reg_allocator::reg_allocator(int first_non_payload_grf, int virtual_grf_count,
      virtual_grf_count(virtual_grf_count),
      virtual_grf_sizes(virtual_grf_sizes),
      instructions(instructions),
-     fail_notify(fail_notify),
-     single_program_flow(single_program_flow)
+     fail_notify(fail_notify)
 {
 }
 
@@ -67,7 +65,6 @@ reg_allocator::assign(int *reg_hw_locations, reg *reg) const
 int
 reg_allocator::allocate_trivial()
 {
-   int slots_per_reg = this->single_program_flow ? 2 : 1;
    int hw_reg_mapping[this->virtual_grf_count];
    bool virtual_grf_used[this->virtual_grf_count];
    int i;
@@ -92,7 +89,7 @@ reg_allocator::allocate_trivial()
       }
    }
 
-   hw_reg_mapping[0] = this->first_non_payload_grf * slots_per_reg;
+   hw_reg_mapping[0] = this->first_non_payload_grf;
    next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
    for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
@@ -111,12 +108,12 @@ reg_allocator::allocate_trivial()
       assign(hw_reg_mapping, &inst->src[2]);
    }
 
-   if (total_grf > BRW_MAX_GRF * slots_per_reg) {
+   if (total_grf > BRW_MAX_GRF) {
       this->fail_notify->fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   total_grf, BRW_MAX_GRF * slots_per_reg);
+	   total_grf, BRW_MAX_GRF);
    }
 
-   return CEILING(total_grf, slots_per_reg);
+   return total_grf;
 }
 
 void
@@ -167,10 +164,9 @@ reg_allocator::alloc_reg_set_for_classes(int *class_sizes,
 int
 reg_allocator::allocate(const live_interval_data *live_intervals)
 {
-   int slots_per_reg = this->single_program_flow ? 2 : 1;
    int hw_reg_mapping[this->virtual_grf_count];
-   int first_assigned_grf = this->first_non_payload_grf * slots_per_reg;
-   int base_reg_count = BRW_MAX_GRF * slots_per_reg - first_assigned_grf;
+   int first_assigned_grf = this->first_non_payload_grf;
+   int base_reg_count = BRW_MAX_GRF - first_assigned_grf;
    int class_sizes[base_reg_count];
    int class_count = 0;
 
@@ -256,7 +252,7 @@ reg_allocator::allocate(const live_interval_data *live_intervals)
 
    ralloc_free(g);
 
-   return CEILING(total_grf, slots_per_reg);
+   return total_grf;
 }
 
 } /* namespace brw */
