@@ -96,8 +96,6 @@ reg_allocator::allocate_trivial()
    next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
    for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
-         if (this->single_program_flow && this->virtual_grf_sizes[i] != 1)
-            next = ALIGN(next, 2);
 	 hw_reg_mapping[i] = next;
 	 next += this->virtual_grf_sizes[i];
       }
@@ -129,10 +127,7 @@ reg_allocator::alloc_reg_set_for_classes(int *class_sizes,
    /* Compute the total number of registers across all classes. */
    int ra_reg_count = 0;
    for (int i = 0; i < class_count; i++) {
-      if (this->single_program_flow && class_sizes[i] != 1)
-         ra_reg_count += base_reg_count / 2 - (class_sizes[i] / 2 - 1);
-      else
-         ra_reg_count += base_reg_count - (class_sizes[i] - 1);
+      ra_reg_count += base_reg_count - (class_sizes[i] - 1);
    }
 
    ralloc_free(this->ra_reg_to_grf);
@@ -147,15 +142,7 @@ reg_allocator::alloc_reg_set_for_classes(int *class_sizes,
     */
    int reg = 0;
    for (int i = 0; i < class_count; i++) {
-      int class_reg_count;
-      int stride;
-      if (this->single_program_flow && class_sizes[i] != 1) {
-         class_reg_count = base_reg_count / 2 - (class_sizes[i] / 2 - 1);
-         stride = 2;
-      } else {
-         class_reg_count = base_reg_count - (class_sizes[i] - 1);
-         stride = 1;
-      }
+      int class_reg_count = base_reg_count - (class_sizes[i] - 1);
       this->classes[i] = ra_alloc_reg_class(this->regs);
 
       for (int j = 0; j < class_reg_count; j++) {
@@ -163,8 +150,8 @@ reg_allocator::alloc_reg_set_for_classes(int *class_sizes,
 
 	 this->ra_reg_to_grf[reg] = j;
 
-	 for (int base_reg = j * stride;
-	      base_reg < j * stride + class_sizes[i];
+	 for (int base_reg = j;
+	      base_reg < j + class_sizes[i];
 	      base_reg++) {
 	    ra_add_transitive_reg_conflict(this->regs, base_reg, reg);
 	 }
