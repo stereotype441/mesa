@@ -85,8 +85,6 @@ public:
    int type;
    struct brw_reg fixed_hw_reg;
 
-   unsigned height; // TODO
-
    /** Value for file == BRW_IMMMEDIATE_FILE */
    union {
       int32_t i;

@@ -102,10 +102,8 @@ gs_vec4_compiler::emit_code()
    dst_reg m1(retype(brw_message_reg(1), BRW_REGISTER_TYPE_UD));
    dst_reg m1_0 = m1;
    m1_0.writemask = WRITEMASK_Y;
-   m1_0.height = 1;
    dst_reg m1_1 = m1;
    m1_1.writemask = WRITEMASK_Y;
-   m1_1.height = 1;
 
    /* Writeback register used to hold the value returned from FF sync and URB
     * writes
