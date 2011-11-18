@@ -114,7 +114,7 @@ static const struct brw_tracked_state *gen6_atoms[] =
 
    &brw_wm_input_sizes,
    &brw_vs_prog, /* must do before state base address */
-   &brw_gs_prog, /* must do before state base address */
+   &brw_gs_vec4_prog, /* must do before state base address */
    &brw_wm_prog, /* must do before state base address */
 
    &gen6_clip_vp,
@@ -181,7 +181,7 @@ const struct brw_tracked_state *gen7_atoms[] =
 
    &brw_wm_input_sizes,
    &brw_vs_prog,
-   &brw_gs_prog,
+   &brw_gs_vec4_prog,
    &brw_wm_prog,
 
    /* Command packets: */

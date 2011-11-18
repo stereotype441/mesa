@@ -47,6 +47,7 @@ extern const struct brw_tracked_state brw_constant_buffer;
 extern const struct brw_tracked_state brw_curbe_offsets;
 extern const struct brw_tracked_state brw_invarient_state;
 extern const struct brw_tracked_state brw_gs_prog;
+extern const struct brw_tracked_state brw_gs_vec4_prog;
 extern const struct brw_tracked_state brw_gs_unit;
 extern const struct brw_tracked_state brw_line_stipple;
 extern const struct brw_tracked_state brw_aa_line_parameters;
