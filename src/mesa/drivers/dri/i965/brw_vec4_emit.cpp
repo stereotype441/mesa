@@ -170,6 +170,7 @@ vec4_instruction::get_dst(bool single_program_flow)
 
    case HW_REG:
       brw_reg = dst.fixed_hw_reg;
+      brw_reg.dw1.bits.writemask &= dst.writemask;
       break;
 
    case BAD_FILE:
