@@ -638,6 +638,10 @@ vec4_generator::generate_vs_instruction(vec4_instruction *instruction,
       generate_ff_sync(inst, dst);
       break;
 
+   case GS_OPCODE_URB_WRITE:
+      generate_urb_write(inst); // TODO
+      break;
+
    default:
       if (inst->opcode < (int)ARRAY_SIZE(brw_opcodes)) {
 	 fail("unsupported opcode in `%s' in %s\n",
