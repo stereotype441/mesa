@@ -99,7 +99,7 @@ gs_vec4_compiler::setup_payload()
 void
 gs_vec4_compiler::emit_code()
 {
-   dst_reg m1(brw_message_reg(1));
+   dst_reg m1(retype(brw_message_reg(1), BRW_REGISTER_TYPE_UD));
    dst_reg m1_0 = m1;
    m1_0.writemask = WRITEMASK_Y;
    m1_0.height = 1;
