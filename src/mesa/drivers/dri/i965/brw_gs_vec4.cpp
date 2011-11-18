@@ -169,6 +169,7 @@ compile_gs_vec4_prog(struct brw_context *brw, gs_vec4_prog_key *key)
    brw_compile p;
    memset(&p, 0, sizeof(p));
    brw_init_compile(brw, &p, mem_ctx); // TODO: should go inside gs_vec4_compiler.
+   p.single_program_flow = true;
 
    gs_vec4_compiler compiler(&p, key);
    compiler.run();

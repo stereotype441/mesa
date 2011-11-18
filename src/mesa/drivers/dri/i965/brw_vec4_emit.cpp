@@ -707,6 +707,9 @@ vec4_generator::generate_code(int first_non_payload_grf)
 
    brw_set_access_mode(p, BRW_ALIGN_16);
 
+   if (this->p->single_program_flow)
+      brw_set_mask_control(p, BRW_MASK_DISABLE);
+
    calculate_live_intervals();
 
    reg_allocator allocator(first_non_payload_grf, this->virtual_grf_count,
