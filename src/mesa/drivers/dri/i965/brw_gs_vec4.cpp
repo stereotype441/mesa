@@ -191,17 +191,16 @@ num_vertices_for_primitive(GLenum primitive)
    case _3DPRIM_POINTLIST:
       return 1;
    case _3DPRIM_LINELIST:
+   case _3DPRIM_LINELOOP:
    case _3DPRIM_LINESTRIP:
-   case _3DPRIM_LINESTRIP_CONT:
-   case _3DPRIM_LINESTRIP_CONT_BF:
       return 2;
    case _3DPRIM_TRILIST:
    case _3DPRIM_TRISTRIP:
    case _3DPRIM_TRIFAN:
-   case _3DPRIM_TRISTRIP_REVERSE:
    case _3DPRIM_POLYGON:
    case _3DPRIM_RECTLIST:
-   case _3DPRIM_TRIFAN_NOSTIPPLE:
+   case _3DPRIM_QUADLIST: /* automatically converted into triangles */
+   case _3DPRIM_QUADSTRIP: /* automatically converted into triangles */
       return 3;
    default:
       assert (!"Unexpected primitive for GS");
