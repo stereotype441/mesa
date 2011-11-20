@@ -111,6 +111,8 @@ gs_vec4_compiler::emit_code()
     * writes
     */
    dst_reg writeback(this, 2, BRW_REGISTER_TYPE_UD);
+   src_reg writeback_first_half(writeback);
+   writeback_first_half.halves_control = USE_FIRST_HALF;
 
    /* TODO: don't emit vertices if rendering disabled */
 
@@ -124,7 +126,7 @@ gs_vec4_compiler::emit_code()
       /* TODO: need to set more fields in the URB header */
       current_annotation = "URB header";
       emit(MOV(m1, src_reg(this->r0)));
-      emit(MOV(m1_0, src_reg(writeback)));
+      emit(MOV(m1_0, src_reg(writeback_first_half)));
 
       current_annotation = "Vertex data";
       for (unsigned urb_reg = 0; urb_reg < this->urb_entry_read_length; ++urb_reg) {

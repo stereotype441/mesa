@@ -72,6 +72,13 @@ enum register_file {
    BAD_FILE
 };
 
+enum align16_halves_control
+{
+   USE_BOTH_HALVES = 0,
+   USE_FIRST_HALF = 1,
+   USE_SECOND_HALF = 2
+};
+
 class reg
 {
 public:
@@ -84,6 +91,7 @@ public:
    /** Register type.  BRW_REGISTER_TYPE_* */
    int type;
    struct brw_reg fixed_hw_reg;
+   align16_halves_control halves_control;
 
    /** Value for file == BRW_IMMMEDIATE_FILE */
    union {

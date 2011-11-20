@@ -177,6 +177,16 @@ vec4_instruction::get_dst(void)
       brw_reg = brw_null_reg();
       break;
    }
+
+   if (dst.halves_control != USE_BOTH_HALVES) {
+      /* halves_control should only be used on 8-wide registers */
+      assert (brw_reg.width == BRW_WIDTH_8);
+      assert (brw_reg.subnr == 0);
+      brw_reg.width = BRW_WIDTH_4;
+      if (dst.halves_control == USE_SECOND_HALF)
+         brw_reg.subnr = 4;
+   }
+
    return brw_reg;
 }
 
@@ -242,6 +252,16 @@ vec4_instruction::get_src(int i)
       assert(!"not reached");
       brw_reg = brw_null_reg();
       break;
+   }
+
+   if (src[i].halves_control != USE_BOTH_HALVES) {
+      /* halves_control should only be used on 8-wide registers */
+      assert (brw_reg.width == BRW_WIDTH_8);
+      assert (brw_reg.subnr == 0);
+      brw_reg.width = BRW_WIDTH_4;
+      brw_reg.vstride = BRW_VERTICAL_STRIDE_0;
+      if (dst.halves_control == USE_SECOND_HALF)
+         brw_reg.subnr = 4;
    }
 
    return brw_reg;
