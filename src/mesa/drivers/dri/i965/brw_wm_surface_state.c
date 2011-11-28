@@ -705,6 +705,66 @@ brw_create_constant_surface(struct brw_context *brw,
 			   I915_GEM_DOMAIN_SAMPLER, 0);
 }
 
+/**
+ * Set up a binding table entry for use by stream output logic (transform
+ * feedback).
+ *
+ * buffer_size_minus_1 must me less than BRW_MAX_NUM_BUFFER_ENTRIES.
+ */
+static void
+brw_update_sol_surface(struct brw_context *brw, drm_intel_bo *bo,
+                       uint32_t *out_offset, unsigned num_vector_components,
+                       unsigned stride_dwords, unsigned offset_dwords,
+                       uint32_t buffer_size_minus_1)
+{
+   uint32_t *surf = brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
+                                    out_offset);
+   uint32_t width = buffer_size_minus_1 & 0x7f;
+   uint32_t height = (buffer_size_minus_1 & 0xfff80) >> 7;
+   uint32_t depth = (buffer_size_minus_1 & 0x7f00000) >> 20;
+   uint32_t pitch_minus_1 = 4*stride_dwords - 1;
+   uint32_t surface_format;
+   uint32_t offset_bytes = 4 * offset_dwords;
+   switch (num_vector_components) {
+   case 1:
+      surface_format = BRW_SURFACEFORMAT_R32_FLOAT;
+      break;
+   case 2:
+      surface_format = BRW_SURFACEFORMAT_R32G32_FLOAT;
+      break;
+   case 3:
+      surface_format = BRW_SURFACEFORMAT_R32G32B32_FLOAT;
+      break;
+   case 4:
+      surface_format = BRW_SURFACEFORMAT_R32G32B32A32_FLOAT;
+      break;
+   default:
+      assert (!"Invalid vector size for transform feedback output");
+      surface_format = BRW_SURFACEFORMAT_R32_FLOAT;
+      break;
+   }
+   surf[0] = BRW_SURFACE_BUFFER << BRW_SURFACE_TYPE_SHIFT |
+      BRW_SURFACE_MIPMAPLAYOUT_BELOW << BRW_SURFACE_MIPLAYOUT_SHIFT |
+      surface_format << BRW_SURFACE_FORMAT_SHIFT |
+      BRW_SURFACE_RC_READ_WRITE;
+   surf[1] = bo->offset + offset_bytes; /* reloc */
+   surf[2] = (width << BRW_SURFACE_WIDTH_SHIFT |
+	      height << BRW_SURFACE_HEIGHT_SHIFT);
+   surf[3] = (depth << BRW_SURFACE_DEPTH_SHIFT |
+              pitch_minus_1 << BRW_SURFACE_PITCH_SHIFT);
+   surf[4] = 0;
+   surf[5] = 0;
+
+   /* Emit relocation to surface contents.  Section 5.1.1 of the gen4
+    * bspec ("Data Cache") says that the data cache does not exist as
+    * a separate cache and is just the sampler cache.
+    */
+   drm_intel_bo_emit_reloc(brw->intel.batch.bo,
+			   *out_offset + 4,
+			   bo, offset_bytes,
+			   I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER);
+}
+
 /* Creates a new WM constant buffer reflecting the current fragment program's
  * constants, if needed by the fragment program.
  *
@@ -1010,4 +1070,5 @@ gen4_init_vtable_surface_functions(struct brw_context *brw)
    intel->vtbl.update_null_renderbuffer_surface =
       brw_update_null_renderbuffer_surface;
    intel->vtbl.create_constant_surface = brw_create_constant_surface;
+   intel->vtbl.update_sol_surface = brw_update_sol_surface;
 }

@@ -265,4 +265,5 @@ gen7_init_vtable_surface_functions(struct brw_context *brw)
    intel->vtbl.update_null_renderbuffer_surface =
       gen7_update_null_renderbuffer_surface;
    intel->vtbl.create_constant_surface = gen7_create_constant_surface;
+   intel->vtbl.update_sol_surface = NULL; /* Unused on Gen7 (for now) */
 }

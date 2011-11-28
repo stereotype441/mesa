@@ -192,6 +192,13 @@ struct intel_context
 				      drm_intel_bo *bo,
 				      int width,
 				      uint32_t *out_offset);
+      void (*update_sol_surface)(struct brw_context *brw,
+                                 drm_intel_bo *bo,
+                                 uint32_t *out_offset,
+                                 unsigned num_vector_components,
+                                 unsigned stride_dwords,
+                                 unsigned offset_dwords,
+                                 uint32_t buffer_size_minus_1);
       /** \} */
    } vtbl;
 
