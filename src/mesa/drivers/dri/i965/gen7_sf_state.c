@@ -33,10 +33,9 @@ upload_sbe_state(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
-   struct brw_vue_map vue_map;
-   uint32_t urb_entry_read_length;
    /* CACHE_NEW_VS_PROG */
-   GLbitfield64 vs_outputs_written = brw->vs.prog_data->outputs_written;
+   struct brw_vue_map *vue_map = &brw->vs.prog_data->vue_map;
+   uint32_t urb_entry_read_length;
    /* BRW_NEW_FRAGMENT_PROGRAM */
    uint32_t num_outputs = _mesa_bitcount_64(brw->fragment_program->Base.InputsRead);
    /* _NEW_LIGHT */
@@ -44,13 +43,10 @@ upload_sbe_state(struct brw_context *brw)
    uint32_t dw1, dw10, dw11;
    int i;
    int attr = 0, input_index = 0;
-   /* _NEW_TRANSFORM */
    int urb_entry_read_offset = 1;
-   bool userclip_active = (ctx->Transform.ClipPlanesEnabled != 0);
    uint16_t attr_overrides[FRAG_ATTRIB_MAX];
 
-   brw_compute_vue_map(&vue_map, intel, userclip_active, vs_outputs_written);
-   urb_entry_read_length = (vue_map.num_slots + 1)/2 - urb_entry_read_offset;
+   urb_entry_read_length = (vue_map->num_slots + 1)/2 - urb_entry_read_offset;
    if (urb_entry_read_length == 0) {
       /* Setting the URB entry read length to 0 causes undefined behavior, so
        * if we have no URB data to read, set it to 1.
@@ -106,7 +102,7 @@ upload_sbe_state(struct brw_context *brw)
       assert(input_index < 16 || attr == input_index);
 
       attr_overrides[input_index++] =
-         get_attr_override(&vue_map, urb_entry_read_offset, attr,
+         get_attr_override(vue_map, urb_entry_read_offset, attr,
                            ctx->VertexProgram._TwoSideEnabled);
    }
 
@@ -132,8 +128,7 @@ upload_sbe_state(struct brw_context *brw)
 const struct brw_tracked_state gen7_sbe_state = {
    .dirty = {
       .mesa  = (_NEW_LIGHT |
-		_NEW_POINT |
-		_NEW_TRANSFORM),
+		_NEW_POINT),
       .brw   = (BRW_NEW_CONTEXT |
 		BRW_NEW_FRAGMENT_PROGRAM),
       .cache = CACHE_NEW_VS_PROG

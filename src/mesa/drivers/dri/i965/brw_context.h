@@ -390,6 +390,8 @@ struct brw_vs_prog_data {
 
    bool uses_new_param_layout;
    bool uses_vertexid;
+
+   struct brw_vue_map vue_map;
 };
 
 
