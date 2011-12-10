@@ -1071,6 +1071,11 @@ void brw_init_surface_formats(struct brw_context *brw);
 bool
 brw_fprog_uses_noperspective(const struct gl_fragment_program *fprog);
 
+/* gen6_sol.c */
+void
+brw_end_transform_feedback(struct gl_context *ctx,
+                           struct gl_transform_feedback_object *obj);
+
 
 
 /*======================================================================

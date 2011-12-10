@@ -28,6 +28,7 @@
 
 #include "brw_context.h"
 #include "intel_buffer_objects.h"
+#include "intel_batchbuffer.h"
 #include "brw_defines.h"
 
 static void
@@ -98,3 +99,18 @@ const struct brw_tracked_state gen6_sol_surface = {
    },
    .emit = brw_update_sol_surfaces,
 };
+
+void
+brw_end_transform_feedback(struct gl_context *ctx,
+                           struct gl_transform_feedback_object *obj)
+{
+   /* After EndTransformFeedback, it's likely that the client program will try
+    * to draw using the contents of the transform feedback buffer as vertex
+    * input.  In order for this to work, we need to flush the data through at
+    * least the GS stage of the pipeline, and flush out the render cache.  For
+    * simplicity, just do a full flush.
+    */
+   struct brw_context *brw = brw_context(ctx);
+   struct intel_context *intel = &brw->intel;
+   intel_batchbuffer_emit_mi_flush(intel);
+}
