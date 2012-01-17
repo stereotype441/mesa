@@ -2008,6 +2008,8 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
          return false;
    }
 
+   assert(num_outputs == prog->LinkedTransformFeedback.NumOutputs);
+
    return true;
 }
 
