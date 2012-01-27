@@ -56,7 +56,7 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *ctx,
    this->num_builtins_to_link = 0;
 
    /* Set default language version and extensions */
-   this->language_version = 110;
+   this->language_version = 130;
    this->es_shader = false;
    this->ARB_texture_rectangle_enable = true;
 
