@@ -3312,6 +3312,8 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader)
    struct _mesa_glsl_parse_state *state =
       new(shader) _mesa_glsl_parse_state(ctx, shader->Type, shader);
 
+   _mesa_glsl_process_extension("all", NULL, "warn", NULL, state);
+
    const char *source = shader->Source;
    /* Check if the user called glCompileShader without first calling
     * glShaderSource.  This should fail to compile, but not raise a GL_ERROR.
