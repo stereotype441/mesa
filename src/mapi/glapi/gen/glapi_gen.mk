@@ -5,7 +5,7 @@ $(error TOP must be defined.)
 endif
 
 glapi_gen_common_deps := \
-	$(wildcard $(TOP)/src/mapi/glapi/gen/*.xml) \
+	$(wildcard $(GLAPI_XML_PATH)/*.xml) \
 	$(wildcard $(TOP)/src/mapi/glapi/gen/*.py)
 
 glapi_gen_mapi_script := $(TOP)/src/mapi/mapi/mapi_abi.py

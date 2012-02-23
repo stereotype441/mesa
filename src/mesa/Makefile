@@ -71,18 +71,18 @@ default: $(DEPENDS) asm_subdirs $(MESA_LIBS) $(DRICORE_LIBS) driver_subdirs
 GLAPI := $(TOP)/src/mapi/glapi/gen
 include $(GLAPI)/glapi_gen.mk
 
-main/api_exec_es1_dispatch.h: $(GLAPI)/gl_and_es_API.xml $(glapi_gen_dispatch_deps)
+main/api_exec_es1_dispatch.h: $(GLAPI_XML_PATH)/gl_and_es_API.xml $(glapi_gen_dispatch_deps)
 	$(call glapi_gen_dispatch,$<,es1)
 
-main/api_exec_es1_remap_helper.h: $(GLAPI)/gl_and_es_API.xml $(glapi_gen_remap_deps)
+main/api_exec_es1_remap_helper.h: $(GLAPI_XML_PATH)/gl_and_es_API.xml $(glapi_gen_remap_deps)
 	$(call glapi_gen_remap,$<,es1)
 
 main/api_exec_es1.o: main/api_exec_es1_dispatch.h main/api_exec_es1_remap_helper.h 
 
-main/api_exec_es2_dispatch.h: $(GLAPI)/gl_and_es_API.xml $(glapi_gen_dispatch_deps)
+main/api_exec_es2_dispatch.h: $(GLAPI_XML_PATH)/gl_and_es_API.xml $(glapi_gen_dispatch_deps)
 	$(call glapi_gen_dispatch,$<,es2)
 
-main/api_exec_es2_remap_helper.h: $(GLAPI)/gl_and_es_API.xml $(glapi_gen_remap_deps)
+main/api_exec_es2_remap_helper.h: $(GLAPI_XML_PATH)/gl_and_es_API.xml $(glapi_gen_remap_deps)
 	$(call glapi_gen_remap,$<,es2)
 
 main/api_exec_es2.o: main/api_exec_es2_dispatch.h main/api_exec_es2_remap_helper.h 

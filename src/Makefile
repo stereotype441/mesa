@@ -6,6 +6,7 @@ include $(TOP)/configs/current
 
 SUBDIRS = $(SRC_DIRS)
 
+export GLAPI_XML_PATH := $(shell pkg-config --variable=datadir glapi)/xml/glapi
 
 default: message $(TOP)/$(LIB_DIR) subdirs
 

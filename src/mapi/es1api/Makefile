@@ -69,7 +69,7 @@ $(esapi_OBJECTS): %.o: $(MAPI)/%.c
 $(esapi_SOURCES): glapi_mapi_tmp.h
 
 include $(GLAPI)/gen/glapi_gen.mk
-glapi_mapi_tmp.h: $(GLAPI)/gen/gl_and_es_API.xml $(glapi_gen_mapi_deps)
+glapi_mapi_tmp.h: $(GLAPI_XML_PATH)/gl_and_es_API.xml $(glapi_gen_mapi_deps)
 	$(call glapi_gen_mapi,$<,$(ESAPI))
 
 .PHONY: clean
