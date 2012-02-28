@@ -6,7 +6,15 @@ include $(TOP)/configs/current
 
 SUBDIRS = $(SRC_DIRS)
 
-export GLAPI_XML_PATH := $(shell pkg-config --variable=datadir glapi)/xml/glapi
+GLAPI_ROOT_PATH := $(shell pkg-config --variable=datadir glapi 2> /dev/null || echo NOTFOUND)
+
+ifeq ($(strip $(GLAPI_ROOT_PATH)), NOTFOUND)
+
+$(error "failed to find package `glapi'")
+
+endif
+
+export GLAPI_XML_PATH := $(GLAPI_ROOT_PATH)/xml/glapi
 
 default: message $(TOP)/$(LIB_DIR) subdirs
 
