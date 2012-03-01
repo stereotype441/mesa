@@ -1,0 +1,3 @@
+[submodule "src/mapi/glapi/xml"]
+	path = src/mapi/glapi/xml
+	url = git://github.com/stereotype441/glapi.git
