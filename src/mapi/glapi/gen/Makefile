@@ -61,7 +61,7 @@ XORG_OUTPUTS = \
 
 ######################################################################
 
-GLAPI_XML_PATH := $(shell pkg-config --variable=datadir glapi)/xml/glapi
+GLAPI_XML_PATH := ../xml
 
 API_XML = $(wildcard $(GLAPI_XML_PATH)/*.xml)
 

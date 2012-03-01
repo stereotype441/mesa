@@ -4,6 +4,8 @@ ifndef TOP
 $(error TOP must be defined.)
 endif
 
+GLAPI_XML_PATH := $(TOP)/src/mapi/glapi/xml
+
 glapi_gen_common_deps := \
 	$(wildcard $(GLAPI_XML_PATH)/*.xml) \
 	$(wildcard $(TOP)/src/mapi/glapi/gen/*.py)
