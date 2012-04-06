@@ -298,7 +298,8 @@ intel_miptree_release(struct intel_mipmap_tree **mt)
       intel_region_release(&((*mt)->region));
       intel_miptree_release(&(*mt)->stencil_mt);
       intel_miptree_release(&(*mt)->hiz_mt);
-      intel_resolve_map_clear(&(*mt)->hiz_map);
+      intel_miptree_release(&(*mt)->msaa_mt);
+      intel_resolve_map_clear(&(*mt)->resolve_map);
 
       for (i = 0; i < MAX_TEXTURE_LEVELS; i++) {
 	 free((*mt)->level[i].slice);
@@ -564,13 +565,13 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
                                      height0,
                                      mt->depth0,
                                      true,
-                                     false /* is_msaa_surface */);
+                                     num_samples > 0);
 
    if (!mt->hiz_mt)
       return false;
 
    /* Mark that all slices need a HiZ resolve. */
-   struct intel_resolve_map *head = &mt->hiz_map;
+   struct intel_resolve_map *head = &mt->resolve_map;
    for (int level = mt->first_level; level <= mt->last_level; ++level) {
       for (int layer = 0; layer < mt->level[level].depth; ++layer) {
 	 head->next = malloc(sizeof(*head->next));
@@ -614,6 +615,8 @@ intel_miptree_alloc_msaa(struct intel_context *intel,
    if (!mt->msaa_mt)
       return false;
 
+   /* TODO: Mark that all slices need an MSAA resolve. */
+
    return true;
 }
 
@@ -627,7 +630,7 @@ intel_miptree_slice_set_needs_hiz_resolve(struct intel_mipmap_tree *mt,
    if (!mt->hiz_mt)
       return;
 
-   intel_resolve_map_set(&mt->hiz_map,
+   intel_resolve_map_set(&mt->resolve_map,
 			 level, layer, INTEL_NEED_HIZ_RESOLVE);
 }
 
@@ -642,7 +645,7 @@ intel_miptree_slice_set_needs_depth_resolve(struct intel_mipmap_tree *mt,
    if (!mt->hiz_mt)
       return;
 
-   intel_resolve_map_set(&mt->hiz_map,
+   intel_resolve_map_set(&mt->resolve_map,
 			 level, layer, INTEL_NEED_DEPTH_RESOLVE);
 }
 
@@ -662,7 +665,7 @@ intel_miptree_slice_resolve(struct intel_context *intel,
    intel_miptree_check_level_layer(mt, level, layer);
 
    struct intel_resolve_map *item =
-	 intel_resolve_map_get(&mt->hiz_map, level, layer);
+	 intel_resolve_map_get(&mt->resolve_map, level, layer);
 
    if (!item || item->need != need)
       return false;
@@ -703,7 +706,7 @@ intel_miptree_all_slices_resolve(struct intel_context *intel,
    bool did_resolve = false;
    struct intel_resolve_map *i, *next;
 
-   for (i = mt->hiz_map.next; i; i = next) {
+   for (i = mt->resolve_map.next; i; i = next) {
       next = i->next;
       if (i->need != need)
 	 continue;

@@ -127,6 +127,10 @@ upload_sf_state(struct brw_context *brw)
    uint16_t attr_overrides[FRAG_ATTRIB_MAX];
    uint32_t point_sprite_origin;
 
+   assert(ctx->DrawBuffer->_ColorDrawBuffers[0]); // TODO
+   /* _NEW_BUFFERS */
+   bool multisampled = ctx->DrawBuffer->_ColorDrawBuffers[0]->NumSamples > 1; // TODO: what does 1 mean?
+
    /* CACHE_NEW_VS_PROG */
    urb_entry_read_length = ((brw->vs.prog_data->vue_map.num_slots + 1) / 2 -
 			    urb_entry_read_offset);
@@ -225,13 +229,21 @@ upload_sf_state(struct brw_context *brw)
    }
 
    /* _NEW_LINE */
-   dw3 |= U_FIXED(CLAMP(ctx->Line.Width, 0.0, 7.99), 7) <<
-      GEN6_SF_LINE_WIDTH_SHIFT;
+   {
+      int line_width_u3_7 = U_FIXED(CLAMP(ctx->Line.Width, 0.0, 7.99), 7);
+      /* Hack: line width of 0 is not allowed when MSAA enabled */
+      if (line_width_u3_7 == 0)
+         line_width_u3_7 = 1;
+      dw3 |= line_width_u3_7 <<
+         GEN6_SF_LINE_WIDTH_SHIFT;
+   }
    if (ctx->Line.SmoothFlag) {
       dw3 |= GEN6_SF_LINE_AA_ENABLE;
       dw3 |= GEN6_SF_LINE_AA_MODE_TRUE;
       dw3 |= GEN6_SF_LINE_END_CAP_WIDTH_1_0;
    }
+   if (multisampled)
+      dw3 |= GEN6_SF_MSRAST_ON_PATTERN;
 
    /* _NEW_PROGRAM | _NEW_POINT */
    if (!(ctx->VertexProgram.PointSizeEnabled ||

@@ -100,6 +100,9 @@ static void emit_depthbuffer(struct brw_context *brw)
    assert(stencil_mt == NULL || depth_mt != stencil_mt);
    assert(!depth_mt || !_mesa_is_format_packed_depth_stencil(depth_mt->format));
 
+   if (depth_mt && depth_mt->msaa_mt)
+      depth_mt = depth_mt->msaa_mt;
+
    intel_emit_depth_stall_flushes(intel);
 
    if (depth_mt == NULL) {
