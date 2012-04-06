@@ -44,6 +44,7 @@
 #include "brw_defines.h"
 #include "brw_context.h"
 #include "brw_state.h"
+#include "gen6_hiz.h" /* Temporary testing */
 
 #include "intel_batchbuffer.h"
 #include "intel_fbo.h"
@@ -334,9 +335,21 @@ static void brw_postdraw_set_buffers_need_resolve(struct brw_context *brw)
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    struct intel_renderbuffer *depth_irb =
 	 intel_get_renderbuffer(fb, BUFFER_DEPTH);
+   struct intel_renderbuffer *color_irb =
+      intel_get_renderbuffer(fb, BUFFER_COLOR0);
+   struct intel_renderbuffer *stencil_irb =
+      intel_get_renderbuffer(fb, BUFFER_STENCIL);
 
    if (depth_irb && ctx->Depth.Mask) {
       intel_renderbuffer_set_needs_depth_resolve(depth_irb);
+   }
+
+   if (color_irb && color_irb->mt->msaa_mt) {
+      gen6_downsample_msaa_slice(&brw->intel, color_irb->mt, 0, 0);
+   }
+
+   if (stencil_irb && stencil_irb->mt->msaa_mt) {
+      gen6_downsample_msaa_slice(&brw->intel, stencil_irb->mt, 0, 0);
    }
 }
 

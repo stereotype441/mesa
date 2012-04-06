@@ -261,6 +261,7 @@ static void emit_depthbuffer(struct brw_context *brw)
    struct intel_renderbuffer *stencil_irb = intel_get_renderbuffer(fb, BUFFER_STENCIL);
    struct intel_mipmap_tree *stencil_mt = NULL;
    struct intel_region *hiz_region = NULL;
+   struct intel_region *depth_region = NULL;
    unsigned int len;
    bool separate_stencil = false;
 
@@ -284,25 +285,27 @@ static void emit_depthbuffer(struct brw_context *brw)
     */
    uint32_t tile_mask_x = 0, tile_mask_y = 0;
 
-   if (depth_irb) {
-      intel_region_get_tile_masks(depth_irb->mt->region,
-                                  &tile_mask_x, &tile_mask_y);
-   }
-
    if (depth_irb &&
-       depth_irb->mt &&
-       depth_irb->mt->hiz_mt) {
-      hiz_region = depth_irb->mt->hiz_mt->region;
+       depth_irb->mt) {
+      if (depth_irb->mt->msaa_mt)
+         depth_region = depth_irb->mt->msaa_mt->region;
+      else
+         depth_region = depth_irb->mt->region;
+      intel_region_get_tile_masks(depth_region,
+                                  &tile_mask_x, &tile_mask_y);
+      if (depth_irb->mt->hiz_mt) {
+         hiz_region = depth_irb->mt->hiz_mt->region;
 
-      uint32_t hiz_tile_mask_x, hiz_tile_mask_y;
-      intel_region_get_tile_masks(hiz_region,
-                                  &hiz_tile_mask_x, &hiz_tile_mask_y);
+         uint32_t hiz_tile_mask_x, hiz_tile_mask_y;
+         intel_region_get_tile_masks(hiz_region,
+                                     &hiz_tile_mask_x, &hiz_tile_mask_y);
 
-      /* Each HiZ row represents 2 rows of pixels */
-      hiz_tile_mask_y = hiz_tile_mask_y << 1 | 1;
+         /* Each HiZ row represents 2 rows of pixels */
+         hiz_tile_mask_y = hiz_tile_mask_y << 1 | 1;
 
-      tile_mask_x |= hiz_tile_mask_x;
-      tile_mask_y |= hiz_tile_mask_y;
+         tile_mask_x |= hiz_tile_mask_x;
+         tile_mask_y |= hiz_tile_mask_y;
+      }
    }
 
    /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
@@ -318,6 +321,9 @@ static void emit_depthbuffer(struct brw_context *brw)
       stencil_mt = stencil_irb->mt;
       if (stencil_mt->stencil_mt)
 	 stencil_mt = stencil_mt->stencil_mt;
+
+      if (stencil_mt->msaa_mt)
+         stencil_mt = stencil_mt->msaa_mt;
 
       if (stencil_mt->format == MESA_FORMAT_S8) {
 	 separate_stencil = true;
@@ -438,14 +444,13 @@ static void emit_depthbuffer(struct brw_context *brw)
       ADVANCE_BATCH();
 
    } else {
-      struct intel_region *region = depth_irb->mt->region;
       uint32_t tile_x, tile_y, offset;
 
       /* If using separate stencil, hiz must be enabled. */
       assert(!separate_stencil || hiz_region);
 
-      assert(intel->gen < 6 || region->tiling == I915_TILING_Y);
-      assert(!hiz_region || region->tiling == I915_TILING_Y);
+      assert(intel->gen < 6 || depth_region->tiling == I915_TILING_Y);
+      assert(!hiz_region || depth_region->tiling == I915_TILING_Y);
 
       draw_x = depth_irb->draw_x;
       draw_y = depth_irb->draw_y;
@@ -470,20 +475,20 @@ static void emit_depthbuffer(struct brw_context *brw)
       tile_x &= ~7;
       tile_y &= ~7;
 
-      offset = intel_region_get_aligned_offset(region,
+      offset = intel_region_get_aligned_offset(depth_region,
                                                draw_x & ~tile_mask_x,
                                                draw_y & ~tile_mask_y);
 
       BEGIN_BATCH(len);
       OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
-      OUT_BATCH(((region->pitch * region->cpp) - 1) |
+      OUT_BATCH(((depth_region->pitch * depth_region->cpp) - 1) |
 		(brw_depthbuffer_format(brw) << 18) |
 		((hiz_region ? 1 : 0) << 21) | /* separate stencil enable */
 		((hiz_region ? 1 : 0) << 22) | /* hiz enable */
 		(BRW_TILEWALK_YMAJOR << 26) |
-		((region->tiling != I915_TILING_NONE) << 27) |
+		((depth_region->tiling != I915_TILING_NONE) << 27) |
 		(BRW_SURFACE_2D << 29));
-      OUT_RELOC(region->bo,
+      OUT_RELOC(depth_region->bo,
 		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		offset);
       OUT_BATCH((BRW_SURFACE_MIPMAPLAYOUT_BELOW << 1) |
@@ -782,33 +787,16 @@ static void upload_invariant_state( struct brw_context *brw )
       ADVANCE_BATCH();
    }
 
-   if (intel->gen >= 6) {
+   if (intel->gen == 6) {
       int i;
-      int len = intel->gen >= 7 ? 4 : 3;
 
-      BEGIN_BATCH(len);
-      OUT_BATCH(_3DSTATE_MULTISAMPLE << 16 | (len - 2));
-      OUT_BATCH(MS_PIXEL_LOCATION_CENTER |
-		MS_NUMSAMPLES_1);
-      OUT_BATCH(0); /* positions for 4/8-sample */
-      if (intel->gen >= 7)
-	 OUT_BATCH(0);
-      ADVANCE_BATCH();
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_SAMPLE_MASK << 16 | (2 - 2));
-      OUT_BATCH(1);
-      ADVANCE_BATCH();
-
-      if (intel->gen < 7) {
-	 for (i = 0; i < 4; i++) {
-	    BEGIN_BATCH(4);
-	    OUT_BATCH(_3DSTATE_GS_SVB_INDEX << 16 | (4 - 2));
-	    OUT_BATCH(i << SVB_INDEX_SHIFT);
-	    OUT_BATCH(0);
-	    OUT_BATCH(0xffffffff);
-	    ADVANCE_BATCH();
-	 }
+      for (i = 0; i < 4; i++) {
+         BEGIN_BATCH(4);
+         OUT_BATCH(_3DSTATE_GS_SVB_INDEX << 16 | (4 - 2));
+         OUT_BATCH(i << SVB_INDEX_SHIFT);
+         OUT_BATCH(0);
+         OUT_BATCH(0xffffffff);
+         ADVANCE_BATCH();
       }
    }
 

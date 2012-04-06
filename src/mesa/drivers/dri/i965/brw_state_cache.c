@@ -314,7 +314,8 @@ brw_upload_cache(struct brw_cache *cache,
    drm_intel_bo_subdata(cache->bo, item->offset, data_size, data);
 
    *out_offset = item->offset;
-   *(void **)out_aux = (void *)((char *)item->key + item->key_size);
+   if (out_aux)
+      *(void **)out_aux = (void *)((char *)item->key + item->key_size);
    cache->brw->state.dirty.cache |= 1 << cache_id;
 }
 

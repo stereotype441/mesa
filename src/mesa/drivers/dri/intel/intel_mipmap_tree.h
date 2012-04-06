@@ -187,7 +187,8 @@ struct intel_mipmap_tree
    /**
     * \brief HiZ miptree
     *
-    * This is non-null only if HiZ is enabled for this miptree.
+    * For a depth buffer, this is the associated HiZ miptree (if HiZ is
+    * enabled for this miptree).
     *
     * \see intel_miptree_alloc_hiz()
     */
@@ -196,13 +197,13 @@ struct intel_mipmap_tree
    /**
     * \brief Map of miptree slices to needed resolves.
     *
-    * This is used only when the miptree has a child HiZ miptree.
+    * This is used only when the miptree has a HiZ miptree.
     *
-    * Let \c mt be a depth miptree with HiZ enabled. Then the resolve map is
-    * \c mt->hiz_map. The resolve map of the child HiZ miptree, \c
-    * mt->hiz_mt->hiz_map, is unused.
+    * Let \c mt be a miptree with a HiZ miptree. Then the resolve map is \c
+    * mt->resolve_map. The resolve map of the HiZ miptree, \c
+    * mt->hiz_mt->resolve_map, is unused.
     */
-   struct intel_resolve_map hiz_map;
+   struct intel_resolve_map resolve_map;
 
    /**
     * \brief Stencil miptree for depthstencil textures.

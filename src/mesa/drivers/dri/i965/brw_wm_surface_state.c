@@ -900,8 +900,6 @@ brw_update_null_renderbuffer_surface(struct brw_context *brw, unsigned int unit)
 
 /**
  * Sets up a surface state structure to point at the given region.
- * While it is only used for the front/back buffer currently, it should be
- * usable for further buffers when doing ARB_draw_buffer support.
  */
 static void
 brw_update_renderbuffer_surface(struct brw_context *brw,
@@ -917,6 +915,7 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
    uint32_t tile_x, tile_y;
    uint32_t format = 0;
    gl_format rb_format = intel_rb_format(irb);
+   bool is_multisample_buffer = false;
 
    if (irb->tex_image && !brw->has_surface_tile_offset) {
       intel_renderbuffer_tile_offsets(irb, &tile_x, &tile_y);
@@ -953,7 +952,12 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
       }
    }
 
-   region = irb->mt->region;
+   if (mt->msaa_mt) {
+      is_multisample_buffer = true;
+      mt = mt->msaa_mt;
+   }
+
+   region = mt->region;
 
    surf = brw_state_batch(brw, AUB_TRACE_SURFACE_STATE,
 			  6 * 4, 32, &brw->wm.surf_offset[unit]);
@@ -980,6 +984,7 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
 	      format << BRW_SURFACE_FORMAT_SHIFT);
 
    /* reloc */
+   /* TODO: calling intel_renderbuffer_tile_offsets on irb is probably wrong. */
    surf[1] = (intel_renderbuffer_tile_offsets(irb, &tile_x, &tile_y) +
 	      region->bo->offset);
 
@@ -989,7 +994,9 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
    surf[3] = (brw_get_surface_tiling_bits(region->tiling) |
 	      ((region->pitch * region->cpp) - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-   surf[4] = 0;
+   surf[4] = (is_multisample_buffer
+              ? BRW_SURFACE_MULTISAMPLECOUNT_4
+              : BRW_SURFACE_MULTISAMPLECOUNT_1);
 
    assert(brw->has_surface_tile_offset || (tile_x == 0 && tile_y == 0));
    /* Note that the low bits of these fields are missing, so
