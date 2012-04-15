@@ -153,6 +153,34 @@ intel_flip_renderbuffers(struct gl_framebuffer *fb);
 void
 intel_renderbuffer_set_draw_offset(struct intel_renderbuffer *irb);
 
+void
+intel_renderbuffer_fine_offset_masks(struct intel_renderbuffer *irb,
+                                     uint32_t *fine_offset_mask_x,
+                                     uint32_t *fine_offset_mask_y);
+
+/**
+ * When rendering to a texture with multiple miplevels, depth planes, or cube
+ * faces, we need to instruct the GPU to render to an offset within the
+ * texture image corresponding to the appropriate miplevel/plane/cubeface.  We
+ * do this by a combination of two techniques: by offsetting the base address
+ * of the texture image, and by supplying additional X and Y coordinate
+ * offsets to the GPU in the SURFACE_STATE structure.
+ *
+ * This function computes the additional Y coordinate offset.
+ */
+
+/**
+ * When rendering to a texture with multiple miplevels, depth planes, or cube
+ * faces, we need to instruct the GPU to render to an offset within the
+ * texture image corresponding to the appropriate miplevel/plane/cubeface.  We
+ * do this by a combination of two techniques: by offsetting the base address
+ * of the texture image, and by supplying additional X and Y coordinate
+ * offsets to the GPU in the SURFACE_STATE structure.
+ *
+ * This function computes the additional X coordinate offset.
+ */
+
+
 uint32_t
 intel_renderbuffer_tile_offsets(struct intel_renderbuffer *irb,
 				uint32_t *tile_x,
