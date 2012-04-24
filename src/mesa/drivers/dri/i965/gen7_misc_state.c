@@ -71,15 +71,17 @@ static void emit_depthbuffer(struct brw_context *brw)
       intel_region_get_tile_masks(depth_mt->region,
                                   &tile_mask_x, &tile_mask_y);
 
-      uint32_t hiz_tile_mask_x, hiz_tile_mask_y;
-      intel_region_get_tile_masks(hiz_mt->region,
-                                  &hiz_tile_mask_x, &hiz_tile_mask_y);
+      if (hiz_mt) {
+         uint32_t hiz_tile_mask_x, hiz_tile_mask_y;
+         intel_region_get_tile_masks(hiz_mt->region,
+                                     &hiz_tile_mask_x, &hiz_tile_mask_y);
 
-      /* Each HiZ row represents 2 rows of pixels */
-      hiz_tile_mask_y = hiz_tile_mask_y << 1 | 1;
+         /* Each HiZ row represents 2 rows of pixels */
+         hiz_tile_mask_y = hiz_tile_mask_y << 1 | 1;
 
-      tile_mask_x |= hiz_tile_mask_x;
-      tile_mask_y |= hiz_tile_mask_y;
+         tile_mask_x |= hiz_tile_mask_x;
+         tile_mask_y |= hiz_tile_mask_y;
+      }
    }
 
    if (srb) {
@@ -135,14 +137,14 @@ static void emit_depthbuffer(struct brw_context *brw)
       struct intel_region *region = depth_mt->region;
       uint32_t tile_x, tile_y, offset;
 
-      offset = intel_region_get_aligned_offset(region,
-                                               draw_x & ~tile_mask_x,
-                                               draw_y & ~tile_mask_y);
-
       draw_x = drb->draw_x;
       draw_y = drb->draw_y;
       tile_x = draw_x & tile_mask_x;
       tile_y = draw_y & tile_mask_y;
+
+      offset = intel_region_get_aligned_offset(region,
+                                               draw_x & ~tile_mask_x,
+                                               draw_y & ~tile_mask_y);
 
       assert(region->tiling == I915_TILING_Y);
 
