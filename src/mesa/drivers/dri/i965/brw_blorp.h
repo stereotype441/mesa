@@ -40,6 +40,7 @@ enum gen6_hiz_op {
    GEN6_HIZ_OP_DEPTH_CLEAR,
    GEN6_HIZ_OP_DEPTH_RESOLVE,
    GEN6_HIZ_OP_HIZ_RESOLVE,
+   GEN6_HIZ_OP_NONE,
 };
 
 class brw_hiz_mip_info
@@ -79,6 +80,32 @@ public:
    brw_hiz_mip_info depth;
    struct intel_mipmap_tree *hiz_mt;
    enum gen6_hiz_op op;
+   bool use_wm_prog;
+};
+
+enum brw_msaa_coord_transform
+{
+   BRW_MSAA_COORD_TRANSFORM_STENCIL_SWIZZLE,
+   BRW_MSAA_COORD_TRANSFORM_DEPTH_SWIZZLE,
+   BRW_MSAA_COORD_TRANSFORM_NORMAL,
+};
+
+struct brw_msaa_resolve_prog_key
+{
+   brw_msaa_coord_transform coord_transform;
+   GLuint sampler_msg_type;
+};
+
+class brw_msaa_resolve_params : public brw_hiz_resolve_params
+{
+public:
+   brw_msaa_resolve_params(struct intel_mipmap_tree *mt, unsigned int level,
+                           unsigned int layer);
+
+   void get_wm_prog(struct brw_context *brw, uint32_t *prog_offset) const;
+
+private:
+   brw_msaa_resolve_prog_key wm_prog_key;
 };
 
 /**
