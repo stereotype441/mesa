@@ -712,6 +712,49 @@ gen6_hiz_disable_wm(struct brw_context *brw,
    ADVANCE_BATCH();
 }
 
+static void
+gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
+{
+   struct intel_context *intel = &brw->intel;
+   uint32_t dw2, dw4, dw5, dw6;
+
+   /* Disable the push constant buffers. */
+   BEGIN_BATCH(5);
+   OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 | (5 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+
+   dw2 = dw4 = dw5 = dw6 = 0;
+   dw4 |= GEN6_WM_STATISTICS_ENABLE;
+   dw5 |= GEN6_WM_LINE_AA_WIDTH_1_0;
+   dw5 |= GEN6_WM_LINE_END_CAP_AA_WIDTH_0_5;
+   dw2 |= 0 << GEN6_WM_SAMPLER_COUNT_SHIFT; /* No samplers */
+   dw4 |= 0 << GEN6_WM_DISPATCH_START_GRF_SHIFT_0; /* No constants */
+   dw4 |= 0 << GEN6_WM_DISPATCH_START_GRF_SHIFT_2; /* No constants */
+   dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
+   dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
+   dw6 |= 0 << GEN6_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
+   dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
+   dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
+   dw6 |= GEN6_WM_MSRAST_OFF_PIXEL; /* Render target is not multisampled */
+   dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE; /* Render target is not multisampled */
+
+   BEGIN_BATCH(9);
+   OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
+   OUT_BATCH(prog_offset);
+   OUT_BATCH(dw2);
+   OUT_BATCH(0); /* No scratch needed */
+   OUT_BATCH(dw4);
+   OUT_BATCH(dw5);
+   OUT_BATCH(dw6);
+   OUT_BATCH(0); /* No other programs */
+   OUT_BATCH(0); /* No other programs */
+   ADVANCE_BATCH();
+}
+
 /**
  * \brief Execute a HiZ op on a miptree slice.
  *
