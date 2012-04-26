@@ -42,6 +42,45 @@ enum gen6_hiz_op {
    GEN6_HIZ_OP_HIZ_RESOLVE,
 };
 
+class brw_hiz_mip_info
+{
+public:
+   brw_hiz_mip_info()
+      : mt(NULL)
+   {
+   }
+
+   void set(struct intel_mipmap_tree *mt,
+            unsigned int level, unsigned int layer);
+   void get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const;
+
+   void get_miplevel_dims(uint32_t *width, uint32_t *height) const
+   {
+      *width = mt->level[level].width;
+      *height = mt->level[level].height;
+   }
+
+   struct intel_mipmap_tree *mt;
+   unsigned int level;
+   unsigned int layer;
+};
+
+class brw_hiz_resolve_params
+{
+public:
+   brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
+                          struct intel_mipmap_tree *hiz_mt,
+                          unsigned int level,
+                          unsigned int layer,
+                          gen6_hiz_op op);
+
+   uint32_t width;
+   uint32_t height;
+   brw_hiz_mip_info depth;
+   struct intel_mipmap_tree *hiz_mt;
+   enum gen6_hiz_op op;
+};
+
 /**
  * \name HiZ internals
  * \{
@@ -53,16 +92,15 @@ void
 gen6_hiz_init(struct brw_context *brw);
 
 void
-gen6_hiz_emit_batch_head(struct brw_context *brw);
+gen6_hiz_emit_batch_head(struct brw_context *brw,
+                         const brw_hiz_resolve_params *params);
 
 void
 gen6_hiz_emit_vertices(struct brw_context *brw,
-                       struct intel_mipmap_tree *mt,
-                       unsigned int level,
-                       unsigned int layer);
+                       const brw_hiz_resolve_params *params);
 
 void
 gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
-                                  enum gen6_hiz_op op,
+                                  const brw_hiz_resolve_params *params,
                                   uint32_t *out_offset);
 /** \} */
