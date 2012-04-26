@@ -79,27 +79,35 @@ brw_hiz_mip_info::get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const
    *draw_y = rb.draw_y;
 }
 
+brw_blorp_params::brw_blorp_params()
+   : width(0),
+     height(0),
+     hiz_mt(NULL),
+     op(GEN6_HIZ_OP_NONE),
+     use_wm_prog(false)
+{
+}
+
 brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
                                                struct intel_mipmap_tree *hiz_mt,
                                                unsigned int level,
                                                unsigned int layer,
-                                               enum gen6_hiz_op op)
-   : width(mt->level[level].width),
-     height(mt->level[level].height),
-     hiz_mt(hiz_mt),
-     op(op),
-     use_wm_prog(false)
+                                               gen6_hiz_op op)
 {
    assert(op != GEN6_HIZ_OP_DEPTH_CLEAR); /* Not implemented yet. */
+   this->op = op;
+
+   depth.set(mt, level, layer);
+   depth.get_miplevel_dims(&width, &height);
 
    assert(hiz_mt != NULL);
-   depth.set(mt, level, layer);
+   this->hiz_mt = hiz_mt;
 }
 
-brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt,
+brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *src_mt,
+                                                 struct intel_mipmap_tree *dst_mt,
                                                  unsigned int level,
                                                  unsigned int layer)
-   : brw_hiz_resolve_params(mt, NULL, level, layer, GEN6_HIZ_OP_NONE)
 {
    /* TODO: init wm_prog_key */
 }
@@ -453,13 +461,19 @@ brw_msaa_resolve_program::emit_render_target_write()
                 false /* header_present */);
 }
 
-void
-brw_msaa_resolve_params::get_wm_prog(struct brw_context *brw,
-                                     uint32_t *prog_offset) const
+uint32_t
+brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw) const
 {
+   return 0;
+}
+
+uint32_t
+brw_msaa_resolve_params::get_wm_prog(struct brw_context *brw) const
+{
+   uint32_t prog_offset;
    if (!brw_search_cache(&brw->cache, BRW_MSAA_WM_PROG,
                          &this->wm_prog_key, sizeof(this->wm_prog_key),
-                         prog_offset, NULL)) {
+                         &prog_offset, NULL)) {
       brw_msaa_resolve_program prog(brw, &this->wm_prog_key);
       GLuint program_size;
       const GLuint *program = prog.compile(brw, &program_size);
@@ -467,13 +481,14 @@ brw_msaa_resolve_params::get_wm_prog(struct brw_context *brw,
                        &this->wm_prog_key, sizeof(this->wm_prog_key),
                        program, program_size,
                        NULL, 0,
-                       prog_offset, NULL);
+                       &prog_offset, NULL);
    }
+   return prog_offset;
 }
 
 void
 gen6_hiz_emit_batch_head(struct brw_context *brw,
-                         const brw_hiz_resolve_params *params)
+                         const brw_blorp_params *params)
 {
    struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
@@ -561,7 +576,7 @@ gen6_hiz_emit_batch_head(struct brw_context *brw,
 
 void
 gen6_hiz_emit_vertices(struct brw_context *brw,
-                       const brw_hiz_resolve_params *params)
+                       const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
    uint32_t vertex_offset;
@@ -672,7 +687,7 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
  */
 static void
 gen6_hiz_disable_wm(struct brw_context *brw,
-                    const brw_hiz_resolve_params *params)
+                    const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -772,7 +787,7 @@ gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
  */
 static void
 gen6_hiz_exec(struct intel_context *intel,
-              const brw_hiz_resolve_params *params)
+              const brw_blorp_params *params)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
@@ -799,6 +814,11 @@ gen6_hiz_exec(struct intel_context *intel,
       tile_mask_x = depth_mask_x | hiz_mask_x;
       tile_mask_y = depth_mask_y | hiz_mask_y;
    }
+
+   /* TODO: is it ok to do this before gen6_hiz_emit_batch_head or will it
+    * screw up the program cache?
+    */
+   uint32_t prog_offset = params->get_wm_prog(brw);
 
    gen6_hiz_emit_batch_head(brw, params);
    gen6_hiz_emit_vertices(brw, params);
@@ -1089,7 +1109,7 @@ gen6_hiz_exec(struct intel_context *intel,
  */
 void
 gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
-                                  const brw_hiz_resolve_params *params,
+                                  const brw_blorp_params *params,
                                   uint32_t *out_offset)
 {
    struct gen6_depth_stencil_state *state;

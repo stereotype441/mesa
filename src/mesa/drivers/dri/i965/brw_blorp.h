@@ -66,14 +66,12 @@ public:
    unsigned int layer;
 };
 
-class brw_hiz_resolve_params
+class brw_blorp_params
 {
 public:
-   brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
-                          struct intel_mipmap_tree *hiz_mt,
-                          unsigned int level,
-                          unsigned int layer,
-                          gen6_hiz_op op);
+   brw_blorp_params();
+
+   virtual uint32_t get_wm_prog(struct brw_context *brw) const = 0;
 
    uint32_t width;
    uint32_t height;
@@ -81,6 +79,17 @@ public:
    struct intel_mipmap_tree *hiz_mt;
    enum gen6_hiz_op op;
    bool use_wm_prog;
+};
+
+class brw_hiz_resolve_params : public brw_blorp_params
+{
+public:
+   brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
+                          struct intel_mipmap_tree *hiz_mt,
+                          unsigned int level, unsigned int layer,
+                          gen6_hiz_op op);
+
+   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
 };
 
 enum brw_msaa_coord_transform
@@ -96,13 +105,14 @@ struct brw_msaa_resolve_prog_key
    GLuint sampler_msg_type;
 };
 
-class brw_msaa_resolve_params : public brw_hiz_resolve_params
+class brw_msaa_resolve_params : public brw_blorp_params
 {
 public:
-   brw_msaa_resolve_params(struct intel_mipmap_tree *mt, unsigned int level,
-                           unsigned int layer);
+   brw_msaa_resolve_params(struct intel_mipmap_tree *src_mt,
+                           struct intel_mipmap_tree *dst_mt,
+                           unsigned int level, unsigned int layer);
 
-   void get_wm_prog(struct brw_context *brw, uint32_t *prog_offset) const;
+   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
 
 private:
    brw_msaa_resolve_prog_key wm_prog_key;
@@ -120,14 +130,14 @@ gen6_hiz_init(struct brw_context *brw);
 
 void
 gen6_hiz_emit_batch_head(struct brw_context *brw,
-                         const brw_hiz_resolve_params *params);
+                         const brw_blorp_params *params);
 
 void
 gen6_hiz_emit_vertices(struct brw_context *brw,
-                       const brw_hiz_resolve_params *params);
+                       const brw_blorp_params *params);
 
 void
 gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
-                                  const brw_hiz_resolve_params *params,
+                                  const brw_blorp_params *params,
                                   uint32_t *out_offset);
 /** \} */
