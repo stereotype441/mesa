@@ -34,6 +34,41 @@
 #include "brw_blorp.h"
 #include "gen7_hiz.h"
 
+/* 3DSTATE_WM
+ *
+ * Disable PS thread dispatch (dw1.29) and enable the HiZ op.
+ */
+static void
+gen7_hiz_disable_wm(struct brw_context *brw,
+                    const brw_hiz_resolve_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   uint32_t dw1 = 0;
+
+   switch (params->op) {
+   case GEN6_HIZ_OP_DEPTH_CLEAR:
+      assert(!"not implemented");
+      dw1 |= GEN7_WM_DEPTH_CLEAR;
+      break;
+   case GEN6_HIZ_OP_DEPTH_RESOLVE:
+      dw1 |= GEN7_WM_DEPTH_RESOLVE;
+      break;
+   case GEN6_HIZ_OP_HIZ_RESOLVE:
+      dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
+      break;
+   default:
+      assert(0);
+      break;
+   }
+
+   BEGIN_BATCH(3);
+   OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
+   OUT_BATCH(dw1);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
 /**
  * \copydoc gen6_hiz_exec()
  */
@@ -285,35 +320,8 @@ gen7_hiz_exec(struct intel_context *intel,
       ADVANCE_BATCH();
    }
 
-   /* 3DSTATE_WM
-    *
-    * Disable PS thread dispatch (dw1.29) and enable the HiZ op.
-    */
-   {
-      uint32_t dw1 = 0;
-
-      switch (params->op) {
-      case GEN6_HIZ_OP_DEPTH_CLEAR:
-         assert(!"not implemented");
-         dw1 |= GEN7_WM_DEPTH_CLEAR;
-         break;
-      case GEN6_HIZ_OP_DEPTH_RESOLVE:
-         dw1 |= GEN7_WM_DEPTH_RESOLVE;
-         break;
-      case GEN6_HIZ_OP_HIZ_RESOLVE:
-         dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
-         break;
-      default:
-         assert(0);
-         break;
-      }
-
-      BEGIN_BATCH(3);
-      OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
-      OUT_BATCH(dw1);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   /* 3DSTATE_WM */
+   gen7_hiz_disable_wm(brw, params);
 
    /* 3DSTATE_PS
     *

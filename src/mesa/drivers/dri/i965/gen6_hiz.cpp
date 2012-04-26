@@ -279,6 +279,51 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
 }
 
 /**
+ * Disable thread dispatch (dw5.19) and enable the HiZ op.
+ */
+static void
+gen6_hiz_disable_wm(struct brw_context *brw,
+                    const brw_hiz_resolve_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   /* Even though thread dispatch is disabled, max threads (dw5.25:31) must be
+    * nonzero to prevent the GPU from hanging. See the valid ranges in the
+    * BSpec, Volume 2a.11 Windower, Section 3DSTATE_WM, Dword 5.25:31
+    * "Maximum Number Of Threads".
+    */
+   uint32_t dw4 = 0;
+
+   switch (params->op) {
+   case GEN6_HIZ_OP_DEPTH_CLEAR:
+      assert(!"not implemented");
+      dw4 |= GEN6_WM_DEPTH_CLEAR;
+      break;
+   case GEN6_HIZ_OP_DEPTH_RESOLVE:
+      dw4 |= GEN6_WM_DEPTH_RESOLVE;
+      break;
+   case GEN6_HIZ_OP_HIZ_RESOLVE:
+      dw4 |= GEN6_WM_HIERARCHICAL_DEPTH_RESOLVE;
+      break;
+   default:
+      assert(0);
+      break;
+   }
+
+   BEGIN_BATCH(9);
+   OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(dw4);
+   OUT_BATCH((brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT);
+   OUT_BATCH((1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT); /* only position */
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+/**
  * \brief Execute a HiZ op on a miptree slice.
  *
  * To execute the HiZ op, this function manually constructs and emits a batch
@@ -461,46 +506,8 @@ gen6_hiz_exec(struct intel_context *intel,
       ADVANCE_BATCH();
    }
 
-   /* 3DSTATE_WM
-    *
-    * Disable thread dispatch (dw5.19) and enable the HiZ op.
-    *
-    * Even though thread dispatch is disabled, max threads (dw5.25:31) must be
-    * nonzero to prevent the GPU from hanging. See the valid ranges in the
-    * BSpec, Volume 2a.11 Windower, Section 3DSTATE_WM, Dword 5.25:31
-    * "Maximum Number Of Threads".
-    */
-   {
-      uint32_t dw4 = 0;
-
-      switch (params->op) {
-      case GEN6_HIZ_OP_DEPTH_CLEAR:
-         assert(!"not implemented");
-         dw4 |= GEN6_WM_DEPTH_CLEAR;
-         break;
-      case GEN6_HIZ_OP_DEPTH_RESOLVE:
-         dw4 |= GEN6_WM_DEPTH_RESOLVE;
-         break;
-      case GEN6_HIZ_OP_HIZ_RESOLVE:
-         dw4 |= GEN6_WM_HIERARCHICAL_DEPTH_RESOLVE;
-         break;
-      default:
-         assert(0);
-         break;
-      }
-
-      BEGIN_BATCH(9);
-      OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(dw4);
-      OUT_BATCH((brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT);
-      OUT_BATCH((1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT); /* only position */
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   /* 3DSTATE_WM */
+   gen6_hiz_disable_wm(brw, params);
 
    /* 3DSTATE_DEPTH_BUFFER */
    {
