@@ -115,7 +115,8 @@ intel_miptree_create_internal(struct intel_context *intel,
                                             mt->width0,
                                             mt->height0,
                                             mt->depth0,
-                                            true);
+                                            true,
+                                            false /* is_msaa_surface */);
       if (!mt->stencil_mt) {
 	 intel_miptree_release(&mt);
 	 return NULL;
@@ -161,7 +162,8 @@ intel_miptree_create(struct intel_context *intel,
 		     GLuint width0,
 		     GLuint height0,
 		     GLuint depth0,
-		     bool expect_accelerated_upload)
+		     bool expect_accelerated_upload,
+                     bool is_msaa_surface)
 {
    struct intel_mipmap_tree *mt;
    uint32_t tiling = I915_TILING_NONE;
@@ -172,7 +174,21 @@ intel_miptree_create(struct intel_context *intel,
 	  (base_format == GL_DEPTH_COMPONENT ||
 	   base_format == GL_DEPTH_STENCIL_EXT))
 	 tiling = I915_TILING_Y;
-      else if (width0 >= 64)
+      else if (is_msaa_surface) {
+         /* From p82 of the Sandy Bridge PRM, dw3[1] of SURFACE_STATE ("Tiled
+          * Surface"):
+          *
+          *   [DevSNB+]: For multi-sample render targets, this field must be
+          *   1. MSRTs can only be tiled.
+          *
+          * Our usual reason for preferring X tiling (fast blits using the
+          * blitting engine) doesn't apply to MSAA, since we'll generally be
+          * downsampling or upsampling when blitting between the MSAA buffer
+          * and another buffer, and the blitting engine doesn't support that.
+          * So use Y tiling, since it makes better use of the cache.
+          */
+         tiling = I915_TILING_Y;
+      } else if (width0 >= 64)
 	 tiling = I915_TILING_X;
    }
 
@@ -238,12 +254,13 @@ struct intel_mipmap_tree*
 intel_miptree_create_for_renderbuffer(struct intel_context *intel,
                                       gl_format format,
                                       uint32_t width,
-                                      uint32_t height)
+                                      uint32_t height,
+                                      bool is_msaa_surface)
 {
    struct intel_mipmap_tree *mt;
 
    mt = intel_miptree_create(intel, GL_TEXTURE_2D, format, 0, 0,
-			     width, height, 1, true);
+			     width, height, 1, true, is_msaa_surface);
 
    return mt;
 }
@@ -511,20 +528,43 @@ intel_miptree_copy_teximage(struct intel_context *intel,
    intel_miptree_reference(&intelImage->mt, dst_mt);
 }
 
+static void
+get_msaa_surface_dims(struct intel_mipmap_tree *mt, GLubyte num_samples,
+                      GLuint *width0, GLuint *height0)
+{
+   if (num_samples == 0) {
+      *width0 = mt->width0;
+      *height0 = mt->height0;
+   } else if (num_samples <= 4) {
+      /* 4x oversampling doubles the width and height */
+      *width0 = mt->width0 * 2;
+      *height0 = mt->height0 * 2;
+   } else {
+      /* 8x oversampling doubles the height and quadruples the width */
+      *width0 = mt->width0 * 4;
+      *height0 = mt->height0 * 2;
+   }
+}
+
 bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
-			struct intel_mipmap_tree *mt)
+			struct intel_mipmap_tree *mt,
+                        GLubyte num_samples)
 {
    assert(mt->hiz_mt == NULL);
+   GLuint width0;
+   GLuint height0;
+   get_msaa_surface_dims(mt, num_samples, &width0, &height0);
    mt->hiz_mt = intel_miptree_create(intel,
                                      mt->target,
                                      MESA_FORMAT_X8_Z24,
                                      mt->first_level,
                                      mt->last_level,
-                                     mt->width0,
-                                     mt->height0,
+                                     width0,
+                                     height0,
                                      mt->depth0,
-                                     true);
+                                     true,
+                                     false /* is_msaa_surface */);
 
    if (!mt->hiz_mt)
       return false;
@@ -543,6 +583,36 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
 	 head->need = INTEL_NEED_HIZ_RESOLVE;
       }
    }
+
+   return true;
+}
+
+bool
+intel_miptree_alloc_msaa(struct intel_context *intel,
+                         struct intel_mipmap_tree *mt,
+                         GLubyte num_samples)
+{
+   /* We should only ever create 2D MSAA miptrees, since MSAA is only
+    * supported for renderbuffers, not for textures.
+    */
+   assert(mt->depth0 == 1);
+   assert(mt->msaa_mt == NULL);
+   GLuint width0;
+   GLuint height0;
+   get_msaa_surface_dims(mt, num_samples, &width0, &height0);
+   mt->msaa_mt = intel_miptree_create(intel,
+                                      mt->target,
+                                      mt->format,
+                                      mt->first_level,
+                                      mt->last_level,
+                                      width0,
+                                      height0,
+                                      mt->depth0,
+                                      true,
+                                      true /* is_msaa_surface */);
+
+   if (!mt->msaa_mt)
+      return false;
 
    return true;
 }

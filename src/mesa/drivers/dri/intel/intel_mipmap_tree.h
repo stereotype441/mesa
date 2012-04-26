@@ -212,6 +212,14 @@ struct intel_mipmap_tree
     */
    struct intel_mipmap_tree *stencil_mt;
 
+   /**
+    * \brief MSAA miptree.
+    *
+    * For a color buffer, this is the associated MSAA miptree (if MSAA is
+    * enabled for this surface).
+    */
+   struct intel_mipmap_tree *msaa_mt;
+
    /* These are also refcounted:
     */
    GLuint refcount;
@@ -227,7 +235,8 @@ struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLuint width0,
                                                GLuint height0,
                                                GLuint depth0,
-					       bool expect_accelerated_upload);
+					       bool expect_accelerated_upload,
+                                               bool is_msaa_surface);
 
 struct intel_mipmap_tree *
 intel_miptree_create_for_region(struct intel_context *intel,
@@ -246,7 +255,8 @@ struct intel_mipmap_tree*
 intel_miptree_create_for_renderbuffer(struct intel_context *intel,
                                       gl_format format,
                                       uint32_t width,
-                                      uint32_t height);
+                                      uint32_t height,
+                                      bool is_msaa_surface);
 
 /** \brief Assert that the level and layer are valid for the miptree. */
 static inline void
@@ -337,7 +347,17 @@ intel_miptree_s8z24_gather(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
-			struct intel_mipmap_tree *mt);
+			struct intel_mipmap_tree *mt,
+                        GLubyte num_samples);
+
+/**
+ * \brief Allocate the miptree's embedded MSAA miptree.
+ * \return false if allocation falied
+ */
+bool
+intel_miptree_alloc_msaa(struct intel_context *intel,
+                         struct intel_mipmap_tree *mt,
+                         GLubyte num_samples);
 
 void
 intel_miptree_slice_set_needs_hiz_resolve(struct intel_mipmap_tree *mt,

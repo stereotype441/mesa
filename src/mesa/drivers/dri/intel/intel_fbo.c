@@ -199,6 +199,13 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
 {
    struct intel_context *intel = intel_context(ctx);
    struct intel_renderbuffer *irb = intel_renderbuffer(rb);
+   GLubyte num_samples = rb->NumSamples;
+
+   /* MSAA is not fully implemented yet, so as a temporary measure only set up
+    * buffers for MSAA if the environment variable INTEL_ENABLE_MSAA is set.
+    */
+   if (!getenv("INTEL_ENABLE_MSAA"))
+      num_samples = 0;
 
    ASSERT(rb->Name != 0);
 
@@ -238,15 +245,25 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
        _mesa_get_format_name(rb->Format), width, height);
 
    irb->mt = intel_miptree_create_for_renderbuffer(intel, rb->Format,
-						   width, height);
+						   width, height,
+                                                   false /* is_msaa_surface */);
    if (!irb->mt)
       return false;
 
    if (intel->vtbl.is_hiz_depth_format(intel, rb->Format)) {
-      bool ok = intel_miptree_alloc_hiz(intel, irb->mt);
+      bool ok = intel_miptree_alloc_hiz(intel, irb->mt, num_samples);
       if (!ok) {
 	 intel_miptree_release(&irb->mt);
 	 return false;
+      }
+   }
+
+   if (num_samples > 0) {
+      bool ok = intel_miptree_alloc_msaa(intel, irb->mt, num_samples);
+      if (!ok) {
+         intel_miptree_release(&irb->mt->hiz_mt);
+         intel_miptree_release(&irb->mt);
+         return false;
       }
    }
 
@@ -492,7 +509,10 @@ intel_renderbuffer_update_wrapper(struct intel_context *intel,
 
    if (mt->hiz_mt == NULL &&
        intel->vtbl.is_hiz_depth_format(intel, rb->Format)) {
-      intel_miptree_alloc_hiz(intel, mt);
+      /* intel_renderbuffer_update_wrapper is only used for textures, and
+       * textures don't support MSAA yet, so set num_samples to 0.
+       */
+      intel_miptree_alloc_hiz(intel, mt, 0 /* num_samples */);
       if (!mt->hiz_mt)
 	 return false;
    }

@@ -941,7 +941,8 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
 				       intel_image->base.Base.Level,
 				       intel_image->base.Base.Level,
 				       width, height, depth,
-				       true);
+				       true,
+                                       false /* is_msaa_surface */);
 
 	 intel_miptree_copy_teximage(intel, intel_image, new_mt);
 	 intel_miptree_reference(&irb->mt, intel_image->mt);
