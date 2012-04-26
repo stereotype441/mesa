@@ -456,6 +456,8 @@
 /* Surface state DW4 */
 #define BRW_SURFACE_MIN_LOD_SHIFT	28
 #define BRW_SURFACE_MIN_LOD_MASK	INTEL_MASK(31, 28)
+#define BRW_SURFACE_MULTISAMPLECOUNT_1  (0 << 4)
+#define BRW_SURFACE_MULTISAMPLECOUNT_4  (2 << 4)
 
 /* Surface state DW5 */
 #define BRW_SURFACE_X_OFFSET_SHIFT		25
@@ -1305,6 +1307,7 @@ enum brw_wm_barycentric_interp_mode {
 # define GEN6_WM_MSRAST_OFF_PATTERN			(1 << 1)
 # define GEN6_WM_MSRAST_ON_PIXEL			(2 << 1)
 # define GEN6_WM_MSRAST_ON_PATTERN			(3 << 1)
+# define GEN6_WM_MSDISPMODE_PERSAMPLE                   (0 << 0)
 # define GEN6_WM_MSDISPMODE_PERPIXEL			(1 << 0)
 /* DW7: kernel 1 pointer */
 /* DW8: kernel 2 pointer */
