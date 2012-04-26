@@ -39,38 +39,22 @@
  */
 static void
 gen7_hiz_exec(struct intel_context *intel,
-              struct intel_mipmap_tree *mt,
-              unsigned int level,
-              unsigned int layer,
-              enum gen6_hiz_op op)
+              const brw_hiz_resolve_params *params)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
    uint32_t draw_x, draw_y;
    uint32_t tile_mask_x, tile_mask_y;
 
-   assert(op != GEN6_HIZ_OP_DEPTH_CLEAR); /* Not implemented yet. */
-   assert(mt->hiz_mt != NULL);
-   intel_miptree_check_level_layer(mt, level, layer);
-
    uint32_t depth_format;
-   switch (mt->format) {
+   switch (params->depth.mt->format) {
    case MESA_FORMAT_Z16:       depth_format = BRW_DEPTHFORMAT_D16_UNORM; break;
    case MESA_FORMAT_Z32_FLOAT: depth_format = BRW_DEPTHFORMAT_D32_FLOAT; break;
    case MESA_FORMAT_X8_Z24:    depth_format = BRW_DEPTHFORMAT_D24_UNORM_X8_UINT; break;
    default:                    assert(0); break;
    }
 
-   {
-      /* Construct a dummy renderbuffer just to extract tile offsets. */
-      struct intel_renderbuffer rb;
-      rb.mt = mt;
-      rb.mt_level = level;
-      rb.mt_layer = layer;
-      intel_renderbuffer_set_draw_offset(&rb);
-      draw_x = rb.draw_x;
-      draw_y = rb.draw_y;
-   }
+   params->depth.get_draw_offsets(&draw_x, &draw_y);
 
    /* Compute masks to determine how much of draw_x and draw_y should be
     * performed using the fine adjustment of "depth coordinate offset X/Y"
@@ -79,8 +63,9 @@ gen7_hiz_exec(struct intel_context *intel,
     */
    {
       uint32_t depth_mask_x, depth_mask_y, hiz_mask_x, hiz_mask_y;
-      intel_region_get_tile_masks(mt->region, &depth_mask_x, &depth_mask_y);
-      intel_region_get_tile_masks(mt->hiz_mt->region,
+      intel_region_get_tile_masks(params->depth.mt->region,
+                                  &depth_mask_x, &depth_mask_y);
+      intel_region_get_tile_masks(params->depth.mt->hiz_mt->region,
                                   &hiz_mask_x, &hiz_mask_y);
 
       /* Each HiZ row represents 2 rows of pixels */
@@ -90,8 +75,8 @@ gen7_hiz_exec(struct intel_context *intel,
       tile_mask_y = depth_mask_y | hiz_mask_y;
    }
 
-   gen6_hiz_emit_batch_head(brw);
-   gen6_hiz_emit_vertices(brw, mt, level, layer);
+   gen6_hiz_emit_batch_head(brw, params);
+   gen6_hiz_emit_vertices(brw, params);
 
    /* 3DSTATE_URB_VS
     * 3DSTATE_URB_HS
@@ -139,7 +124,7 @@ gen7_hiz_exec(struct intel_context *intel,
     */
    {
       uint32_t depthstencil_offset;
-      gen6_hiz_emit_depth_stencil_state(brw, op, &depthstencil_offset);
+      gen6_hiz_emit_depth_stencil_state(brw, params, &depthstencil_offset);
 
       BEGIN_BATCH(2);
       OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
@@ -278,7 +263,8 @@ gen7_hiz_exec(struct intel_context *intel,
    {
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_SF << 16 | (7 - 2));
-      OUT_BATCH(depth_format << GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
+      OUT_BATCH(depth_format <<
+                GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
       OUT_BATCH(0);
       OUT_BATCH(0);
       OUT_BATCH(0);
@@ -306,7 +292,7 @@ gen7_hiz_exec(struct intel_context *intel,
    {
       uint32_t dw1 = 0;
 
-      switch (op) {
+      switch (params->op) {
       case GEN6_HIZ_OP_DEPTH_CLEAR:
          assert(!"not implemented");
          dw1 |= GEN7_WM_DEPTH_CLEAR;
@@ -355,14 +341,15 @@ gen7_hiz_exec(struct intel_context *intel,
 
    /* 3DSTATE_DEPTH_BUFFER */
    {
-      uint32_t width = mt->level[level].width;
-      uint32_t height = mt->level[level].height;
+      uint32_t width, height;
+      params->depth.get_miplevel_dims(&width, &height);
 
       uint32_t tile_x = draw_x & tile_mask_x;
       uint32_t tile_y = draw_y & tile_mask_y;
-      uint32_t offset = intel_region_get_aligned_offset(mt->region,
-                                                        draw_x & ~tile_mask_x,
-                                                        draw_y & ~tile_mask_y);
+      uint32_t offset =
+         intel_region_get_aligned_offset(params->depth.mt->region,
+                                         draw_x & ~tile_mask_x,
+                                         draw_y & ~tile_mask_y);
 
       /* According to the Sandy Bridge PRM, volume 2 part 1, pp326-327
        * (3DSTATE_DEPTH_BUFFER dw5), in the documentation for "Depth
@@ -386,12 +373,14 @@ gen7_hiz_exec(struct intel_context *intel,
 
       BEGIN_BATCH(7);
       OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-      OUT_BATCH(((mt->region->pitch * mt->region->cpp) - 1) |
+      uint32_t pitch_bytes =
+         params->depth.mt->region->pitch * params->depth.mt->region->cpp;
+      OUT_BATCH((pitch_bytes - 1) |
                 depth_format << 18 |
                 1 << 22 | /* hiz enable */
                 1 << 28 | /* depth write */
                 BRW_SURFACE_2D << 29);
-      OUT_RELOC(mt->region->bo,
+      OUT_RELOC(params->depth.mt->region->bo,
                 I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
                 offset);
       OUT_BATCH((width + tile_x - 1) << 4 |
@@ -405,7 +394,7 @@ gen7_hiz_exec(struct intel_context *intel,
 
    /* 3DSTATE_HIER_DEPTH_BUFFER */
    {
-      struct intel_region *hiz_region = mt->hiz_mt->region;
+      struct intel_region *hiz_region = params->depth.mt->hiz_mt->region;
       uint32_t hiz_offset =
          intel_region_get_aligned_offset(hiz_region,
                                          draw_x & ~tile_mask_x,
@@ -413,8 +402,11 @@ gen7_hiz_exec(struct intel_context *intel,
 
       BEGIN_BATCH(3);
       OUT_BATCH((GEN7_3DSTATE_HIER_DEPTH_BUFFER << 16) | (3 - 2));
-      OUT_BATCH(hiz_region->pitch * hiz_region->cpp - 1);
-      OUT_RELOC(hiz_region->bo,
+      uint32_t pitch_bytes =
+         params->depth.mt->hiz_mt->region->pitch *
+         params->depth.mt->hiz_mt->region->cpp;
+      OUT_BATCH(pitch_bytes - 1);
+      OUT_RELOC(params->depth.mt->hiz_mt->region->bo,
                 I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
                 hiz_offset);
       ADVANCE_BATCH();
@@ -450,8 +442,8 @@ gen7_hiz_exec(struct intel_context *intel,
       BEGIN_BATCH(4);
       OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
       OUT_BATCH(0);
-      OUT_BATCH(((mt->level[level].width - 1) & 0xffff) |
-                ((mt->level[level].height - 1) << 16));
+      OUT_BATCH(((params->width - 1) & 0xffff) |
+                ((params->height - 1) << 16));
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }
@@ -487,7 +479,8 @@ gen7_resolve_hiz_slice(struct intel_context *intel,
                        uint32_t level,
                        uint32_t layer)
 {
-   gen7_hiz_exec(intel, mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
+   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
+   gen7_hiz_exec(intel, &params);
 }
 
 /** \copydoc gen6_resolve_depth_slice() */
@@ -497,5 +490,6 @@ gen7_resolve_depth_slice(struct intel_context *intel,
                          uint32_t level,
                          uint32_t layer)
 {
-   gen7_hiz_exec(intel, mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
+   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
+   gen7_hiz_exec(intel, &params);
 }
