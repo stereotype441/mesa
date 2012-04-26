@@ -31,6 +31,7 @@
 #include "brw_defines.h"
 #include "brw_state.h"
 
+#include "brw_blorp.h"
 #include "gen6_hiz.h"
 
 /**
