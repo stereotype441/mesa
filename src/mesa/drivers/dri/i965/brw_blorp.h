@@ -108,9 +108,7 @@ struct brw_msaa_resolve_prog_key
 class brw_msaa_resolve_params : public brw_blorp_params
 {
 public:
-   brw_msaa_resolve_params(struct intel_mipmap_tree *src_mt,
-                           struct intel_mipmap_tree *dst_mt,
-                           unsigned int level, unsigned int layer);
+   brw_msaa_resolve_params(struct intel_mipmap_tree *mt);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw) const;
 
