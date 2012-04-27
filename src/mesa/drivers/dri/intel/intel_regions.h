@@ -41,6 +41,10 @@
 #include "main/mtypes.h"
 #include "intel_bufmgr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct intel_context;
 struct intel_buffer_object;
 
@@ -145,5 +149,9 @@ struct __DRIimageRec {
    GLenum data_type;
    void *data;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
