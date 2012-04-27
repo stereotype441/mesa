@@ -116,7 +116,8 @@ intel_miptree_create_internal(struct intel_context *intel,
                                             mt->height0,
                                             mt->depth0,
                                             true,
-                                            false /* is_msaa_surface */);
+                                            false /* is_msaa_surface */,
+                                            0 /* num_samples */);
       if (!mt->stencil_mt) {
 	 intel_miptree_release(&mt);
 	 return NULL;
@@ -163,7 +164,8 @@ intel_miptree_create(struct intel_context *intel,
 		     GLuint height0,
 		     GLuint depth0,
 		     bool expect_accelerated_upload,
-                     bool is_msaa_surface)
+                     bool is_msaa_surface,
+                     GLuint num_samples)
 {
    struct intel_mipmap_tree *mt;
    uint32_t tiling = I915_TILING_NONE;
@@ -214,11 +216,20 @@ intel_miptree_create(struct intel_context *intel,
       return NULL;
    }
 
+   /* Adjust width/height for MSAA */
+   GLuint adjusted_width = mt->total_width;
+   GLuint adjusted_height = mt->total_height;
+   if (num_samples > 0) {
+      /* TODO: handle 8x */
+      adjusted_width *= 2;
+      adjusted_height *= 2;
+   }
+
    mt->region = intel_region_alloc(intel->intelScreen,
 				   tiling,
 				   mt->cpp,
-				   mt->total_width,
-				   mt->total_height,
+				   adjusted_width,
+				   adjusted_height,
 				   expect_accelerated_upload);
 
    if (!mt->region) {
@@ -259,14 +270,9 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
 {
    struct intel_mipmap_tree *mt;
 
-   if (num_samples > 0) {
-      /* TODO: handle 8x */
-      width *= 2;
-      height *= 2;
-   }
-
    mt = intel_miptree_create(intel, GL_TEXTURE_2D, format, 0, 0,
-			     width, height, 1, true, num_samples > 0);
+			     width, height, 1, true, num_samples > 0,
+                             num_samples);
 
    return mt;
 }
@@ -537,19 +543,32 @@ intel_miptree_copy_teximage(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
-			struct intel_mipmap_tree *mt)
+			struct intel_mipmap_tree *mt,
+                        GLuint num_samples)
 {
    assert(mt->hiz_mt == NULL);
+
+   /* Adjust width/height for MSAA */
+   GLuint adjusted_width = mt->width0;
+   GLuint adjusted_height = mt->height0;
+   if (num_samples > 0) {
+      /* TODO: handle 8x */
+      /* TODO: duplication of adjustment code */
+      adjusted_width *= 2;
+      adjusted_height *= 2;
+   }
+
    mt->hiz_mt = intel_miptree_create(intel,
                                      mt->target,
                                      MESA_FORMAT_X8_Z24,
                                      mt->first_level,
                                      mt->last_level,
-                                     mt->width0,
-                                     mt->height0,
+                                     adjusted_width,
+                                     adjusted_height,
                                      mt->depth0,
                                      true,
-                                     false /* TODO: was num_samples > 0 */);
+                                     false /* TODO: was num_samples > 0 */,
+                                     0 /* num_samples */);
 
    if (!mt->hiz_mt)
       return false;
@@ -590,7 +609,8 @@ intel_miptree_alloc_downsampled(struct intel_context *intel,
                                              mt->height0,
                                              mt->depth0,
                                              true,
-                                             false /* is_msaa_surface */);
+                                             false /* is_msaa_surface */,
+                                             0 /* num_samples */);
 
    if (!mt->downsampled_mt)
       return false;
