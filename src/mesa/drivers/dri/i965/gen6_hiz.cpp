@@ -104,12 +104,22 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
    this->hiz_mt = hiz_mt;
 }
 
-brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *src_mt,
-                                                 struct intel_mipmap_tree *dst_mt,
-                                                 unsigned int level,
-                                                 unsigned int layer)
+brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt)
 {
-   /* TODO: init wm_prog_key */
+   use_wm_prog = true;
+   memset(&wm_prog_key, 0, sizeof(wm_prog_key));
+   if (mt->format == MESA_FORMAT_S8) {
+      wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_STENCIL_SWIZZLE;
+      wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE_LD; /* TODO: different for Gen7? */
+      width = ALIGN(width, 64) / 2;
+      height = ALIGN(height, 64) / 2;
+   } else if (_mesa_get_format_base_format(mt->format) == GL_DEPTH_COMPONENT) { /* TODO: handle GL_DEPTH_STENCIL? */
+      wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_DEPTH_SWIZZLE;
+      wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE_LD; /* TODO: different for Gen7? */
+   } else {
+      wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_NORMAL;
+      wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE; /* TODO: different for Gen7? */
+   }
 }
 
 class brw_msaa_resolve_program
