@@ -1092,6 +1092,20 @@ gen6_hiz_exec(struct intel_context *intel,
          BRW_ADDRESS_ROUNDING_ENABLE_R_MAG;
    }
 
+   /* 3DSTATE_SAMPLER_STATE_POINTERS */
+   if (params->src.mt) {
+      BEGIN_BATCH(4);
+      OUT_BATCH(_3DSTATE_SAMPLER_STATE_POINTERS << 16 |
+                VS_SAMPLER_STATE_CHANGE |
+                GS_SAMPLER_STATE_CHANGE |
+                PS_SAMPLER_STATE_CHANGE |
+                (4 - 2));
+      OUT_BATCH(0); /* VS */
+      OUT_BATCH(0); /* GS */
+      OUT_BATCH(sampler_offset);
+      ADVANCE_BATCH();
+   }
+
    /* 3DSTATE_VS
     *
     * Disable vertex shader.
