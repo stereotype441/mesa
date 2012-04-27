@@ -1181,7 +1181,10 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* 3DSTATE_WM */
-   gen6_hiz_disable_wm(brw, params);
+   if (params->use_wm_prog)
+      gen6_hiz_enable_wm(brw, prog_offset);
+   else
+      gen6_hiz_disable_wm(brw, params);
 
    /* 3DSTATE_DEPTH_BUFFER */
    {
