@@ -809,28 +809,30 @@ gen6_hiz_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t draw_x, draw_y;
+   uint32_t draw_x = 0, draw_y = 0;
    uint32_t tile_mask_x, tile_mask_y;
 
-   params->depth.get_draw_offsets(&draw_x, &draw_y);
+   if (params->depth.mt) {
+      params->depth.get_draw_offsets(&draw_x, &draw_y);
 
-   /* Compute masks to determine how much of draw_x and draw_y should be
-    * performed using the fine adjustment of "depth coordinate offset X/Y"
-    * (dw5 of 3DSTATE_DEPTH_BUFFER).  See the emit_depthbuffer() function for
-    * details.
-    */
-   {
-      uint32_t depth_mask_x, depth_mask_y, hiz_mask_x, hiz_mask_y;
-      intel_region_get_tile_masks(params->depth.mt->region,
-                                  &depth_mask_x, &depth_mask_y);
-      intel_region_get_tile_masks(params->hiz_mt->region,
-                                  &hiz_mask_x, &hiz_mask_y);
+      /* Compute masks to determine how much of draw_x and draw_y should be
+       * performed using the fine adjustment of "depth coordinate offset X/Y"
+       * (dw5 of 3DSTATE_DEPTH_BUFFER).  See the emit_depthbuffer() function
+       * for details.
+       */
+      {
+         uint32_t depth_mask_x, depth_mask_y, hiz_mask_x, hiz_mask_y;
+         intel_region_get_tile_masks(params->depth.mt->region,
+                                     &depth_mask_x, &depth_mask_y);
+         intel_region_get_tile_masks(params->hiz_mt->region,
+                                     &hiz_mask_x, &hiz_mask_y);
 
-      /* Each HiZ row represents 2 rows of pixels */
-      hiz_mask_y = hiz_mask_y << 1 | 1;
+         /* Each HiZ row represents 2 rows of pixels */
+         hiz_mask_y = hiz_mask_y << 1 | 1;
 
-      tile_mask_x = depth_mask_x | hiz_mask_x;
-      tile_mask_y = depth_mask_y | hiz_mask_y;
+         tile_mask_x = depth_mask_x | hiz_mask_x;
+         tile_mask_y = depth_mask_y | hiz_mask_y;
+      }
    }
 
    /* TODO: is it ok to do this before gen6_hiz_emit_batch_head or will it
