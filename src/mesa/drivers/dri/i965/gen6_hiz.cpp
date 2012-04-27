@@ -857,12 +857,46 @@ gen6_hiz_exec(struct intel_context *intel,
       ADVANCE_BATCH();
    }
 
+   /* BLEND_STATE */
+   uint32_t cc_blend_state_offset = 0;
+   if (params->use_wm_prog)
+   {
+      struct gen6_blend_state *blend = (struct gen6_blend_state *)
+         brw_state_batch(brw, AUB_TRACE_BLEND_STATE,
+                         sizeof(struct gen6_blend_state), 64,
+                         &cc_blend_state_offset);
+
+      memset(blend, 0, sizeof(*blend));
+
+      // TODO: handle other formats.
+      blend->blend1.pre_blend_clamp_enable = 1;
+      blend->blend1.post_blend_clamp_enable = 1;
+      blend->blend1.clamp_range = BRW_RENDERTARGET_CLAMPRANGE_FORMAT;
+
+      blend->blend1.write_disable_r = false;
+      blend->blend1.write_disable_g = false;
+      blend->blend1.write_disable_b = false;
+      blend->blend1.write_disable_a = false;
+   }
+
+   /* TODO: gen6_color_calc_state */
+   uint32_t cc_state_offset = 0;
+   if (params->use_wm_prog)
+   {
+      struct gen6_color_calc_state *cc = (struct gen6_color_calc_state *)
+         brw_state_batch(brw, AUB_TRACE_CC_STATE,
+                         sizeof(gen6_color_calc_state), 64,
+                         &cc_state_offset);
+      memset(cc, 0, sizeof(*cc));
+   }
+
    /* 3DSTATE_CC_STATE_POINTERS
     *
     * The pointer offsets are relative to
     * CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
     *
     * The HiZ op doesn't use BLEND_STATE or COLOR_CALC_STATE.
+    * But MSAA does.
     */
    {
       uint32_t depthstencil_offset;
@@ -870,9 +904,9 @@ gen6_hiz_exec(struct intel_context *intel,
 
       BEGIN_BATCH(4);
       OUT_BATCH(_3DSTATE_CC_STATE_POINTERS << 16 | (4 - 2));
-      OUT_BATCH(1); /* BLEND_STATE offset */
+      OUT_BATCH(cc_blend_state_offset | 1); /* BLEND_STATE offset */
       OUT_BATCH(depthstencil_offset | 1); /* DEPTH_STENCIL_STATE offset */
-      OUT_BATCH(1); /* COLOR_CALC_STATE offset */
+      OUT_BATCH(cc_state_offset | 1); /* COLOR_CALC_STATE offset */
       ADVANCE_BATCH();
    }
 
