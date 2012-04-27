@@ -1199,7 +1199,7 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* 3DSTATE_DEPTH_BUFFER */
-   {
+   if (params->depth.mt) {
       uint32_t width, height;
       params->depth.get_miplevel_dims(&width, &height);
 
@@ -1259,6 +1259,17 @@ gen6_hiz_exec(struct intel_context *intel,
       OUT_BATCH(0);
       OUT_BATCH(tile_x |
                 tile_y << 16);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+   } else {
+      BEGIN_BATCH(7);
+      OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
+      OUT_BATCH((BRW_DEPTHFORMAT_D32_FLOAT << 18) |
+                (BRW_SURFACE_NULL << 29));
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }
