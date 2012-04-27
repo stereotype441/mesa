@@ -1186,6 +1186,18 @@ gen6_hiz_exec(struct intel_context *intel,
    else
       gen6_hiz_disable_wm(brw, params);
 
+   /* 3DSTATE_BINDING_TABLE_POINTERS */
+   if (params->use_wm_prog) {
+      BEGIN_BATCH(4);
+      OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS << 16 |
+                GEN6_BINDING_TABLE_MODIFY_PS |
+                (4 - 2));
+      OUT_BATCH(0); /* vs -- ignored */
+      OUT_BATCH(0); /* gs -- ignored */
+      OUT_BATCH(wm_bind_bo_offset); /* wm/ps */
+      ADVANCE_BATCH();
+   }
+
    /* 3DSTATE_DEPTH_BUFFER */
    {
       uint32_t width, height;
