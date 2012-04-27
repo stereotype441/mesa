@@ -180,6 +180,7 @@ void *brw_state_batch(struct brw_context *brw,
 
 /* brw_wm_surface_state.c */
 void gen4_init_vtable_surface_functions(struct brw_context *brw);
+uint32_t brw_get_surface_tiling_bits(uint32_t tiling);
 void brw_create_constant_surface(struct brw_context *brw,
 				 drm_intel_bo *bo,
 				 int width,
