@@ -213,14 +213,6 @@ struct intel_mipmap_tree
    struct intel_mipmap_tree *stencil_mt;
 
    /**
-    * \brief MSAA miptree.
-    *
-    * For a color buffer, this is the associated MSAA miptree (if MSAA is
-    * enabled for this surface).  TODO: remove.
-    */
-   struct intel_mipmap_tree *msaa_mt;
-
-   /**
     * \brief downsampled miptree.
     *
     * For a buffer that uses MSAA, this is the associated single-sampled
