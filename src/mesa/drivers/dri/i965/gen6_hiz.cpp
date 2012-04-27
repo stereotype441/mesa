@@ -244,6 +244,8 @@ brw_msaa_resolve_program::compile(struct brw_context *brw,
 
    emit_texture_lookup();
 
+   emit_render_target_write();
+
    return brw_get_program(&func, program_size);
 }
 
