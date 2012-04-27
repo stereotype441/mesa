@@ -204,8 +204,8 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
    /* MSAA is not fully implemented yet, so as a temporary measure only set up
     * buffers for MSAA if the environment variable INTEL_ENABLE_MSAA is set.
     */
-   if (!getenv("INTEL_ENABLE_MSAA"))
-      num_samples = 0;
+   //   if (!getenv("INTEL_ENABLE_MSAA"))
+   //      num_samples = 0;
 
    ASSERT(rb->Name != 0);
 
