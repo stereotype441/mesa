@@ -1027,6 +1027,18 @@ gen6_hiz_exec(struct intel_context *intel,
                               I915_GEM_DOMAIN_SAMPLER, 0);
    }
 
+   /* brw_wm_binding_table */
+   uint32_t wm_bind_bo_offset;
+   if (params->use_wm_prog) {
+      uint32_t *bind = (uint32_t *)
+         brw_state_batch(brw, AUB_TRACE_BINDING_TABLE,
+                         sizeof(uint32_t) * GEN6_HIZ_NUM_BINDING_TABLE_ENTRIES,
+                         32, /* alignment */
+                         &wm_bind_bo_offset);
+      bind[GEN6_HIZ_RENDERBUFFER_BINDING_TABLE_INDEX] = wm_surf_offset_renderbuffer;
+      bind[GEN6_HIZ_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
+   }
+
    /* 3DSTATE_VS
     *
     * Disable vertex shader.
