@@ -151,7 +151,8 @@ brw_search_cache(struct brw_cache *cache,
    if (item == NULL)
       return false;
 
-   *(void **)out_aux = ((char *)item->key + item->key_size);
+   if (out_aux)
+      *(void **)out_aux = ((char *)item->key + item->key_size);
 
    if (item->offset != *inout_offset) {
       brw->state.dirty.cache |= (1 << cache_id);
