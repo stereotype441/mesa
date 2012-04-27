@@ -77,8 +77,12 @@ public:
    uint32_t height;
    brw_hiz_mip_info depth;
    struct intel_mipmap_tree *hiz_mt;
+   brw_hiz_mip_info src;
+   brw_hiz_mip_info dst;
    enum gen6_hiz_op op;
    bool use_wm_prog;
+   bool stencil_magic;
+   bool src_multisampled;
 };
 
 class brw_hiz_resolve_params : public brw_blorp_params
