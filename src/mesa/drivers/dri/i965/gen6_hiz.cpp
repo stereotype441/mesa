@@ -1020,7 +1020,7 @@ gen6_hiz_exec(struct intel_context *intel,
                  (pitch_bytes - 1) <<
                  BRW_SURFACE_PITCH_SHIFT);
 
-      surf[4] = params->src_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_1 : BRW_SURFACE_MULTISAMPLECOUNT_4;
+      surf[4] = params->src_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
 
       surf[5] = (params->src.mt->align_h == 4) ? BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0;
 
