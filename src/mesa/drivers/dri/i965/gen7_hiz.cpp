@@ -31,7 +31,7 @@
 #include "brw_defines.h"
 #include "brw_state.h"
 
-#include "brw_hiz_internals.h"
+#include "brw_blorp.h"
 #include "gen7_hiz.h"
 
 /**
