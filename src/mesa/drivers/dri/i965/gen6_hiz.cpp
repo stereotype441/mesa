@@ -1275,7 +1275,7 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* 3DSTATE_HIER_DEPTH_BUFFER */
-   {
+   if (params->depth.mt) {
       struct intel_region *hiz_region = params->hiz_mt->region;
       uint32_t hiz_offset =
          intel_region_get_aligned_offset(hiz_region,
@@ -1295,7 +1295,7 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* 3DSTATE_STENCIL_BUFFER */
-   {
+   if (params->depth.mt) {
       BEGIN_BATCH(3);
       OUT_BATCH((_3DSTATE_STENCIL_BUFFER << 16) | (3 - 2));
       OUT_BATCH(0);
