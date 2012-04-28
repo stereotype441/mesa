@@ -1001,6 +1001,10 @@ gen6_hiz_exec(struct intel_context *intel,
        */
       uint32_t width, height;
       params->src.get_miplevel_dims(&width, &height);
+      if (params->src_multisampled) {
+         width /= 2;
+         height /= 2;
+      }
       if (params->stencil_magic) {
          width /= 2;
          height /= 2;

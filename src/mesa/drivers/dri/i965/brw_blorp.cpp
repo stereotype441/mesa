@@ -390,8 +390,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
 
       uint32_t src_w, src_h;
       src.get_miplevel_dims(&src_w, &src_h);
-      assert(src_w == width);
-      assert(src_h == height);
+      assert(src_w == width * 2);
+      assert(src_h == height * 2);
 
       uint32_t dst_w, dst_h;
       dst.get_miplevel_dims(&dst_w, &dst_h);
