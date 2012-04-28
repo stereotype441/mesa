@@ -69,8 +69,8 @@ try_blorp_blit_color(struct intel_context *intel,
    if (srcY1 < srcY0) return false;
    GLsizei width = srcX1 - srcX0;
    GLsizei height = srcY1 - srcY0;
-   if (width != dstX0 - dstX1) return false;
-   if (height != dstY0 - dstY1) return false;
+   if (width != dstX1 - dstX0) return false;
+   if (height != dstY1 - dstY0) return false;
 
    /* Make sure width and height don't need to be clipped or scissored.
     * TODO: support clipping and scissoring.
@@ -322,6 +322,9 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                                              GLuint dst_x, GLuint dst_y,
                                              GLuint width, GLuint height)
 {
+   src.set(src_mt, 0, 0);
+   dst.set(dst_mt, 0, 0);
+
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
       assert(src_mt->downsampled_mt);
@@ -342,8 +345,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       assert(dst_h == height);
    }
 
-   src.set(src_mt, 0, 0);
-   dst.set(dst_mt, 0, 0);
+   this->width = width;
+   this->height = height;
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
    src_multisampled = true;
