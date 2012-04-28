@@ -40,7 +40,7 @@
  */
 static void
 gen7_hiz_disable_wm(struct brw_context *brw,
-                    const brw_hiz_resolve_params *params)
+                    const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -74,7 +74,7 @@ gen7_hiz_disable_wm(struct brw_context *brw,
  */
 void
 gen7_hiz_exec(struct intel_context *intel,
-              const brw_hiz_resolve_params *params)
+              const brw_blorp_params *params)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
