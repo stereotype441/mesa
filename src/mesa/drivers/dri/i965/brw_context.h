@@ -37,6 +37,9 @@
 #include "brw_structs.h"
 #include "main/imports.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Glossary:
  *
@@ -1196,5 +1199,9 @@ brw_program_reloc(struct brw_context *brw, uint32_t state_offset,
 }
 
 bool brw_do_cubemap_normalize(struct exec_list *instructions);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
