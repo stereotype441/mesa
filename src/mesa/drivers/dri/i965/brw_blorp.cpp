@@ -52,7 +52,6 @@ try_blorp_blit_color(struct intel_context *intel,
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
    const struct gl_renderbuffer_attachment *dst_attachment =
       &draw_fb->Attachment[draw_fb->_ColorDrawBufferIndexes[0]];
-   if (!dst_attachment) return false;
    const struct gl_texture_object *dst_texture = dst_attachment->Texture;
    if (!dst_texture) return false;
    struct gl_texture_image *dst_tex_image =
