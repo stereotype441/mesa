@@ -293,6 +293,9 @@ brw_blorp_blit_program::emit_texture_lookup()
       mrf_u = mrf_u_float;
       mrf_v = mrf_v_float;
    } else {
+      /* We'll be using a SAMPLE_LD message, which expects integer texture
+       * coordinates.
+       */
       mrf_u = retype(mrf_u_float, BRW_REGISTER_TYPE_UD);
       mrf_v = retype(mrf_v_float, BRW_REGISTER_TYPE_UD);
    }
