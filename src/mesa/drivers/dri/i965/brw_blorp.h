@@ -25,8 +25,9 @@
 
 #include <stdint.h>
 
+#include "intel_mipmap_tree.h"
+
 struct brw_context;
-struct intel_mipmap_tree;
 
 
 /**
@@ -73,6 +74,8 @@ public:
 
    virtual uint32_t get_wm_prog(struct brw_context *brw) const = 0;
 
+   void exec(struct intel_context *intel) const;
+
    uint32_t width;
    uint32_t height;
    brw_hiz_mip_info depth;
@@ -109,6 +112,10 @@ struct brw_msaa_resolve_prog_key
    GLuint sampler_msg_type;
 };
 
+struct brw_blorp_blit_prog_key
+{
+};
+
 class brw_msaa_resolve_params : public brw_blorp_params
 {
 public:
@@ -118,6 +125,21 @@ public:
 
 private:
    brw_msaa_resolve_prog_key wm_prog_key;
+};
+
+class brw_blorp_blit_params : public brw_blorp_params
+{
+public:
+   brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
+                         struct intel_mipmap_tree *dst_mt,
+                         GLuint src_x, GLuint src_y,
+                         GLuint dst_x, GLuint dst_y,
+                         GLuint width, GLuint height);
+
+   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
+
+private:
+   brw_blorp_blit_prog_key wm_prog_key;
 };
 
 /**
@@ -143,3 +165,11 @@ gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
                                   const brw_blorp_params *params,
                                   uint32_t *out_offset);
 /** \} */
+
+void
+gen6_hiz_exec(struct intel_context *intel,
+              const brw_blorp_params *params);
+
+void
+gen7_hiz_exec(struct intel_context *intel,
+              const brw_blorp_params *params);

@@ -90,6 +90,23 @@ brw_blorp_params::brw_blorp_params()
 {
 }
 
+void
+brw_blorp_params::exec(struct intel_context *intel) const
+{
+   switch (intel->gen) {
+   case 6:
+      gen6_hiz_exec(intel, this);
+      break;
+   case 7:
+      gen7_hiz_exec(intel, this);
+      break;
+   default:
+      /* BLORP is not supported before Gen7. */
+      assert(false);
+      break;
+   }
+}
+
 brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
                                                struct intel_mipmap_tree *hiz_mt,
                                                unsigned int level,
@@ -805,7 +822,7 @@ gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
  *   - 7.5.3.2 Depth Buffer Resolve
  *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
  */
-static void
+void
 gen6_hiz_exec(struct intel_context *intel,
               const brw_blorp_params *params)
 {

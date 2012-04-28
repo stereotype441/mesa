@@ -72,7 +72,7 @@ gen7_hiz_disable_wm(struct brw_context *brw,
 /**
  * \copydoc gen6_hiz_exec()
  */
-static void
+void
 gen7_hiz_exec(struct intel_context *intel,
               const brw_hiz_resolve_params *params)
 {
