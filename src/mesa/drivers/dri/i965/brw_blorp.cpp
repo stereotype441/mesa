@@ -271,15 +271,24 @@ brw_blorp_blit_program::emit_frag_coord_computation()
 void
 brw_blorp_blit_program::emit_texture_coord_computation()
 {
-   /* When looking up samples in an MSAA texture, Gen6 requires the texture
-    * coordinates to be odd integers (so that they correspond to the center of
-    * a 2x2 block representing the four samples that maxe up a pixel).  So we
-    * need to multiply our X and Y coordinates each by 2 and then add 1.
-    */
-   brw_SHL(&func, u_tex, x_frag, brw_imm_w(1));
-   brw_SHL(&func, v_tex, y_frag, brw_imm_w(1));
-   brw_ADD(&func, u_tex, u_tex, brw_imm_w(1));
-   brw_ADD(&func, v_tex, v_tex, brw_imm_w(1));
+   if (key->blend) {
+      /* When looking up samples in an MSAA texture using the SAMPLE message,
+       * Gen6 requires the texture coordinates to be odd integers (so that
+       * they correspond to the center of a 2x2 block representing the four
+       * samples that maxe up a pixel).  So we need to multiply our X and Y
+       * coordinates each by 2 and then add 1.
+       */
+      brw_SHL(&func, u_tex, x_frag, brw_imm_w(1));
+      brw_SHL(&func, v_tex, y_frag, brw_imm_w(1));
+      brw_ADD(&func, u_tex, u_tex, brw_imm_w(1));
+      brw_ADD(&func, v_tex, v_tex, brw_imm_w(1));
+   } else {
+      /* When looking up samples in an MSAA texture using the SAMPLE_LD message,
+       * Gen6 just needs the integer texture coordinates.
+       */
+      brw_MOV(&func, u_tex, x_frag);
+      brw_MOV(&func, v_tex, y_frag);
+   }
 }
 
 void
