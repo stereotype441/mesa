@@ -62,13 +62,15 @@ try_blorp_blit(struct intel_context *intel,
 
    /* Validate source */
    if (!src_rb) return false;
-   struct intel_mipmap_tree *src_mt = intel_renderbuffer(src_rb)->mt;
+   struct intel_renderbuffer *src_irb = intel_renderbuffer(src_rb);
+   struct intel_mipmap_tree *src_mt = src_irb->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (!src_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
    /* Validate destination */
    if (!dst_rb) return false;
-   struct intel_mipmap_tree *dst_mt = intel_renderbuffer(dst_rb)->mt;
+   struct intel_renderbuffer *dst_irb = intel_renderbuffer(dst_rb);
+   struct intel_mipmap_tree *dst_mt = dst_irb->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
@@ -91,11 +93,21 @@ try_blorp_blit(struct intel_context *intel,
    if (dstY0 < 0 || (GLuint) dstY1 > draw_fb->Height) return false;
    if (ctx->Scissor.Enabled) return false;
 
-   /* Do the blit */
+   /* Get ready to blit.  This includes depth resolving the src and dst
+    * buffers if necessary.
+    */
    intel_prepare_render(intel);
+   intel_renderbuffer_resolve_depth(intel, src_irb);
+   intel_renderbuffer_resolve_depth(intel, dst_irb);
+
+   /* Do the blit */
    brw_blorp_blit_params params(src_mt, dst_mt,
                                 srcX0, srcY0, dstX0, dstY0, width, height);
    params.exec(intel);
+
+   /* Mark the dst buffer as needing a HiZ resolve if necessary. */
+   intel_renderbuffer_set_needs_hiz_resolve(dst_irb);
+
    return true;
 }
 
