@@ -33,28 +33,42 @@
 #include "brw_state.h"
 
 static bool
-try_blorp_blit_color(struct intel_context *intel,
-                     GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
-                     GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
-                     GLenum filter)
+try_blorp_blit(struct intel_context *intel,
+               GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+               GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+               GLenum filter, GLbitfield buffer_bit)
 {
    struct gl_context *ctx = &intel->ctx;
 
-   /* Validate source */
+   /* Find buffers */
    const struct gl_framebuffer *read_fb = ctx->ReadBuffer;
-   struct intel_renderbuffer *src_irb =
-      intel_renderbuffer(read_fb->_ColorReadBuffer);
-   if (!src_irb) return false;
-   struct intel_mipmap_tree *src_mt = src_irb->mt;
+   const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
+   struct gl_renderbuffer *src_rb;
+   struct gl_renderbuffer *dst_rb;
+   switch (buffer_bit) {
+   case GL_COLOR_BUFFER_BIT:
+      src_rb = read_fb->_ColorReadBuffer;
+      dst_rb =
+         draw_fb->Attachment[
+            draw_fb->_ColorDrawBufferIndexes[0]].Renderbuffer;
+      break;
+   case GL_DEPTH_BUFFER_BIT:
+      src_rb = read_fb->Attachment[BUFFER_DEPTH].Renderbuffer;
+      dst_rb = draw_fb->Attachment[BUFFER_DEPTH].Renderbuffer;
+      break;
+   default:
+      assert(false);
+   }
+
+   /* Validate source */
+   if (!src_rb) return false;
+   struct intel_mipmap_tree *src_mt = intel_renderbuffer(src_rb)->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (!src_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
    /* Validate destination */
-   const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
-   struct intel_renderbuffer *dst_irb =
-      intel_renderbuffer(draw_fb->Attachment[draw_fb->_ColorDrawBufferIndexes[0]].Renderbuffer);
-   if (!dst_irb) return false;
-   struct intel_mipmap_tree *dst_mt = dst_irb->mt;
+   if (!dst_rb) return false;
+   struct intel_mipmap_tree *dst_mt = intel_renderbuffer(dst_rb)->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
@@ -95,12 +109,19 @@ brw_blorp_framebuffer(struct intel_context *intel,
    if (intel->gen < 6)
       return mask;
 
-   if ((mask & GL_COLOR_BUFFER_BIT) &&
-       try_blorp_blit_color(intel,
-                            srcX0, srcY0, srcX1, srcY1,
-                            dstX0, dstY0, dstX1, dstY1,
-                            filter)) {
-      mask &= ~GL_COLOR_BUFFER_BIT;
+   static GLbitfield buffer_bits[] = {
+      GL_COLOR_BUFFER_BIT,
+      GL_DEPTH_BUFFER_BIT,
+   };
+
+   for (unsigned int i = 0; i < ARRAY_SIZE(buffer_bits); ++i) {
+      if ((mask & buffer_bits[i]) &&
+       try_blorp_blit(intel,
+                      srcX0, srcY0, srcX1, srcY1,
+                      dstX0, dstY0, dstX1, dstY1,
+                      filter, buffer_bits[i])) {
+         mask &= ~buffer_bits[i];
+      }
    }
 
    return mask;
@@ -264,12 +285,24 @@ brw_blorp_blit_program::emit_texture_coord_computation()
 void
 brw_blorp_blit_program::emit_texture_lookup()
 {
+   struct brw_reg mrf_u, mrf_v;
+   if (key->blend) {
+      /* We'll be using a SAMPLE message, which expects floating point texture
+       * coordinates.
+       */
+      mrf_u = mrf_u_float;
+      mrf_v = mrf_v_float;
+   } else {
+      mrf_u = retype(mrf_u_float, BRW_REGISTER_TYPE_UD);
+      mrf_v = retype(mrf_v_float, BRW_REGISTER_TYPE_UD);
+   }
+
    /* TODO: can we do some of this faster with a compressed instruction? */
    /* TODO: do we need to use 2NDHALF compression mode? */
-   brw_MOV(&func, vec8(mrf_u_float), vec8(u_tex));
-   brw_MOV(&func, offset(vec8(mrf_u_float), 1), suboffset(vec8(u_tex), 8));
-   brw_MOV(&func, vec8(mrf_v_float), vec8(v_tex));
-   brw_MOV(&func, offset(vec8(mrf_v_float), 1), suboffset(vec8(v_tex), 8));
+   brw_MOV(&func, vec8(mrf_u), vec8(u_tex));
+   brw_MOV(&func, offset(vec8(mrf_u), 1), suboffset(vec8(u_tex), 8));
+   brw_MOV(&func, vec8(mrf_v), vec8(v_tex));
+   brw_MOV(&func, offset(vec8(mrf_v), 1), suboffset(vec8(v_tex), 8));
 
    /* TODO: is this necessary? */
    /* TODO: what does this mean for LD mode? */
@@ -278,11 +311,12 @@ brw_blorp_blit_program::emit_texture_lookup()
    brw_SAMPLE(&func,
               retype(Rdata, BRW_REGISTER_TYPE_UW) /* dest */,
               base_mrf /* msg_reg_nr */,
-              vec8(mrf_u_float) /* src0 */,
+              vec8(mrf_u) /* src0 */,
               TEXTURE_BINDING_TABLE_INDEX,
               0 /* sampler -- ignored for SAMPLE_LD message */,
               WRITEMASK_XYZW,
-              GEN5_SAMPLER_MESSAGE_SAMPLE,
+              key->blend ? GEN5_SAMPLER_MESSAGE_SAMPLE
+                    : GEN5_SAMPLER_MESSAGE_SAMPLE_LD,
               8 /* response_length */,
               6 /* msg_length */,
               0 /* header_present */,
@@ -345,6 +379,12 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    this->height = height;
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
+   if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
+      /* TODO: test all depth formats */
+      wm_prog_key.blend = false;
+   } else { /* Color buffer */
+      wm_prog_key.blend = true;
+   }
    src_multisampled = true;
 }
 

@@ -114,8 +114,10 @@ struct brw_msaa_resolve_prog_key
 
 struct brw_blorp_blit_prog_key
 {
+   bool blend;
+
    /* Pad out to a multiple of 4 bytes in size. */
-   char pad[4];
+   char pad[3];
 };
 
 class brw_msaa_resolve_params : public brw_blorp_params
