@@ -51,15 +51,10 @@ try_blorp_blit_color(struct intel_context *intel,
 
    /* Validate destination */
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
-   const struct gl_renderbuffer_attachment *dst_attachment =
-      &draw_fb->Attachment[draw_fb->_ColorDrawBufferIndexes[0]];
-   const struct gl_texture_object *dst_texture = dst_attachment->Texture;
-   if (!dst_texture) return false;
-   struct gl_texture_image *dst_tex_image =
-      _mesa_select_tex_image(ctx, dst_texture,
-                             dst_texture->Target,
-                             dst_attachment->TextureLevel);
-   struct intel_mipmap_tree *dst_mt = intel_texture_image(dst_tex_image)->mt;
+   struct intel_renderbuffer *dst_irb =
+      intel_renderbuffer(draw_fb->Attachment[draw_fb->_ColorDrawBufferIndexes[0]].Renderbuffer);
+   if (!dst_irb) return false;
+   struct intel_mipmap_tree *dst_mt = dst_irb->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
