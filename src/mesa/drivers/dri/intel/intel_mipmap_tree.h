@@ -241,7 +241,7 @@ struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLuint height0,
                                                GLuint depth0,
 					       bool expect_accelerated_upload,
-                                               GLuint num_samples);
+                                               bool is_msaa_surface);
 
 struct intel_mipmap_tree *
 intel_miptree_create_for_region(struct intel_context *intel,
@@ -352,8 +352,7 @@ intel_miptree_s8z24_gather(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
-			struct intel_mipmap_tree *mt,
-                        GLuint num_samples);
+			struct intel_mipmap_tree *mt);
 
 /**
  * \brief Allocate the miptree's embedded downsampled miptree (for MSAA).

@@ -100,7 +100,7 @@ intel_miptree_create_for_teximage(struct intel_context *intel,
 			       height,
 			       depth,
 			       expect_accelerated_upload,
-                               0 /* num_samples */);
+                               false /* is_msaa_surface */);
 }
 
 /* There are actually quite a few combinations this will work for,

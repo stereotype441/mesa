@@ -251,7 +251,7 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
       return false;
 
    if (intel->vtbl.is_hiz_depth_format(intel, rb->Format)) {
-      bool ok = intel_miptree_alloc_hiz(intel, irb->mt, num_samples);
+      bool ok = intel_miptree_alloc_hiz(intel, irb->mt);
       if (!ok) {
 	 intel_miptree_release(&irb->mt);
 	 return false;
@@ -509,10 +509,7 @@ intel_renderbuffer_update_wrapper(struct intel_context *intel,
 
    if (mt->hiz_mt == NULL &&
        intel->vtbl.is_hiz_depth_format(intel, rb->Format)) {
-      /* intel_renderbuffer_update_wrapper is only used for textures, and
-       * textures don't support MSAA yet, so set num_samples to 0.
-       */
-      intel_miptree_alloc_hiz(intel, mt, 0);
+      intel_miptree_alloc_hiz(intel, mt);
       if (!mt->hiz_mt)
 	 return false;
    }
