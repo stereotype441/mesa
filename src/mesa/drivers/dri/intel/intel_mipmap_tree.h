@@ -241,7 +241,6 @@ struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLuint height0,
                                                GLuint depth0,
 					       bool expect_accelerated_upload,
-                                               bool is_msaa_surface,
                                                GLuint num_samples);
 
 struct intel_mipmap_tree *

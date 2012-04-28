@@ -116,7 +116,6 @@ intel_miptree_create_internal(struct intel_context *intel,
                                             mt->height0,
                                             mt->depth0,
                                             true,
-                                            false /* is_msaa_surface */,
                                             0 /* num_samples */);
       if (!mt->stencil_mt) {
 	 intel_miptree_release(&mt);
@@ -164,7 +163,6 @@ intel_miptree_create(struct intel_context *intel,
 		     GLuint height0,
 		     GLuint depth0,
 		     bool expect_accelerated_upload,
-                     bool is_msaa_surface,
                      GLuint num_samples)
 {
    struct intel_mipmap_tree *mt;
@@ -176,7 +174,7 @@ intel_miptree_create(struct intel_context *intel,
 	  (base_format == GL_DEPTH_COMPONENT ||
 	   base_format == GL_DEPTH_STENCIL_EXT))
 	 tiling = I915_TILING_Y;
-      else if (is_msaa_surface) {
+      else if (num_samples > 0) {
          /* From p82 of the Sandy Bridge PRM, dw3[1] of SURFACE_STATE ("Tiled
           * Surface"):
           *
@@ -271,8 +269,7 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
    struct intel_mipmap_tree *mt;
 
    mt = intel_miptree_create(intel, GL_TEXTURE_2D, format, 0, 0,
-			     width, height, 1, true, num_samples > 0,
-                             num_samples);
+			     width, height, 1, true, num_samples);
 
    return mt;
 }
@@ -567,7 +564,6 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
                                      adjusted_height,
                                      mt->depth0,
                                      true,
-                                     false /* TODO: was num_samples > 0 */,
                                      0 /* num_samples */);
 
    if (!mt->hiz_mt)
@@ -609,7 +605,6 @@ intel_miptree_alloc_downsampled(struct intel_context *intel,
                                              mt->height0,
                                              mt->depth0,
                                              true,
-                                             false /* is_msaa_surface */,
                                              0 /* num_samples */);
 
    if (!mt->downsampled_mt)
