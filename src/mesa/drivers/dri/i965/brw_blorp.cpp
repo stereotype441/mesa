@@ -47,6 +47,7 @@ try_blorp_blit_color(struct intel_context *intel,
    if (!src_irb) return false;
    struct intel_mipmap_tree *src_mt = src_irb->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
+   if (!src_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
    /* Validate destination */
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
@@ -60,6 +61,7 @@ try_blorp_blit_color(struct intel_context *intel,
                              dst_attachment->TextureLevel);
    struct intel_mipmap_tree *dst_mt = intel_texture_image(dst_tex_image)->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
+   if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
 
    /* Make sure width and height match, and there is no mirroring.
     * TODO: allow mirroring.
