@@ -160,12 +160,18 @@ public:
 private:
    void alloc_regs();
    void alloc_push_const_regs(int base_reg);
-   void emit_dst_coord_computation();
-   void emit_src_coord_computation();
+   void compute_frag_coords();
+   void deswizzle_stencil();
+   void apply_offset();
    void kill_if_out_of_range();
-   void emit_texture_coord_computation();
-   void emit_texture_lookup();
-   void emit_render_target_write();
+   void single_to_blend();
+   void single_to_swizzled_msaa();
+   void swizzle_stencil();
+   void sample();
+   void texel_fetch();
+   void texture_lookup(GLuint msg_type,
+                       struct brw_reg mrf_u, struct brw_reg mrf_v);
+   void render_target_write();
 
    enum {
       TEXTURE_BINDING_TABLE_INDEX,
@@ -243,13 +249,23 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
    brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
 
    alloc_regs();
-   emit_dst_coord_computation();
+   compute_frag_coords();
+   if (key->adjust_coords_for_stencil)
+      deswizzle_stencil();
    if (key->kill_out_of_range)
       kill_if_out_of_range();
-   emit_src_coord_computation();
-   emit_texture_coord_computation();
-   emit_texture_lookup();
-   emit_render_target_write();
+   apply_offset();
+   if (key->blend)
+      single_to_blend();
+   else if (key->manual_downsample)
+      single_to_swizzled_msaa();
+   if (key->adjust_coords_for_stencil)
+      swizzle_stencil();
+   if (key->blend)
+      sample();
+   else
+      texel_fetch();
+   render_target_write();
    return brw_get_program(&func, program_size);
 }
 
@@ -312,7 +328,7 @@ brw_blorp_blit_program::alloc_regs()
 #define SWAP_XY_UV() xy_coord_index = !xy_coord_index;
 
 void
-brw_blorp_blit_program::emit_dst_coord_computation()
+brw_blorp_blit_program::compute_frag_coords()
 {
    /* R1.2[15:0] = X coordinate of upper left pixel of subspan 0 (pixel 0)
     * R1.3[15:0] = X coordinate of upper left pixel of subspan 1 (pixel 4)
@@ -342,90 +358,84 @@ brw_blorp_blit_program::emit_dst_coord_computation()
     * pixels n+2 and n+3 are in the bottom half of the subspan.
     */
    brw_ADD(&func, Y, stride(suboffset(R1, 5), 2, 4, 0), brw_imm_v(0x11001100));
-
-   if (key->adjust_coords_for_stencil) {
-      /* The WM stage has been configured to render to a Y-tiled surface, but
-       * the actual data is W-tiled.  Therefore the X and Y pixel delivered to
-       * the WM program aren't the true coordinates in the W-tiled
-       * surface--they are "swizzled" around based on the differences between
-       * W and Y tiling.  To convert to the true coordinates, we need to
-       * determine the memory address that the output will be written to
-       * (using Y-tiled formulas), and then work out the true coordinates of
-       * the data represented by that memory address (using W-tiled formulas).
-       *
-       * Let X and Y represent the swizzled Y-tiled coordinates, and U and V
-       * represent the true W-tiled coordinates.
-       *
-       * The interpretation of memory addresses when Y-tiling is given by the
-       * bit pattern:
-       *
-       *   Y-tiled MESA_FORMAT_R8:
-       *   ttttttttttttttttttttxxxyyyyyxxxx                           (1)
-       *
-       * (That is, the first 20 bits of the memory address select which tile
-       * we are rendering to (offset appropriately by the surface start
-       * address), followed by bits 6-4 of the x coordinate within the tile,
-       * followed by the y coordinate within the tile, followed by bits 3-0 of
-       * the x coordinate).  See Graphics BSpec: vol1c Memory Interface and
-       * Command Stream [SNB+] > Graphics Memory Interface Functions > Address
-       * Tiling Function > W-Major Tile Format [DevIL+].
-       *
-       * Therefore, if we break down the low order bits of X and Y, using a
-       * single letter to represent each low-order bit:
-       *
-       *   X = A << 7 | 0bBCDEFGH
-       *   Y = J << 5 | 0bKLMNP                                       (2)
-       *
-       * Then we can apply (1) to see the memory location being addressed (as
-       * an offset from the origin of the surface the surface):
-       *
-       *   offset = (J * tile_pitch + A) << 12 | 0bBCDKLMNPEFGH       (3)
-       *
-       * (where tile_pitch is the number of tiles that cover the width of the
-       * render surface).
-       *
-       * The interpretation of memory addresses when W-tiling is given by the
-       * bit pattern:
-       *
-       *   W-tiled:
-       *   ttttttttttttttttttttuuuvvvvuvuvu                           (4)
-       *
-       * If we apply this to the memory location computed in (3), we see that
-       * the corresponding U and V coordinates are:
-       *
-       *   U = A << 6 | 0bBCDPFH                                      (5)
-       *   V = J << 6 | 0bKLMNEG
-       *
-       * Combining (2) and (5), we see that to transform (X, Y) to (U, V), we
-       * need to make the following computation:
-       *
-       *   U = (X & ~0b1011) >> 1 | (Y & 0b1) << 2 | X & 0b1          (6)
-       *   V = (Y & ~0b1) << 1 | (X & 0b1000) >> 2 | (X & 0b10) >> 1
-       */
-      brw_AND(&func, t1, X, brw_imm_uw(0xfff4)); /* X & ~0b1011 */
-      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1011) >> 1 */
-      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b1) << 2 */
-      brw_OR(&func, t1, t1, t2); /* (X & ~0b1011) >> 1 | (Y & 0b1) << 2 */
-      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
-      brw_OR(&func, U, t1, t2);
-      brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
-      brw_AND(&func, t2, X, brw_imm_uw(8)); /* X & 0b1000 */
-      brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b1000) >> 2 */
-      brw_OR(&func, t1, t1, t2); /* (Y & ~0b1) << 1 | (X & 0b1000) >> 2 */
-      brw_AND(&func, t2, X, brw_imm_uw(2)); /* X & 0b10 */
-      brw_SHR(&func, t2, t2, brw_imm_uw(1)); /* (X & 0b10) >> 1 */
-      brw_OR(&func, V, t1, t2); /* y_stencil */
-      SWAP_XY_UV();
-   }
 }
 
 void
-brw_blorp_blit_program::emit_src_coord_computation()
+brw_blorp_blit_program::deswizzle_stencil()
 {
-   brw_ADD(&func, U, X, x_offset);
-   brw_ADD(&func, V, Y, y_offset);
+   /* The WM stage has been configured to render to a Y-tiled surface, but the
+    * actual data is W-tiled.  Therefore the X and Y pixel delivered to the WM
+    * program aren't the true coordinates in the W-tiled surface--they are
+    * "swizzled" around based on the differences between W and Y tiling.  To
+    * convert to the true coordinates, we need to determine the memory address
+    * that the output will be written to (using Y-tiled formulas), and then
+    * work out the true coordinates of the data represented by that memory
+    * address (using W-tiled formulas).
+    *
+    * Let X and Y represent the swizzled Y-tiled coordinates, and U and V
+    * represent the true W-tiled coordinates.
+    *
+    * The interpretation of memory addresses when Y-tiling is given by the bit
+    * pattern:
+    *
+    *   Y-tiled MESA_FORMAT_R8:
+    *   ttttttttttttttttttttxxxyyyyyxxxx                              (1)
+    *
+    * (That is, the first 20 bits of the memory address select which tile we
+    * are rendering to (offset appropriately by the surface start address),
+    * followed by bits 6-4 of the x coordinate within the tile, followed by
+    * the y coordinate within the tile, followed by bits 3-0 of the x
+    * coordinate).  See Graphics BSpec: vol1c Memory Interface and Command
+    * Stream [SNB+] > Graphics Memory Interface Functions > Address Tiling
+    * Function > W-Major Tile Format [DevIL+].
+    *
+    * Therefore, if we break down the low order bits of X and Y, using a
+    * single letter to represent each low-order bit:
+    *
+    *   X = A << 7 | 0bBCDEFGH
+    *   Y = J << 5 | 0bKLMNP                                          (2)
+    *
+    * Then we can apply (1) to see the memory location being addressed (as an
+    * offset from the origin of the surface the surface):
+    *
+    *   offset = (J * tile_pitch + A) << 12 | 0bBCDKLMNPEFGH          (3)
+    *
+    * (where tile_pitch is the number of tiles that cover the width of the
+    * render surface).
+    *
+    * The interpretation of memory addresses when W-tiling is given by the bit
+    * pattern:
+    *
+    *   W-tiled:
+    *   ttttttttttttttttttttuuuvvvvuvuvu                              (4)
+    *
+    * If we apply this to the memory location computed in (3), we see that the
+    * corresponding U and V coordinates are:
+    *
+    *   U = A << 6 | 0bBCDPFH                                         (5)
+    *   V = J << 6 | 0bKLMNEG
+    *
+    * Combining (2) and (5), we see that to transform (X, Y) to (U, V), we
+    * need to make the following computation:
+    *
+    *   U = (X & ~0b1011) >> 1 | (Y & 0b1) << 2 | X & 0b1             (6)
+    *   V = (Y & ~0b1) << 1 | (X & 0b1000) >> 2 | (X & 0b10) >> 1
+    */
+   brw_AND(&func, t1, X, brw_imm_uw(0xfff4)); /* X & ~0b1011 */
+   brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1011) >> 1 */
+   brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+   brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b1) << 2 */
+   brw_OR(&func, t1, t1, t2); /* (X & ~0b1011) >> 1 | (Y & 0b1) << 2 */
+   brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+   brw_OR(&func, U, t1, t2);
+   brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
+   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
+   brw_AND(&func, t2, X, brw_imm_uw(8)); /* X & 0b1000 */
+   brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b1000) >> 2 */
+   brw_OR(&func, t1, t1, t2); /* (Y & ~0b1) << 1 | (X & 0b1000) >> 2 */
+   brw_AND(&func, t2, X, brw_imm_uw(2)); /* X & 0b10 */
+   brw_SHR(&func, t2, t2, brw_imm_uw(1)); /* (X & 0b10) >> 1 */
+   brw_OR(&func, V, t1, t2); /* y_stencil */
    SWAP_XY_UV();
 }
 
@@ -449,107 +459,114 @@ brw_blorp_blit_program::kill_if_out_of_range()
 }
 
 void
-brw_blorp_blit_program::emit_texture_coord_computation()
+brw_blorp_blit_program::apply_offset()
 {
-   if (key->blend) {
-      /* When looking up samples in an MSAA texture using the SAMPLE message,
-       * Gen6 requires the texture coordinates to be odd integers (so that
-       * they correspond to the center of a 2x2 block representing the four
-       * samples that maxe up a pixel).  So we need to multiply our X and Y
-       * coordinates each by 2 and then add 1.
-       */
-      brw_SHL(&func, t1, X, brw_imm_w(1));
-      brw_SHL(&func, t2, Y, brw_imm_w(1));
-      brw_ADD(&func, U, t1, brw_imm_w(1));
-      brw_ADD(&func, V, t2, brw_imm_w(1));
-      SWAP_XY_UV();
-   } else if (key->manual_downsample) {
-      /* We are looking up samples in an MSAA texture, but that texture is not
-       * flagged as multisampled in the surface state description (we do this
-       * when reading from a stencil buffer).  So we need to manually adjust
-       * the coordinates to pick up just sample 0 from each multisampled
-       * pixel.
-       *
-       * To convert from single-sampled x and y coordinates to the u and v
-       * coordinates we need to look up data in the MSAA stencil surface, we
-       * need to apply the following formulas (inferred from the diagrams in
-       * Graphics BSpec: vol1a GPU Overview [All projects] > Memory Data
-       * Formats > Surface Layout and Tiling [DevSKL+] > Stencil Buffer
-       * Layout):
-       *
-       *   U = (X & ~0b1) << 1 | (sample_num & 0b1) << 1 | (X & 0b1)
-       *   V = (Y & ~0b1) << 1 | sample_num & 0b10 | (Y & 0b1)
-       *
-       * Since we just want to look up sample_num=0, this simplifies to:
-       *
-       *   U = (X & ~0b1) << 1 | (X & 0b1)
-       *   V = (Y & ~0b1) << 1 | (Y & 0b1)
-       */
-      brw_AND(&func, t1, X, brw_imm_uw(0xfffe)); /* X & ~0b1 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1) << 1 */
-      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
-      brw_OR(&func, U, t1, t2);
-      brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
-      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
-      brw_OR(&func, V, t1, t2);
-      SWAP_XY_UV();
-   } else {
-      /* We're just looking up samples using simple integer texture
-       * coordinates.  Nothing to do.
-       */
-   }
-
-   if (key->adjust_coords_for_stencil) {
-      /* The texture is W-tiled stencil data, but the surface state has
-       * been set up for Y-tiled MESA_FORMAT_R8 data (this is necessary
-       * because surface states don't support W tiling).  So we need to adjust
-       * the coordinates by considering the memory location the output of
-       * rendering will be written to.
-       *
-       * We simply reverse the computation from emit_dst_coord_computation():
-       *
-       * U = (X & ~0b101) << 1 | (Y & 0b10) << 2 | (Y & 0b1) << 1 | X & 0b1
-       * V = (Y & ~0b11) >> 1 | (X & 0b100) >> 2
-       */
-      brw_AND(&func, t1, X, brw_imm_uw(0xfffa)); /* X & ~0b101 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b101) << 1 */
-      brw_AND(&func, t2, Y, brw_imm_uw(2)); /* Y & 0b10 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b10) << 2 */
-      brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2 */
-      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (Y & 0b1) << 1 */
-      brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2
-                                    | (Y & 0b1) << 1 */
-      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
-      brw_OR(&func, U, t1, t2);
-      brw_AND(&func, t1, Y, brw_imm_uw(0xfffc)); /* Y & ~0b11 */
-      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b11) >> 1 */
-      brw_AND(&func, t2, X, brw_imm_uw(4)); /* X & 0b100 */
-      brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b100) >> 2 */
-      brw_OR(&func, V, t1, t2);
-      SWAP_XY_UV();
-   }
+   brw_ADD(&func, U, X, x_offset);
+   brw_ADD(&func, V, Y, y_offset);
+   SWAP_XY_UV();
 }
 
 void
-brw_blorp_blit_program::emit_texture_lookup()
+brw_blorp_blit_program::single_to_blend()
 {
-   struct brw_reg mrf_u, mrf_v;
-   if (key->blend) {
-      /* We'll be using a SAMPLE message, which expects floating point texture
-       * coordinates.
-       */
-      mrf_u = mrf_u_float;
-      mrf_v = mrf_v_float;
-   } else {
-      /* We'll be using a SAMPLE_LD message, which expects integer texture
-       * coordinates.
-       */
-      mrf_u = retype(mrf_u_float, BRW_REGISTER_TYPE_UD);
-      mrf_v = retype(mrf_v_float, BRW_REGISTER_TYPE_UD);
-   }
+   /* When looking up samples in an MSAA texture using the SAMPLE message,
+    * Gen6 requires the texture coordinates to be odd integers (so that they
+    * correspond to the center of a 2x2 block representing the four samples
+    * that maxe up a pixel).  So we need to multiply our X and Y coordinates
+    * each by 2 and then add 1.
+    */
+   brw_SHL(&func, t1, X, brw_imm_w(1));
+   brw_SHL(&func, t2, Y, brw_imm_w(1));
+   brw_ADD(&func, U, t1, brw_imm_w(1));
+   brw_ADD(&func, V, t2, brw_imm_w(1));
+   SWAP_XY_UV();
+}
 
+void
+brw_blorp_blit_program::single_to_swizzled_msaa()
+{
+   /* We are looking up samples in an MSAA texture, but that texture is not
+    * flagged as multisampled in the surface state description (we do this
+    * when reading from a stencil buffer).  So we need to manually adjust the
+    * coordinates to pick up just sample 0 from each multisampled pixel.
+    *
+    * To convert from single-sampled x and y coordinates to the u and v
+    * coordinates we need to look up data in the MSAA stencil surface, we need
+    * to apply the following formulas (inferred from the diagrams in Graphics
+    * BSpec: vol1a GPU Overview [All projects] > Memory Data Formats > Surface
+    * Layout and Tiling [DevSKL+] > Stencil Buffer Layout):
+    *
+    *   U = (X & ~0b1) << 1 | (sample_num & 0b1) << 1 | (X & 0b1)
+    *   V = (Y & ~0b1) << 1 | sample_num & 0b10 | (Y & 0b1)
+    *
+    * Since we just want to look up sample_num=0, this simplifies to:
+    *
+    *   U = (X & ~0b1) << 1 | (X & 0b1)
+    *   V = (Y & ~0b1) << 1 | (Y & 0b1)
+    */
+   brw_AND(&func, t1, X, brw_imm_uw(0xfffe)); /* X & ~0b1 */
+   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1) << 1 */
+   brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+   brw_OR(&func, U, t1, t2);
+   brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
+   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
+   brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+   brw_OR(&func, V, t1, t2);
+   SWAP_XY_UV();
+}
+
+void
+brw_blorp_blit_program::swizzle_stencil()
+{
+   /* The texture is W-tiled stencil data, but the surface state has been set
+    * up for Y-tiled MESA_FORMAT_R8 data (this is necessary because surface
+    * states don't support W tiling).  So we need to adjust the coordinates by
+    * considering the memory location the output of rendering will be written
+    * to.
+    *
+    * We simply reverse the computation from deswizzle_stencil():
+    *
+    * U = (X & ~0b101) << 1 | (Y & 0b10) << 2 | (Y & 0b1) << 1 | X & 0b1
+    * V = (Y & ~0b11) >> 1 | (X & 0b100) >> 2
+    */
+   brw_AND(&func, t1, X, brw_imm_uw(0xfffa)); /* X & ~0b101 */
+   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b101) << 1 */
+   brw_AND(&func, t2, Y, brw_imm_uw(2)); /* Y & 0b10 */
+   brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b10) << 2 */
+   brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2 */
+   brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+   brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (Y & 0b1) << 1 */
+   brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2
+                                 | (Y & 0b1) << 1 */
+   brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+   brw_OR(&func, U, t1, t2);
+   brw_AND(&func, t1, Y, brw_imm_uw(0xfffc)); /* Y & ~0b11 */
+   brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b11) >> 1 */
+   brw_AND(&func, t2, X, brw_imm_uw(4)); /* X & 0b100 */
+   brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b100) >> 2 */
+   brw_OR(&func, V, t1, t2);
+   SWAP_XY_UV();
+}
+
+void
+brw_blorp_blit_program::sample()
+{
+   texture_lookup(GEN5_SAMPLER_MESSAGE_SAMPLE, mrf_u_float, mrf_v_float);
+}
+
+void
+brw_blorp_blit_program::texel_fetch()
+{
+   texture_lookup(GEN5_SAMPLER_MESSAGE_SAMPLE_LD,
+                  retype(mrf_u_float, BRW_REGISTER_TYPE_UD),
+                  retype(mrf_v_float, BRW_REGISTER_TYPE_UD));
+}
+
+void
+brw_blorp_blit_program::texture_lookup(GLuint msg_type,
+                                       struct brw_reg mrf_u,
+                                       struct brw_reg mrf_v)
+{
    /* TODO: can we do some of this faster with a compressed instruction? */
    /* TODO: do we need to use 2NDHALF compression mode? */
    brw_MOV(&func, vec8(mrf_u), vec8(X));
@@ -568,8 +585,7 @@ brw_blorp_blit_program::emit_texture_lookup()
               TEXTURE_BINDING_TABLE_INDEX,
               0 /* sampler -- ignored for SAMPLE_LD message */,
               WRITEMASK_XYZW,
-              key->blend ? GEN5_SAMPLER_MESSAGE_SAMPLE
-                    : GEN5_SAMPLER_MESSAGE_SAMPLE_LD,
+              msg_type,
               8 /* response_length.  TODO: should be smaller for non-RGBA formats? */,
               6 /* msg_length */,
               0 /* header_present */,
@@ -584,7 +600,7 @@ brw_blorp_blit_program::emit_texture_lookup()
 #undef SWAP_XY_UV
 
 void
-brw_blorp_blit_program::emit_render_target_write()
+brw_blorp_blit_program::render_target_write()
 {
    struct brw_reg mrf_rt_write = vec16(brw_message_reg(base_mrf));
    int mrf_offset = 0;
