@@ -69,7 +69,6 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_renderbuffer *src_irb = intel_renderbuffer(src_rb);
    struct intel_mipmap_tree *src_mt = src_irb->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
-   if (!src_mt->num_samples > 0) return false; /* TODO: eliminate this restriction */
    if (buffer_bit == GL_STENCIL_BUFFER_BIT && src_mt->stencil_mt)
       src_mt = src_mt->stencil_mt; /* TODO: verify that this line is needed */
 
@@ -502,8 +501,8 @@ brw_blorp_blit_program::emit_texture_coord_computation()
       brw_AND(&func, y_src, y_src, brw_imm_uw(1)); /* y_src & 0b1 */
       brw_OR(&func, v_tex, v_tex, y_src); /* v_tex */
    } else {
-      /* When looking up samples in an MSAA texture using the SAMPLE_LD message,
-       * Gen6 just needs the integer texture coordinates.
+      /* We're just looking up samples using simple integer texture
+       * coordinates.
        */
       brw_MOV(&func, u_tex, x_src);
       brw_MOV(&func, v_tex, y_src);
@@ -648,7 +647,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
 
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
-      assert(src_mt->num_samples > 0);
       assert(!dst_mt->num_samples > 0);
    }
 
@@ -669,7 +667,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    if (src_mt->format == MESA_FORMAT_S8) {
       wm_prog_key.blend = false;
       src_multisampled = false;
-      wm_prog_key.manual_downsample = true;
+      wm_prog_key.manual_downsample = src_mt->num_samples > 0;
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
       wm_prog_key.adjust_coords_for_stencil = true;
@@ -700,12 +698,12 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.blend = false;
       wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
-      src_multisampled = true;
+      src_multisampled = src_mt->num_samples > 0;
    } else { /* Color buffer */
-      wm_prog_key.blend = true;
+      wm_prog_key.blend = src_mt->num_samples > 0;
       wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
-      src_multisampled = true;
+      src_multisampled = src_mt->num_samples > 0;
    }
 }
 
