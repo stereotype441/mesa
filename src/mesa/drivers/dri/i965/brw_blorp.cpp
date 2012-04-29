@@ -163,7 +163,7 @@ private:
    void alloc_regs();
    void alloc_push_const_regs(int base_reg);
    void emit_dst_coord_computation();
-   void emit_offset();
+   void emit_src_coord_computation();
    void kill_if_out_of_range();
    void emit_texture_coord_computation();
    void emit_texture_lookup();
@@ -258,7 +258,7 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 
    alloc_regs();
    emit_dst_coord_computation();
-   emit_offset();
+   emit_src_coord_computation();
    if (key->kill_out_of_range)
       kill_if_out_of_range();
    emit_texture_coord_computation();
@@ -426,7 +426,7 @@ brw_blorp_blit_program::emit_dst_coord_computation()
 }
 
 void
-brw_blorp_blit_program::emit_offset()
+brw_blorp_blit_program::emit_src_coord_computation()
 {
    brw_ADD(&func, x_src, x_dst, x_offset);
    brw_ADD(&func, y_src, y_dst, y_offset);
