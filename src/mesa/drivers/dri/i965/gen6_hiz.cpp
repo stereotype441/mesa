@@ -81,8 +81,10 @@ brw_hiz_mip_info::get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const
 }
 
 brw_blorp_params::brw_blorp_params()
-   : width(0),
-     height(0),
+   : x0(0),
+     y0(0),
+     x1(0),
+     y1(0),
      hiz_mt(NULL),
      op(GEN6_HIZ_OP_NONE),
      use_wm_prog(false),
@@ -117,7 +119,7 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
    this->op = op;
 
    depth.set(mt, level, layer);
-   depth.get_miplevel_dims(&width, &height);
+   depth.get_miplevel_dims(&x1, &y1);
 
    assert(hiz_mt != NULL);
    this->hiz_mt = hiz_mt;
@@ -127,7 +129,7 @@ brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt)
 {
    src.set(mt, 0, 0);
    dst.set(mt /* ->downsampled_mt */, 0, 0); /* TODO: this function should go away */
-   dst.get_miplevel_dims(&width, &height);
+   dst.get_miplevel_dims(&x1, &y1);
 
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
@@ -135,8 +137,8 @@ brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt)
       wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_STENCIL_SWIZZLE;
       wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE_LD; /* TODO: different for Gen7? */
       /*      stencil_magic = true; */
-      width = ALIGN(width, 64) / 2;
-      height = ALIGN(height, 64) / 2;
+      x1 = ALIGN(x1, 64) / 2;
+      y1 = ALIGN(y1, 64) / 2;
    } else if (_mesa_get_format_base_format(mt->format) == GL_DEPTH_COMPONENT) { /* TODO: handle GL_DEPTH_STENCIL? */
       wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_DEPTH_SWIZZLE;
       wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE_LD; /* TODO: different for Gen7? */
@@ -651,14 +653,12 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
     * "Vertex URB Entry (VUE) Formats".
     */
    {
-      const int width = params->width;
-      const int height = params->height;
       float *vertex_data;
 
       const float vertices[GEN6_HIZ_VBO_SIZE] = {
-         /* v0 */ 0, 0, 0, 0,         0, height, 0, 1,
-         /* v1 */ 0, 0, 0, 0,     width, height, 0, 1,
-         /* v2 */ 0, 0, 0, 0,         0,      0, 0, 1,
+         /* v0 */ 0, 0, 0, 0,     params->x0, params->y1, 0, 1,
+         /* v1 */ 0, 0, 0, 0,     params->x1, params->y1, 0, 1,
+         /* v2 */ 0, 0, 0, 0,     params->x0, params->y0, 0, 1,
       };
 
       vertex_data = (float *) brw_state_batch(brw, AUB_TRACE_NO_TYPE,
@@ -1388,8 +1388,8 @@ gen6_hiz_exec(struct intel_context *intel,
       BEGIN_BATCH(4);
       OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
       OUT_BATCH(0);
-      OUT_BATCH(((params->width - 1) & 0xffff) |
-                ((params->height - 1) << 16));
+      OUT_BATCH(((params->x1 - 1) & 0xffff) |
+                ((params->y1 - 1) << 16));
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }

@@ -450,8 +450,8 @@ gen7_hiz_exec(struct intel_context *intel,
       BEGIN_BATCH(4);
       OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
       OUT_BATCH(0);
-      OUT_BATCH(((params->width - 1) & 0xffff) |
-                ((params->height - 1) << 16));
+      OUT_BATCH(((params->x1 - 1) & 0xffff) |
+                ((params->y1 - 1) << 16));
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }

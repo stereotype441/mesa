@@ -650,17 +650,17 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    {
       assert(src_mt->num_samples > 0);
       assert(!dst_mt->num_samples > 0);
-      assert(dst_x0 == 0);
-      assert(dst_y0 == 0);
    }
 
-   this->width = width;
-   this->height = height;
+   this->x0 = dst_x0;
+   this->y0 = dst_y0;
+   this->x1 = dst_x0 + width;
+   this->y1 = dst_y0 + height;
 
-   wm_push_consts.dst_x0 = 0;
-   wm_push_consts.dst_y0 = 0;
-   wm_push_consts.dst_x1 = width;
-   wm_push_consts.dst_y1 = height;
+   wm_push_consts.dst_x0 = dst_x0;
+   wm_push_consts.dst_y0 = dst_y0;
+   wm_push_consts.dst_x1 = dst_x0 + width;
+   wm_push_consts.dst_y1 = dst_y0 + height;
    wm_push_consts.x_offset = src_x0 - dst_x0;
    wm_push_consts.y_offset = src_y0 - dst_y0;
 
@@ -673,23 +673,28 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
       wm_prog_key.adjust_coords_for_stencil = true;
-      if ((this->width & 63) != 0 || (this->height & 63) != 0) {
+      if ((this->x0 & 63) != 0 || (this->y0 & 63) != 0 ||
+          (this->x1 & 63) != 0 || (this->y1 & 63) != 0) {
          /* The destination rectangle is not tile-aligned.  We need to send a
           * tile-aligned rectangle down the pipeline (since we've mapped the
           * destination buffer as Y-tiled instead of W-tiled), so compute an
           * expanded rectangle, and tell the WM program to kill any pixels
           * that are outside the region we really want to blit to.
           */
-         this->width = ALIGN(this->width, 64); /* TODO: rename this->width and height */
-         this->height = ALIGN(this->height, 64);
+         this->x0 &= ~63;
+         this->y0 &= ~63;
+         this->x1 = ALIGN(this->x1, 64);
+         this->y1 = ALIGN(this->y1, 64);
          wm_prog_key.kill_out_of_range = true;
       }
 
-      /* Adjust width/height to compensate for the fact that src and dst will
-       * be mapped as Y tiled instead of W tiled.
+      /* Adjust coords to compensate for the fact that src and dst will be
+       * mapped as Y tiled instead of W tiled.
        */
-      this->width *= 2; /* TODO: what if this makes the width too large? */
-      this->height /= 2;
+      this->x0 *= 2; /* TODO: what if this makes the x values too large? */
+      this->y0 /= 2;
+      this->x1 *= 2; /* TODO: what if this makes the x values too large? */
+      this->y1 /= 2;
    } else if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
       /* TODO: test all depth formats */
       wm_prog_key.blend = false;

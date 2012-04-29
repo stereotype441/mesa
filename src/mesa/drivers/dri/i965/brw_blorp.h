@@ -114,8 +114,10 @@ public:
 
    void exec(struct intel_context *intel) const;
 
-   uint32_t width;
-   uint32_t height;
+   uint32_t x0;
+   uint32_t y0;
+   uint32_t x1;
+   uint32_t y1;
    brw_hiz_mip_info depth;
    struct intel_mipmap_tree *hiz_mt;
    brw_hiz_mip_info src;
