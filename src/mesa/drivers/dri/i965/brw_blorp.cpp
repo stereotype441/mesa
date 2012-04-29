@@ -452,23 +452,29 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * correct u and v coordinates into incorrect ones so that we can use
        * them for texture lookup.  So we simply reverse the computation:
        *
-       * u_stencil =  AAABCDPFH
-       * u_tex =     AAABCDEFGH
-       * v_stencil =  JJJKLMNEG
+       * u_stencil =  AAABCDPFH  000001001
+       * u_tex =     AAABCDEFGH 0000010011
+       * v_stencil =  JJJKLMNEG  000001001
        * v_tex =       JJJKLMNP
        *
        * u_tex = (u_stencil & ~0b101) << 1
        *       | (v_stencil & 0b10) << 2
+       *       | (v_stencil & 0b1) << 1
        *       | u_stencil & 0b1
        * v_tex = (v_stencil & ~0b11) >> 1
        *       | (u_stencil & 0b100) >> 2
        */
-      brw_AND(&func, t1, u_tex, brw_imm_uw(0xfffa)); /* u_stencil & ~0b101 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (u_stencil & ~0b101) << 1 */
-      brw_AND(&func, t2, v_tex, brw_imm_uw(2)); /* v_stencil & 0b10 */
+      brw_AND(&func, t1, u_tex, brw_imm_uw(0xfffa)); /* u_stencil & ~0b101 -- 000001000 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (u_stencil & ~0b101) << 1 -- 000010000 */
+      brw_AND(&func, t2, v_tex, brw_imm_uw(2)); /* v_stencil & 0b10 -- */
       brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (v_stencil & 0b10) << 2 */
       brw_OR(&func, t1, t1, t2); /* (u_stencil & ~0b101) << 1
                                     | (v_stencil & 0b10) << 2 */
+      brw_AND(&func, t2, v_tex, brw_imm_uw(1)); /* v_stencil & 0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (v_stencil & 0b1) << 1 */
+      brw_OR(&func, t1, t1, t2); /* (u_stencil & ~0b101) << 1
+                                    | (v_stencil & 0b10) << 2
+                                    | (v_stencil & 0b1) << 1 */
       brw_AND(&func, t2, u_tex, brw_imm_uw(1)); /* u_stencil & 0b1 */
       brw_OR(&func, t1, t1, t2); /* u_tex */
       brw_AND(&func, t2, v_tex, brw_imm_uw(0xfffc)); /* v_stencil & ~0b11 */
