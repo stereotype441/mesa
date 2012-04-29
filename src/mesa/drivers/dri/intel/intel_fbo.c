@@ -821,6 +821,7 @@ intel_blit_framebuffer(struct gl_context *ctx,
                        GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                        GLbitfield mask, GLenum filter)
 {
+#if 0 /* TODO: HACK */
    /* Try faster, glCopyTexSubImage2D approach first which uses the BLT. */
    mask = intel_blit_framebuffer_copy_tex_sub_image(ctx,
                                                     srcX0, srcY0, srcX1, srcY1,
@@ -828,12 +829,14 @@ intel_blit_framebuffer(struct gl_context *ctx,
                                                     mask, filter);
    if (mask == 0x0)
       return;
+#endif
 
 #ifndef I915
    mask = brw_blorp_framebuffer(intel_context(ctx),
                                 srcX0, srcY0, srcX1, srcY1,
                                 dstX0, dstY0, dstX1, dstY1,
                                 mask, filter);
+   assert(mask == 0); /* TODO: HACK */
 #endif
 
    _mesa_meta_BlitFramebuffer(ctx,
