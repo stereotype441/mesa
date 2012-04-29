@@ -165,7 +165,8 @@ private:
    void apply_offset();
    void kill_if_out_of_range();
    void single_to_blend();
-   void single_to_swizzled_msaa();
+   void single_to_msaa();
+   void swizzle_msaa();
    void swizzle_stencil();
    void sample();
    void texel_fetch();
@@ -257,8 +258,10 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
    apply_offset();
    if (key->blend)
       single_to_blend();
-   else if (key->manual_downsample)
-      single_to_swizzled_msaa();
+   else if (key->manual_downsample) {
+      single_to_msaa();
+      swizzle_msaa();
+   }
    if (key->adjust_coords_for_stencil)
       swizzle_stencil();
    if (key->blend)
@@ -483,36 +486,78 @@ brw_blorp_blit_program::single_to_blend()
 }
 
 void
-brw_blorp_blit_program::single_to_swizzled_msaa()
+brw_blorp_blit_program::single_to_msaa()
 {
    /* We are looking up samples in an MSAA texture, but that texture is not
     * flagged as multisampled in the surface state description (we do this
     * when reading from a stencil buffer).  So we need to manually adjust the
     * coordinates to pick up just sample 0 from each multisampled pixel.
     *
-    * To convert from single-sampled x and y coordinates to the u and v
-    * coordinates we need to look up data in the MSAA stencil surface, we need
-    * to apply the following formulas (inferred from the diagrams in Graphics
-    * BSpec: vol1a GPU Overview [All projects] > Memory Data Formats > Surface
-    * Layout and Tiling [DevSKL+] > Stencil Buffer Layout):
-    *
-    *   U = (X & ~0b1) << 1 | (sample_num & 0b1) << 1 | (X & 0b1)
-    *   V = (Y & ~0b1) << 1 | sample_num & 0b10 | (Y & 0b1)
-    *
-    * Since we just want to look up sample_num=0, this simplifies to:
-    *
-    *   U = (X & ~0b1) << 1 | (X & 0b1)
-    *   V = (Y & ~0b1) << 1 | (Y & 0b1)
+    * The coordinates computed by this function are "naive" coordinates in
+    * that they assume that all samples corresponding to a pixel are stored in
+    * a single contiguous 2x2 block.  The swizzle_msaa() function will later
+    * convert from these naive coordinates to the true coordinates of the
+    * sample within the MSAA buffer.
     */
-   brw_AND(&func, t1, X, brw_imm_uw(0xfffe)); /* X & ~0b1 */
-   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1) << 1 */
-   brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
-   brw_OR(&func, U, t1, t2);
-   brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
-   brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
-   brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
-   brw_OR(&func, V, t1, t2);
+   brw_SHL(&func, U, X, brw_imm_uw(1));
+   brw_SHL(&func, V, Y, brw_imm_uw(1));
    SWAP_XY_UV();
+}
+
+void
+brw_blorp_blit_program::swizzle_msaa()
+{
+   /* Convert from naive coordinates within an MSAA texture to true coordinates.
+    *
+    * To make computations more convenient, we frequently assume a "naive"
+    * layout of samples within an MSAA buffer, where the 4 samples for every
+    * pixel are stored in a contiguous 2x2 block, like so:
+    *
+    * (0,0,0) (0,0,1) (1,0,0) (1,0,1) (2,0,0) (2,0,1) (3,0,0) (3,0,1)
+    * (0,0,2) (0,0,3) (1,0,2) (1,0,2) (2,0,2) (2,0,3) (3,0,2) (3,0,2)
+    * (0,1,0) (0,1,1) (1,1,0) (1,1,1) (2,1,0) (2,1,1) (3,1,0) (3,1,1)
+    * (0,1,2) (0,1,3) (1,1,2) (1,1,3) (2,1,2) (2,1,3) (3,1,2) (3,1,3)
+    * (0,2,0) (0,2,1) (1,2,0) (1,2,1) (2,2,0) (2,2,1) (3,2,0) (3,2,1)
+    * (0,2,2) (0,2,3) (1,2,2) (1,2,2) (2,2,2) (2,2,3) (3,2,2) (3,2,2)
+    * (0,3,0) (0,3,1) (1,3,0) (1,3,1) (2,3,0) (2,3,1) (3,3,0) (3,3,1)
+    * (0,3,2) (0,3,3) (1,3,2) (1,3,3) (2,3,2) (2,3,3) (3,3,2) (3,3,3)
+    *
+    * (Each triple represents (x, y, sample_number)).
+    *
+    * in reality, the layout is as follows (inferred from the diagrams in
+    * Graphics BSpec: vol1a GPU Overview [All projects] > Memory Data Formats
+    * > Surface Layout and Tiling [DevSKL+] > Stencil Buffer Layout):
+    *
+    * (0,0,0) (1,0,0) (0,0,1) (1,0,1) (2,0,0) (3,0,0) (2,0,1) (3,0,1)
+    * (0,1,0) (1,1,0) (0,1,1) (1,1,1) (2,1,0) (3,1,0) (2,1,1) (3,1,1)
+    * (0,0,2) (1,0,2) (0,0,3) (1,0,2) (2,0,2) (3,0,2) (2,0,3) (3,0,2)
+    * (0,1,2) (1,1,2) (0,1,3) (1,1,3) (2,1,2) (3,1,2) (2,1,3) (3,1,3)
+    * (0,2,0) (1,2,0) (0,2,1) (1,2,1) (2,2,0) (3,2,0) (2,2,1) (3,2,1)
+    * (0,3,0) (1,3,0) (0,3,1) (1,3,1) (2,3,0) (3,3,0) (2,3,1) (3,3,1)
+    * (0,2,2) (1,2,2) (0,2,3) (1,2,2) (2,2,2) (3,2,2) (2,2,3) (3,2,2)
+    * (0,3,2) (1,3,2) (0,3,3) (1,3,3) (2,3,2) (3,3,2) (2,3,3) (3,3,3)
+    *
+    * In other words, the low order two bits of the X and Y coordinate are
+    * swapped.
+    *
+    * We swap the low order two bits of a coordinate using the logic:
+    *
+    * if (((X >> 1) ^ X) & 1)
+    *    X ^= 3;
+    */
+   brw_SHR(&func, t1, X, brw_imm_uw(1));
+   brw_XOR(&func, t1, t1, X);
+   brw_set_conditionalmod(&func, BRW_CONDITIONAL_NZ);
+   brw_AND(&func, t1, t1, brw_imm_uw(1));
+   brw_XOR(&func, X, X, brw_imm_uw(3));
+   brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
+
+   brw_SHR(&func, t1, Y, brw_imm_uw(1));
+   brw_XOR(&func, t1, t1, Y);
+   brw_set_conditionalmod(&func, BRW_CONDITIONAL_NZ);
+   brw_AND(&func, t1, t1, brw_imm_uw(1));
+   brw_XOR(&func, Y, Y, brw_imm_uw(3));
+   brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
 }
 
 void
