@@ -125,6 +125,7 @@ public:
    enum gen6_hiz_op op;
    bool use_wm_prog;
    bool src_multisampled;
+   bool dst_multisampled;
    brw_blorp_wm_push_constants wm_push_consts;
 };
 

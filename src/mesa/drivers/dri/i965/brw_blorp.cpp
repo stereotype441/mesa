@@ -77,7 +77,6 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_renderbuffer *dst_irb = intel_renderbuffer(dst_rb);
    struct intel_mipmap_tree *dst_mt = dst_irb->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
-   if (dst_mt->num_samples > 0) return false; /* TODO: eliminate this restriction */
    if (buffer_bit == GL_STENCIL_BUFFER_BIT && dst_mt->stencil_mt)
       dst_mt = dst_mt->stencil_mt; /* TODO: verify that this line is needed */
 
@@ -647,7 +646,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
 
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
-      assert(!dst_mt->num_samples > 0);
+      assert(dst_mt->num_samples == 0 || src_mt->num_samples == 0);
    }
 
    this->x0 = dst_x0;
@@ -667,6 +666,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    if (src_mt->format == MESA_FORMAT_S8) {
       wm_prog_key.blend = false;
       src_multisampled = false;
+      dst_multisampled = false;
       wm_prog_key.manual_downsample = src_mt->num_samples > 0;
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
@@ -699,11 +699,13 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = src_mt->num_samples > 0;
+      dst_multisampled = dst_mt->num_samples > 0;
    } else { /* Color buffer */
-      wm_prog_key.blend = src_mt->num_samples > 0;
+      wm_prog_key.blend = src_mt->num_samples > 0; /* TODO: shouldn't blend in multisample-to-multisample blit */
       wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = src_mt->num_samples > 0;
+      dst_multisampled = dst_mt->num_samples > 0;
    }
 }
 

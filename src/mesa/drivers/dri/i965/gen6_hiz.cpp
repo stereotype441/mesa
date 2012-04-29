@@ -88,7 +88,8 @@ brw_blorp_params::brw_blorp_params()
      hiz_mt(NULL),
      op(GEN6_HIZ_OP_NONE),
      use_wm_prog(false),
-     src_multisampled(false)
+     src_multisampled(false),
+     dst_multisampled(false)
 {
 }
 
@@ -565,8 +566,8 @@ gen6_hiz_emit_batch_head(struct brw_context *brw,
       BEGIN_BATCH(length);
       OUT_BATCH(_3DSTATE_MULTISAMPLE << 16 | (length - 2));
       OUT_BATCH(MS_PIXEL_LOCATION_CENTER |
-                MS_NUMSAMPLES_1);
-      OUT_BATCH(0);
+                (params->dst_multisampled ? MS_NUMSAMPLES_4 : MS_NUMSAMPLES_1));
+      OUT_BATCH(params->dst_multisampled ? 0xae2ae662 : 0); /* positions for 4/8-sample */
       if (length >= 4)
          OUT_BATCH(0);
       ADVANCE_BATCH();
@@ -577,7 +578,7 @@ gen6_hiz_emit_batch_head(struct brw_context *brw,
    {
       BEGIN_BATCH(2);
       OUT_BATCH(_3DSTATE_SAMPLE_MASK << 16 | (2 - 2));
-      OUT_BATCH(1);
+      OUT_BATCH(params->dst_multisampled ? 15 : 1);
       ADVANCE_BATCH();
    }
 
@@ -736,7 +737,7 @@ gen6_hiz_disable_wm(struct brw_context *brw,
     * BSpec, Volume 2a.11 Windower, Section 3DSTATE_WM, Dword 5.25:31
     * "Maximum Number Of Threads".
     */
-   uint32_t dw4 = 0;
+   uint32_t dw4 = 0, dw6 = 0;
 
    switch (params->op) {
    case GEN6_HIZ_OP_DEPTH_CLEAR:
@@ -754,6 +755,15 @@ gen6_hiz_disable_wm(struct brw_context *brw,
       break;
    }
 
+   dw6 |= (1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* only position */
+   if (params->dst_multisampled) {
+      dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
+      dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
+   } else {
+      dw6 |= GEN6_WM_MSRAST_OFF_PIXEL;
+      dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE;
+   }
+
    BEGIN_BATCH(9);
    OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
    OUT_BATCH(0);
@@ -761,15 +771,15 @@ gen6_hiz_disable_wm(struct brw_context *brw,
    OUT_BATCH(0);
    OUT_BATCH(dw4);
    OUT_BATCH((brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT);
-   OUT_BATCH((1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT); /* only position */
+   OUT_BATCH(dw6);
    OUT_BATCH(0);
    OUT_BATCH(0);
    ADVANCE_BATCH();
 }
 
 static void
-gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset,
-                   uint32_t wm_push_const_offset,
+gen6_hiz_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
+                   uint32_t prog_offset, uint32_t wm_push_const_offset,
                    brw_blorp_prog_data *prog_data)
 {
    struct intel_context *intel = &brw->intel;
@@ -806,8 +816,13 @@ gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset,
    dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */
    dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
    dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
-   dw6 |= GEN6_WM_MSRAST_OFF_PIXEL; /* Render target is not multisampled */
-   dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE; /* Render target is not multisampled */
+   if (params->dst_multisampled) {
+      dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
+      dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
+   } else {
+      dw6 |= GEN6_WM_MSRAST_OFF_PIXEL;
+      dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE;
+   }
 
    BEGIN_BATCH(9);
    OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
@@ -973,6 +988,10 @@ gen6_hiz_exec(struct intel_context *intel,
    {
       uint32_t width, height;
       params->dst.get_miplevel_dims(&width, &height);
+      if (params->dst_multisampled) {
+         width /= 2;
+         height /= 2;
+      }
       if (params->dst.map_stencil_as_y_tiled) {
          width *= 2;
          height /= 2;
@@ -1005,7 +1024,7 @@ gen6_hiz_exec(struct intel_context *intel,
          pitch_bytes *= 2;
       surf[3] = (tiling | (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-      surf[4] = BRW_SURFACE_MULTISAMPLECOUNT_1;
+      surf[4] = params->dst_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
 
       surf[5] = (0 << BRW_SURFACE_X_OFFSET_SHIFT |
                  0 << BRW_SURFACE_Y_OFFSET_SHIFT |
@@ -1242,14 +1261,16 @@ gen6_hiz_exec(struct intel_context *intel,
       OUT_BATCH((1 - 1) << GEN6_SF_NUM_OUTPUTS_SHIFT | /* only position */
                 1 << GEN6_SF_URB_ENTRY_READ_LENGTH_SHIFT |
                 0 << GEN6_SF_URB_ENTRY_READ_OFFSET_SHIFT);
-      for (int i = 0; i < 18; ++i)
+      OUT_BATCH(0); /* dw2 */
+      OUT_BATCH(params->dst_multisampled ? GEN6_SF_MSRAST_ON_PATTERN : 0); /* dw3 */
+      for (int i = 0; i < 16; ++i)
          OUT_BATCH(0);
       ADVANCE_BATCH();
    }
 
    /* 3DSTATE_WM */
    if (params->use_wm_prog)
-      gen6_hiz_enable_wm(brw, prog_offset, wm_push_const_offset, prog_data);
+      gen6_hiz_enable_wm(brw, params, prog_offset, wm_push_const_offset, prog_data);
    else
       gen6_hiz_disable_wm(brw, params);
 
