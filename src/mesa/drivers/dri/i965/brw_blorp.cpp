@@ -547,7 +547,7 @@ brw_blorp_blit_program::emit_render_target_write()
                 base_mrf /* msg_reg_nr */,
                 mrf_rt_write /* src0 */,
                 RENDERBUFFER_BINDING_TABLE_INDEX,
-                8 /* msg_length */,
+                8 /* msg_length.  Should be smaller for non-RGBA formats. */,
                 0 /* response_length */,
                 true /* eot */,
                 false /* header_present */);
