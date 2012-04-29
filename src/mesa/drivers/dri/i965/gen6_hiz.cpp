@@ -789,6 +789,7 @@ gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
    dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
    dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
    dw6 |= 0 << GEN6_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
+   dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */
    dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
    dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
    dw6 |= GEN6_WM_MSRAST_OFF_PIXEL; /* Render target is not multisampled */

@@ -158,8 +158,10 @@ struct brw_blorp_blit_prog_key
     */
    bool manual_downsample;
 
-   /* Pad out to a multiple of 4 bytes in size. */
-   char pad;
+   /* Setting this flag indicates that the program should kill pixels whose
+    * coordinates are out of range.
+    */
+   bool kill_out_of_range;
 };
 
 class brw_msaa_resolve_params : public brw_blorp_params

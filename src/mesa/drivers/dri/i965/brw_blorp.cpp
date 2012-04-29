@@ -160,6 +160,7 @@ public:
 private:
    void alloc_regs();
    void emit_frag_coord_computation();
+   void kill_if_out_of_range();
    void emit_texture_coord_computation();
    void emit_texture_lookup();
    void emit_render_target_write();
@@ -174,6 +175,9 @@ private:
    struct brw_context *brw;
    const brw_blorp_blit_prog_key *key;
    struct brw_compile func;
+
+   /* Thread dispatch header */
+   struct brw_reg R0;
 
    /* Pixel X/Y coordinates (always in R1). */
    struct brw_reg R1;
@@ -232,6 +236,8 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 
    alloc_regs();
    emit_frag_coord_computation();
+   if (key->kill_out_of_range)
+      kill_if_out_of_range();
    emit_texture_coord_computation();
    emit_texture_lookup();
    emit_render_target_write();
@@ -241,11 +247,9 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 void
 brw_blorp_blit_program::alloc_regs()
 {
-   /* R1 is part of the payload to the thread; the first available
-    * general-purpose register is R2.
-    */
-   this->R1 = retype(brw_vec8_grf(1, 0), BRW_REGISTER_TYPE_UW);
-   int reg = 2;
+   int reg = 0;
+   this->R0 = retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW);
+   this->R1 = retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW);
    this->Rdata = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->x_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->y_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -254,6 +258,7 @@ brw_blorp_blit_program::alloc_regs()
    this->t1 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->t2 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->t3 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   /* TODO: make more use of temporaries */
 
    int mrf = 2;
    this->base_mrf = mrf;
@@ -372,6 +377,25 @@ brw_blorp_blit_program::emit_frag_coord_computation()
       brw_OR(&func, y_frag, t2, t3); /* y_stencil */
       brw_MOV(&func, x_frag, t1); /* x_stencil */
    }
+}
+
+void
+brw_blorp_blit_program::kill_if_out_of_range()
+{
+   struct brw_reg f0 = brw_flag_reg();
+   struct brw_reg g1 = retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UW);
+   struct brw_reg null16 = vec16(retype(brw_null_reg(), BRW_REGISTER_TYPE_UW));
+
+   /* TODO: as a temporary measure, kill anything with an X coordinate less
+    * than 64.
+    */
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_frag, brw_imm_uw(64));
+
+   brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
+   brw_push_insn_state(&func);
+   brw_set_mask_control(&func, BRW_MASK_DISABLE);
+   brw_AND(&func, g1, f0, g1);
+   brw_pop_insn_state(&func);
 }
 
 void
@@ -517,7 +541,7 @@ brw_blorp_blit_program::emit_texture_lookup()
               WRITEMASK_XYZW,
               key->blend ? GEN5_SAMPLER_MESSAGE_SAMPLE
                     : GEN5_SAMPLER_MESSAGE_SAMPLE_LD,
-              8 /* response_length */,
+              8 /* response_length.  TODO: should be smaller for non-RGBA formats? */,
               6 /* msg_length */,
               0 /* header_present */,
               BRW_SAMPLER_SIMD_MODE_SIMD16,
@@ -527,11 +551,24 @@ brw_blorp_blit_program::emit_texture_lookup()
 void
 brw_blorp_blit_program::emit_render_target_write()
 {
-   /* Copy texture data to MRFs */
    struct brw_reg mrf_rt_write = vec16(brw_message_reg(base_mrf));
+   int mrf_offset = 0;
+
+   /* If we may have killed pixels, then we need to send R0 and R1 in a header
+    * so that the render target knows which pixels we killed.
+    */
+   bool use_header = key->kill_out_of_range;
+   if (use_header) {
+      /* Copy R0/1 to MRF */
+      brw_MOV(&func, mrf_rt_write, R0);
+      mrf_offset += 2;
+   }
+
+   /* Copy texture data to MRFs */
    for (int i = 0; i < 4; ++i) {
       /* E.g. mov(16) m2.0<1>:f r2.0<8;8,1>:f { Align1, H1 } */
-      brw_MOV(&func, offset(mrf_rt_write, 2*i), offset(vec8(Rdata), 2*i));
+      brw_MOV(&func, offset(mrf_rt_write, mrf_offset), offset(vec8(Rdata), 2*i));
+      mrf_offset += 2;
    }
 
    /* Now write to the render target and terminate the thread */
@@ -540,10 +577,10 @@ brw_blorp_blit_program::emit_render_target_write()
                 base_mrf /* msg_reg_nr */,
                 mrf_rt_write /* src0 */,
                 RENDERBUFFER_BINDING_TABLE_INDEX,
-                8 /* msg_length.  Should be smaller for non-RGBA formats. */,
+                mrf_offset /* msg_length.  Should be smaller for non-RGBA formats. */,
                 0 /* response_length */,
                 true /* eot */,
-                false /* header_present */);
+                use_header);
 }
 
 brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
