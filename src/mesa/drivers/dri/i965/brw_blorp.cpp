@@ -163,6 +163,7 @@ private:
    void alloc_regs();
    void alloc_push_const_regs(int base_reg);
    void emit_frag_coord_computation();
+   void emit_offset();
    void kill_if_out_of_range();
    void emit_texture_coord_computation();
    void emit_texture_lookup();
@@ -190,6 +191,8 @@ private:
    struct brw_reg dst_x1;
    struct brw_reg dst_y0;
    struct brw_reg dst_y1;
+   struct brw_reg x_offset;
+   struct brw_reg y_offset;
 
    /* Data returned from texture lookup (4 vec16's) */
    struct brw_reg Rdata;
@@ -245,6 +248,7 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 
    alloc_regs();
    emit_frag_coord_computation();
+   emit_offset();
    if (key->kill_out_of_range)
       kill_if_out_of_range();
    emit_texture_coord_computation();
@@ -265,6 +269,8 @@ brw_blorp_blit_program::alloc_push_const_regs(int base_reg)
    ALLOC_REG(dst_x1);
    ALLOC_REG(dst_y0);
    ALLOC_REG(dst_y1);
+   ALLOC_REG(x_offset);
+   ALLOC_REG(y_offset);
 #undef CONST_LOC
 #undef ALLOC_REG
 }
@@ -405,6 +411,13 @@ brw_blorp_blit_program::emit_frag_coord_computation()
       brw_OR(&func, y_frag, t2, t3); /* y_stencil */
       brw_MOV(&func, x_frag, t1); /* x_stencil */
    }
+}
+
+void
+brw_blorp_blit_program::emit_offset()
+{
+   brw_ADD(&func, x_frag, x_frag, x_offset);
+   brw_ADD(&func, y_frag, y_frag, y_offset);
 }
 
 void
@@ -625,8 +638,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    {
       assert(src_mt->num_samples > 0);
       assert(!dst_mt->num_samples > 0);
-      assert(src_x0 == 0);
-      assert(src_y0 == 0);
       assert(dst_x0 == 0);
       assert(dst_y0 == 0);
    }
@@ -638,6 +649,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    wm_push_consts.dst_y0 = 0;
    wm_push_consts.dst_x1 = width;
    wm_push_consts.dst_y1 = height;
+   wm_push_consts.x_offset = src_x0 - dst_x0;
+   wm_push_consts.y_offset = src_y0 - dst_y0;
 
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));

@@ -88,9 +88,11 @@ struct brw_blorp_wm_push_constants
    uint16_t dst_x1;
    uint16_t dst_y0;
    uint16_t dst_y1;
+   uint16_t x_offset;
+   uint16_t y_offset;
 
    /* Pad out to an integral number of registers */
-   uint16_t pad[12];
+   uint16_t pad[10];
 };
 
 /* Every 32 bytes of push constant data constitutes one GEN register. */
