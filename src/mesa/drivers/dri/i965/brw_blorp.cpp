@@ -195,32 +195,20 @@ private:
    /* Data returned from texture lookup (4 vec16's) */
    struct brw_reg Rdata;
 
-   /* X coordinate of each fragment */
-   struct brw_reg x_dst;
+   /* X/U coordinate */
+   struct brw_reg x_or_u_coord[2];
 
-   /* Y coordinate of each fragment */
-   struct brw_reg y_dst;
+   /* Y/V coordinate */
+   struct brw_reg y_or_v_coord[2];
 
-   /* X coordinate of each fragment, with offset applied to map to source
-    * coordinates
+   /* Which element of x_or_u_coord is x; which element of y_or_v_coord is
+    * y.
     */
-   struct brw_reg x_src;
-
-   /* Y coordinate of each fragment, with offset applied to map to source
-    * coordinates
-    */
-   struct brw_reg y_src;
-
-   /* U coordinate for texture lookup */
-   struct brw_reg u_tex;
-
-   /* V coordinate for texture lookup */
-   struct brw_reg v_tex;
+   int xy_coord_index;
 
    /* Temporaries */
    struct brw_reg t1;
    struct brw_reg t2;
-   struct brw_reg t3;
 
    /* M2-3: u coordinate */
    GLuint base_mrf;
@@ -256,9 +244,9 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 
    alloc_regs();
    emit_dst_coord_computation();
-   emit_src_coord_computation();
    if (key->kill_out_of_range)
       kill_if_out_of_range();
+   emit_src_coord_computation();
    emit_texture_coord_computation();
    emit_texture_lookup();
    emit_render_target_write();
@@ -293,16 +281,15 @@ brw_blorp_blit_program::alloc_regs()
    alloc_push_const_regs(reg);
    reg += BRW_BLORP_NUM_PUSH_CONST_REGS;
    this->Rdata = vec16(brw_vec8_grf(reg, 0)); reg += 8;
-   this->x_dst = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->y_dst = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->x_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->y_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->u_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->v_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   for (int i = 0; i < 2; ++i) {
+      this->x_or_u_coord[i]
+         = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+      this->y_or_v_coord[i]
+         = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   }
+   this->xy_coord_index = 0;
    this->t1 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->t2 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->t3 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   /* TODO: make more use of temporaries */
 
    int mrf = 2;
    this->base_mrf = mrf;
@@ -310,6 +297,19 @@ brw_blorp_blit_program::alloc_regs()
    this->mrf_v_float = vec16(brw_message_reg(mrf)); mrf += 2;
    this->mrf_r_float = vec16(brw_message_reg(mrf)); mrf += 2;
 }
+
+/* In the code that follows, X, Y, U, and V can be used to quickly refer to
+ * the appropriate elements of x_or_u_coord and y_or_v_coord.
+ */
+#define X x_or_u_coord[xy_coord_index]
+#define Y y_or_v_coord[xy_coord_index]
+#define U x_or_u_coord[!xy_coord_index]
+#define V y_or_v_coord[!xy_coord_index]
+
+/* Quickly swap the roles of XY and UV.  Saves us from having to do a lot of
+ * MOVs.
+ */
+#define SWAP_XY_UV() xy_coord_index = !xy_coord_index;
 
 void
 brw_blorp_blit_program::emit_dst_coord_computation()
@@ -331,8 +331,7 @@ brw_blorp_blit_program::emit_dst_coord_computation()
     * Then, we need to add the repeating sequence (0, 1, 0, 1, ...) to the
     * result, since pixels n+1 and n+3 are in the right half of the subspan.
     */
-   brw_ADD(&func, x_dst, stride(suboffset(R1, 4), 2, 4, 0),
-           brw_imm_v(0x10101010));
+   brw_ADD(&func, X, stride(suboffset(R1, 4), 2, 4, 0), brw_imm_v(0x10101010));
 
    /* Similarly, Y coordinates for subspans come from R1.2[31:16] through
     * R1.5[31:16], so to get pixel Y coordinates we need to start at the 5th
@@ -342,22 +341,26 @@ brw_blorp_blit_program::emit_dst_coord_computation()
     * And we need to add the repeating sequence (0, 0, 1, 1, ...), since
     * pixels n+2 and n+3 are in the bottom half of the subspan.
     */
-   brw_ADD(&func, y_dst, stride(suboffset(R1, 5), 2, 4, 0),
-           brw_imm_v(0x11001100));
+   brw_ADD(&func, Y, stride(suboffset(R1, 5), 2, 4, 0), brw_imm_v(0x11001100));
 
    if (key->adjust_coords_for_stencil) {
-      /* The render target is W-tiled stencil data, but the surface state has
-       * been set up for Y-tiled MESA_FORMAT_R8 data (this is necessary
-       * because surface states don't support W tiling).  So we need to adjust
-       * the coordinates by considering the memory location the output of
-       * rendering will be written to.
+      /* The WM stage has been configured to render to a Y-tiled surface, but
+       * the actual data is W-tiled.  Therefore the X and Y pixel delivered to
+       * the WM program aren't the true coordinates in the W-tiled
+       * surface--they are "swizzled" around based on the differences between
+       * W and Y tiling.  To convert to the true coordinates, we need to
+       * determine the memory address that the output will be written to
+       * (using Y-tiled formulas), and then work out the true coordinates of
+       * the data represented by that memory address (using W-tiled formulas).
        *
-       * Since the render target has been set up for Y-tiled MESA_FORMAT_R8
-       * data, the address where rendered output will be written, in terms of
-       * the x_dst and y_dst coordinates computed above, will be:
+       * Let X and Y represent the swizzled Y-tiled coordinates, and U and V
+       * represent the true W-tiled coordinates.
+       *
+       * The interpretation of memory addresses when Y-tiling is given by the
+       * bit pattern:
        *
        *   Y-tiled MESA_FORMAT_R8:
-       *   ttttttttttttttttttttxxxyyyyyxxxx                     (1)
+       *   ttttttttttttttttttttxxxyyyyyxxxx                           (1)
        *
        * (That is, the first 20 bits of the memory address select which tile
        * we are rendering to (offset appropriately by the surface start
@@ -367,67 +370,63 @@ brw_blorp_blit_program::emit_dst_coord_computation()
        * Command Stream [SNB+] > Graphics Memory Interface Functions > Address
        * Tiling Function > W-Major Tile Format [DevIL+].
        *
-       * However, since stencil data is actually W-tiled, the correct
-       * interpretation of those address bits is:
+       * Therefore, if we break down the low order bits of X and Y, using a
+       * single letter to represent each low-order bit:
+       *
+       *   X = A << 7 | 0bBCDEFGH
+       *   Y = J << 5 | 0bKLMNP                                       (2)
+       *
+       * Then we can apply (1) to see the memory location being addressed (as
+       * an offset from the origin of the surface the surface):
+       *
+       *   offset = (J * tile_pitch + A) << 12 | 0bBCDKLMNPEFGH       (3)
+       *
+       * (where tile_pitch is the number of tiles that cover the width of the
+       * render surface).
+       *
+       * The interpretation of memory addresses when W-tiling is given by the
+       * bit pattern:
        *
        *   W-tiled:
-       *   ttttttttttttttttttttxxxyyyyxyxyx                     (2)
+       *   ttttttttttttttttttttuuuvvvvuvuvu                           (4)
        *
-       * Therefore, when the WM program appears to be generating a value for
-       * the pixel coordinate given by:
+       * If we apply this to the memory location computed in (3), we see that
+       * the corresponding U and V coordinates are:
        *
-       *   x_dst = A << 7 | 0bBCDEFGH
-       *   y_dst = J << 5 | 0bKLMNP                             (3)
+       *   U = A << 6 | 0bBCDPFH                                      (5)
+       *   V = J << 6 | 0bKLMNEG
        *
-       * we can apply (1) to see that it is actually generating the byte that
-       * will be stored at:
+       * Combining (2) and (5), we see that to transform (X, Y) to (U, V), we
+       * need to make the following computation:
        *
-       *   offset = (J * tile_pitch + A) << 12 | 0bBCDKLMNPEFGH (4)
-       *
-       * within the render target surface (where tile_pitch is the number of
-       * tiles that cover the width of the render surface).  Rearranging these
-       * bits according to (2), this corresponds to a true pixel coordinate
-       * of:
-       *
-       *   x_stencil = A << 6 | 0bBCDPFH                        (5)
-       *   y_stencil = J << 6 | 0bKLMNEG
-       *
-       * Combining (3) and (5), we see that to transform (x_dst, y_dst) to
-       * (x_stencil, y_stencil), we need to make the following computation:
-       *
-       *   x_stencil = (x_dst & ~0b1011) >> 1
-       *             | (y_dst & 0b1) << 2
-       *             | x_dst & 0b1                              (6)
-       *   y_stencil = (y_dst & ~0b1) << 1
-       *             | (x_dst & 0b1000) >> 2
-       *             | (x_dst & 0b10) >> 1
+       *   U = (X & ~0b1011) >> 1 | (Y & 0b1) << 2 | X & 0b1          (6)
+       *   V = (Y & ~0b1) << 1 | (X & 0b1000) >> 2 | (X & 0b10) >> 1
        */
-      brw_AND(&func, t1, x_dst, brw_imm_uw(0xfff4)); /* x_dst & ~0b1011 */
-      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (x_dst & ~0b1011) >> 1 */
-      brw_AND(&func, t2, y_dst, brw_imm_uw(1)); /* y_dst & 0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (y_dst & 0b1) << 2 */
-      brw_OR(&func, t1, t1, t2); /* (x_dst & ~0b1011) >> 1
-                                    | (y_dst & 0b1) << 2 */
-      brw_AND(&func, t2, x_dst, brw_imm_uw(1)); /* x_dst & 0b1 */
-      brw_OR(&func, t1, t1, t2); /* x_stencil */
-      brw_AND(&func, t2, y_dst, brw_imm_uw(0xfffe)); /* y_dst & ~0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (y_dst & ~0b1) << 1 */
-      brw_AND(&func, t3, x_dst, brw_imm_uw(8)); /* x_dst & 0b1000 */
-      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (x_dst & 0b1000) >> 2 */
-      brw_OR(&func, t2, t2, t3); /* (y_dst & ~0b1) << 1
-                                    | (x_dst & 0b1000) >> 2 */
-      brw_AND(&func, t3, x_dst, brw_imm_uw(2)); /* x_dst & 0b10 */
-      brw_SHR(&func, t3, t3, brw_imm_uw(1)); /* (x_dst & 0b10) >> 1 */
-      brw_OR(&func, y_dst, t2, t3); /* y_stencil */
-      brw_MOV(&func, x_dst, t1); /* x_stencil */
+      brw_AND(&func, t1, X, brw_imm_uw(0xfff4)); /* X & ~0b1011 */
+      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1011) >> 1 */
+      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b1) << 2 */
+      brw_OR(&func, t1, t1, t2); /* (X & ~0b1011) >> 1 | (Y & 0b1) << 2 */
+      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+      brw_OR(&func, U, t1, t2);
+      brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
+      brw_AND(&func, t2, X, brw_imm_uw(8)); /* X & 0b1000 */
+      brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b1000) >> 2 */
+      brw_OR(&func, t1, t1, t2); /* (Y & ~0b1) << 1 | (X & 0b1000) >> 2 */
+      brw_AND(&func, t2, X, brw_imm_uw(2)); /* X & 0b10 */
+      brw_SHR(&func, t2, t2, brw_imm_uw(1)); /* (X & 0b10) >> 1 */
+      brw_OR(&func, V, t1, t2); /* y_stencil */
+      SWAP_XY_UV();
    }
 }
 
 void
 brw_blorp_blit_program::emit_src_coord_computation()
 {
-   brw_ADD(&func, x_src, x_dst, x_offset);
-   brw_ADD(&func, y_src, y_dst, y_offset);
+   brw_ADD(&func, U, X, x_offset);
+   brw_ADD(&func, V, Y, y_offset);
+   SWAP_XY_UV();
 }
 
 void
@@ -437,10 +436,10 @@ brw_blorp_blit_program::kill_if_out_of_range()
    struct brw_reg g1 = retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UW);
    struct brw_reg null16 = vec16(retype(brw_null_reg(), BRW_REGISTER_TYPE_UW));
 
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_dst, dst_x0);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_dst, dst_y0);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_dst, dst_x1);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_dst, dst_y1);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, X, dst_x0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, Y, dst_y0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, X, dst_x1);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, Y, dst_y1);
 
    brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
    brw_push_insn_state(&func);
@@ -459,10 +458,11 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * samples that maxe up a pixel).  So we need to multiply our X and Y
        * coordinates each by 2 and then add 1.
        */
-      brw_SHL(&func, u_tex, x_src, brw_imm_w(1));
-      brw_SHL(&func, v_tex, y_src, brw_imm_w(1));
-      brw_ADD(&func, u_tex, u_tex, brw_imm_w(1));
-      brw_ADD(&func, v_tex, v_tex, brw_imm_w(1));
+      brw_SHL(&func, t1, X, brw_imm_w(1));
+      brw_SHL(&func, t2, Y, brw_imm_w(1));
+      brw_ADD(&func, U, t1, brw_imm_w(1));
+      brw_ADD(&func, V, t2, brw_imm_w(1));
+      SWAP_XY_UV();
    } else if (key->manual_downsample) {
       /* We are looking up samples in an MSAA texture, but that texture is not
        * flagged as multisampled in the surface state description (we do this
@@ -477,34 +477,27 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * Formats > Surface Layout and Tiling [DevSKL+] > Stencil Buffer
        * Layout):
        *
-       *   u_tex = (x_src & ~0b1) << 1
-       *         | (sample_num & 0b1) << 1
-       *         | (x_src & 0b1)
-       *   v_tex = (y_src & ~0b1) << 1
-       *         | sample_num & 0b10
-       *         | (y_src & 0b1)
+       *   U = (X & ~0b1) << 1 | (sample_num & 0b1) << 1 | (X & 0b1)
+       *   V = (Y & ~0b1) << 1 | sample_num & 0b10 | (Y & 0b1)
        *
        * Since we just want to look up sample_num=0, this simplifies to:
        *
-       *   u_tex = (x_src & ~0b1) << 1
-       *         | (x_src & 0b1)
-       *   v_tex = (y_src & ~0b1) << 1
-       *         | (y_src & 0b1)
+       *   U = (X & ~0b1) << 1 | (X & 0b1)
+       *   V = (Y & ~0b1) << 1 | (Y & 0b1)
        */
-      brw_AND(&func, u_tex, x_src, brw_imm_uw(0xfffe)); /* x_src & ~0b1 */
-      brw_SHL(&func, u_tex, u_tex, brw_imm_uw(1)); /* (x_src & ~0b1) << 1 */
-      brw_AND(&func, x_src, x_src, brw_imm_uw(1)); /* x_src & 0b1 */
-      brw_OR(&func, u_tex, u_tex, x_src); /* u_tex */
-      brw_AND(&func, v_tex, y_src, brw_imm_uw(0xfffe)); /* y_src & ~0b1 */
-      brw_SHL(&func, v_tex, v_tex, brw_imm_uw(1)); /* (y_src & ~0b1) << 1 */
-      brw_AND(&func, y_src, y_src, brw_imm_uw(1)); /* y_src & 0b1 */
-      brw_OR(&func, v_tex, v_tex, y_src); /* v_tex */
+      brw_AND(&func, t1, X, brw_imm_uw(0xfffe)); /* X & ~0b1 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b1) << 1 */
+      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+      brw_OR(&func, U, t1, t2);
+      brw_AND(&func, t1, Y, brw_imm_uw(0xfffe)); /* Y & ~0b1 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b1) << 1 */
+      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+      brw_OR(&func, V, t1, t2);
+      SWAP_XY_UV();
    } else {
       /* We're just looking up samples using simple integer texture
-       * coordinates.
+       * coordinates.  Nothing to do.
        */
-      brw_MOV(&func, u_tex, x_src);
-      brw_MOV(&func, v_tex, y_src);
    }
 
    if (key->adjust_coords_for_stencil) {
@@ -514,43 +507,28 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * the coordinates by considering the memory location the output of
        * rendering will be written to.
        *
-       * In emit_dst_coord_computation(), we had to translate x and y
-       * coordinates which were incorrect (because they assumed Y tiling
-       * instead of W tiling) into correct ones.  Now, we need to translate
-       * correct u and v coordinates into incorrect ones so that we can use
-       * them for texture lookup.  So we simply reverse the computation:
+       * We simply reverse the computation from emit_dst_coord_computation():
        *
-       * u_stencil =  AAABCDPFH  000001001
-       * u_tex =     AAABCDEFGH 0000010011
-       * v_stencil =  JJJKLMNEG  000001001
-       * v_tex =       JJJKLMNP
-       *
-       * u_tex = (u_stencil & ~0b101) << 1
-       *       | (v_stencil & 0b10) << 2
-       *       | (v_stencil & 0b1) << 1
-       *       | u_stencil & 0b1
-       * v_tex = (v_stencil & ~0b11) >> 1
-       *       | (u_stencil & 0b100) >> 2
+       * U = (X & ~0b101) << 1 | (Y & 0b10) << 2 | (Y & 0b1) << 1 | X & 0b1
+       * V = (Y & ~0b11) >> 1 | (X & 0b100) >> 2
        */
-      brw_AND(&func, t1, u_tex, brw_imm_uw(0xfffa)); /* u_stencil & ~0b101 -- 000001000 */
-      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (u_stencil & ~0b101) << 1 -- 000010000 */
-      brw_AND(&func, t2, v_tex, brw_imm_uw(2)); /* v_stencil & 0b10 -- */
-      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (v_stencil & 0b10) << 2 */
-      brw_OR(&func, t1, t1, t2); /* (u_stencil & ~0b101) << 1
-                                    | (v_stencil & 0b10) << 2 */
-      brw_AND(&func, t2, v_tex, brw_imm_uw(1)); /* v_stencil & 0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (v_stencil & 0b1) << 1 */
-      brw_OR(&func, t1, t1, t2); /* (u_stencil & ~0b101) << 1
-                                    | (v_stencil & 0b10) << 2
-                                    | (v_stencil & 0b1) << 1 */
-      brw_AND(&func, t2, u_tex, brw_imm_uw(1)); /* u_stencil & 0b1 */
-      brw_OR(&func, t1, t1, t2); /* u_tex */
-      brw_AND(&func, t2, v_tex, brw_imm_uw(0xfffc)); /* v_stencil & ~0b11 */
-      brw_SHR(&func, t2, t2, brw_imm_uw(1)); /* (v_stencil & ~0b11) >> 1 */
-      brw_AND(&func, t3, u_tex, brw_imm_uw(4)); /* u_stencil & 0b100 */
-      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (u_stencil & 0b100) >> 2 */
-      brw_OR(&func, v_tex, t2, t3); /* v_tex */
-      brw_MOV(&func, u_tex, t1); /* u_tex */
+      brw_AND(&func, t1, X, brw_imm_uw(0xfffa)); /* X & ~0b101 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (X & ~0b101) << 1 */
+      brw_AND(&func, t2, Y, brw_imm_uw(2)); /* Y & 0b10 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (Y & 0b10) << 2 */
+      brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2 */
+      brw_AND(&func, t2, Y, brw_imm_uw(1)); /* Y & 0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (Y & 0b1) << 1 */
+      brw_OR(&func, t1, t1, t2); /* (X & ~0b101) << 1 | (Y & 0b10) << 2
+                                    | (Y & 0b1) << 1 */
+      brw_AND(&func, t2, X, brw_imm_uw(1)); /* X & 0b1 */
+      brw_OR(&func, U, t1, t2);
+      brw_AND(&func, t1, Y, brw_imm_uw(0xfffc)); /* Y & ~0b11 */
+      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (Y & ~0b11) >> 1 */
+      brw_AND(&func, t2, X, brw_imm_uw(4)); /* X & 0b100 */
+      brw_SHR(&func, t2, t2, brw_imm_uw(2)); /* (X & 0b100) >> 2 */
+      brw_OR(&func, V, t1, t2);
+      SWAP_XY_UV();
    }
 }
 
@@ -574,10 +552,10 @@ brw_blorp_blit_program::emit_texture_lookup()
 
    /* TODO: can we do some of this faster with a compressed instruction? */
    /* TODO: do we need to use 2NDHALF compression mode? */
-   brw_MOV(&func, vec8(mrf_u), vec8(u_tex));
-   brw_MOV(&func, offset(vec8(mrf_u), 1), suboffset(vec8(u_tex), 8));
-   brw_MOV(&func, vec8(mrf_v), vec8(v_tex));
-   brw_MOV(&func, offset(vec8(mrf_v), 1), suboffset(vec8(v_tex), 8));
+   brw_MOV(&func, vec8(mrf_u), vec8(X));
+   brw_MOV(&func, offset(vec8(mrf_u), 1), suboffset(vec8(X), 8));
+   brw_MOV(&func, vec8(mrf_v), vec8(Y));
+   brw_MOV(&func, offset(vec8(mrf_v), 1), suboffset(vec8(Y), 8));
 
    /* TODO: is this necessary? */
    /* TODO: what does this mean for LD mode? */
@@ -598,6 +576,12 @@ brw_blorp_blit_program::emit_texture_lookup()
               BRW_SAMPLER_SIMD_MODE_SIMD16,
               BRW_SAMPLER_RETURN_FORMAT_FLOAT32);
 }
+
+#undef X
+#undef Y
+#undef U
+#undef V
+#undef SWAP_XY_UV
 
 void
 brw_blorp_blit_program::emit_render_target_write()
