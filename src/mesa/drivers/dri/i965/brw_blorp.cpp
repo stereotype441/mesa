@@ -629,20 +629,16 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       assert(src_y == 0);
       assert(dst_x == 0);
       assert(dst_y == 0);
-
-      uint32_t src_w, src_h;
-      src.get_miplevel_dims(&src_w, &src_h);
-      assert(src_w == width * 2);
-      assert(src_h == height * 2);
-
-      uint32_t dst_w, dst_h;
-      dst.get_miplevel_dims(&dst_w, &dst_h);
-      assert(dst_w == width);
-      assert(dst_h == height);
    }
 
    this->width = width;
    this->height = height;
+
+   wm_push_consts.dst_x0 = 0;
+   wm_push_consts.dst_y0 = 0;
+   wm_push_consts.dst_x1 = width;
+   wm_push_consts.dst_y1 = height;
+
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
    if (src_mt->format == MESA_FORMAT_S8) {
@@ -652,13 +648,21 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
       wm_prog_key.adjust_coords_for_stencil = true;
-      wm_prog_key.kill_out_of_range = true; /* TODO: only do when necessary */
+      if ((this->width & 63) != 0 || (this->height & 63) != 0) {
+         /* The destination rectangle is not tile-aligned.  We need to send a
+          * tile-aligned rectangle down the pipeline (since we've mapped the
+          * destination buffer as Y-tiled instead of W-tiled), so compute an
+          * expanded rectangle, and tell the WM program to kill any pixels
+          * that are outside the region we really want to blit to.
+          */
+         this->width = ALIGN(this->width, 64); /* TODO: rename this->width and height */
+         this->height = ALIGN(this->height, 64);
+         wm_prog_key.kill_out_of_range = true;
+      }
 
       /* Adjust width/height to compensate for the fact that src and dst will
        * be mapped as Y tiled instead of W tiled.
        */
-      assert((this->width & 63) == 0); /* TODO: because discarding is not implemented yet */
-      assert((this->height & 63) == 0); /* TODO: because discarding is not implemented yet */
       this->width *= 2; /* TODO: what if this makes the width too large? */
       this->height /= 2;
    } else if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
@@ -673,12 +677,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = true;
    }
-
-   /* TODO: as a tempoarary measure use a static destination rect */
-   wm_push_consts.dst_x0 = 64;
-   wm_push_consts.dst_y0 = 64;
-   wm_push_consts.dst_x1 = 128;
-   wm_push_consts.dst_y1 = 128;
 }
 
 uint32_t
