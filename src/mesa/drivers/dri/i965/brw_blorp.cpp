@@ -388,6 +388,42 @@ brw_blorp_blit_program::emit_texture_coord_computation()
       brw_SHL(&func, v_tex, y_frag, brw_imm_w(1));
       brw_ADD(&func, u_tex, u_tex, brw_imm_w(1));
       brw_ADD(&func, v_tex, v_tex, brw_imm_w(1));
+   } else if (key->manual_downsample) {
+      /* We are looking up samples in an MSAA texture, but that texture is not
+       * flagged as multisampled in the surface state description (we do this
+       * when reading from a stencil buffer).  So we need to manually adjust
+       * the coordinates to pick up just sample 0 from each multisampled
+       * pixel.
+       *
+       * To convert from single-sampled x and y coordinates to the u and v
+       * coordinates we need to look up data in the MSAA stencil surface, we
+       * need to apply the following formulas (inferred from the diagrams in
+       * Graphics BSpec: vol1a GPU Overview [All projects] > Memory Data
+       * Formats > Surface Layout and Tiling [DevSKL+] > Stencil Buffer
+       * Layout):
+       *
+       *   u_tex = (x_frag & ~0b1) << 1
+       *         | (sample_num & 0b1) << 1
+       *         | (x_frag & 0b1)
+       *   v_tex = (y_frag & ~0b1) << 1
+       *         | sample_num & 0b10
+       *         | (y_frag & 0b1)
+       *
+       * Since we just want to look up sample_num=0, this simplifies to:
+       *
+       *   u_tex = (x_frag & ~0b1) << 1
+       *         | (x_frag & 0b1)
+       *   v_tex = (y_frag & ~0b1) << 1
+       *         | (y_frag & 0b1)
+       */
+      brw_AND(&func, u_tex, x_frag, brw_imm_uw(0xfffe)); /* x_frag & ~0b1 */
+      brw_SHL(&func, u_tex, u_tex, brw_imm_uw(1)); /* (x_frag & ~0b1) << 1 */
+      brw_AND(&func, x_frag, x_frag, brw_imm_uw(1)); /* x_frag & 0b1 */
+      brw_OR(&func, u_tex, u_tex, x_frag); /* u_tex */
+      brw_AND(&func, v_tex, y_frag, brw_imm_uw(0xfffe)); /* y_frag & ~0b1 */
+      brw_SHL(&func, v_tex, v_tex, brw_imm_uw(1)); /* (y_frag & ~0b1) << 1 */
+      brw_AND(&func, y_frag, y_frag, brw_imm_uw(1)); /* y_frag & 0b1 */
+      brw_OR(&func, v_tex, v_tex, y_frag); /* v_tex */
    } else {
       /* When looking up samples in an MSAA texture using the SAMPLE_LD message,
        * Gen6 just needs the integer texture coordinates.
@@ -547,6 +583,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    if (src_mt->format == MESA_FORMAT_S8) {
       wm_prog_key.blend = false;
       src_multisampled = false;
+      wm_prog_key.manual_downsample = true;
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
       wm_prog_key.adjust_coords_for_stencil = true;
@@ -561,10 +598,12 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    } else if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
       /* TODO: test all depth formats */
       wm_prog_key.blend = false;
+      wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = true;
    } else { /* Color buffer */
       wm_prog_key.blend = true;
+      wm_prog_key.manual_downsample = false;
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = true;
    }

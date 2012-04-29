@@ -151,8 +151,15 @@ struct brw_blorp_blit_prog_key
     */
    bool adjust_coords_for_stencil;
 
+   /* Setting this flag indicates that the source buffer is multisampled, but
+    * its surface state has been set up as single-sampled.  So the WM program
+    * needs to manually adjust the u and v texture coordinates to select just
+    * sample 0 out of each pixel.
+    */
+   bool manual_downsample;
+
    /* Pad out to a multiple of 4 bytes in size. */
-   char pad[2];
+   char pad;
 };
 
 class brw_msaa_resolve_params : public brw_blorp_params
