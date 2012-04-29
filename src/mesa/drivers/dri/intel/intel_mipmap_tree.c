@@ -72,7 +72,8 @@ intel_miptree_create_internal(struct intel_context *intel,
 			      GLuint width0,
 			      GLuint height0,
 			      GLuint depth0,
-			      bool for_region)
+			      bool for_region,
+                              GLuint num_samples)
 {
    struct intel_mipmap_tree *mt = calloc(sizeof(*mt), 1);
    int compress_byte = 0;
@@ -92,6 +93,7 @@ intel_miptree_create_internal(struct intel_context *intel,
    mt->width0 = width0;
    mt->height0 = height0;
    mt->cpp = compress_byte ? compress_byte : _mesa_get_format_bytes(mt->format);
+   mt->num_samples = num_samples;
    mt->compressed = compress_byte ? 1 : 0;
    mt->refcount = 1; 
 
@@ -116,7 +118,7 @@ intel_miptree_create_internal(struct intel_context *intel,
                                             mt->height0,
                                             mt->depth0,
                                             true,
-                                            false /* is_msaa_surface */);
+                                            num_samples);
       if (!mt->stencil_mt) {
 	 intel_miptree_release(&mt);
 	 return NULL;
@@ -163,7 +165,7 @@ intel_miptree_create(struct intel_context *intel,
 		     GLuint height0,
 		     GLuint depth0,
 		     bool expect_accelerated_upload,
-                     bool is_msaa_surface)
+                     GLuint num_samples)
 {
    struct intel_mipmap_tree *mt;
    uint32_t tiling = I915_TILING_NONE;
@@ -174,7 +176,7 @@ intel_miptree_create(struct intel_context *intel,
 	  (base_format == GL_DEPTH_COMPONENT ||
 	   base_format == GL_DEPTH_STENCIL_EXT))
 	 tiling = I915_TILING_Y;
-      else if (is_msaa_surface) {
+      else if (num_samples > 0) {
          /* From p82 of the Sandy Bridge PRM, dw3[1] of SURFACE_STATE ("Tiled
           * Surface"):
           *
@@ -205,7 +207,7 @@ intel_miptree_create(struct intel_context *intel,
    mt = intel_miptree_create_internal(intel, target, format,
 				      first_level, last_level, width0,
 				      height0, depth0,
-				      false);
+				      false, num_samples);
    /*
     * pitch == 0 || height == 0  indicates the null texture
     */
@@ -241,7 +243,8 @@ intel_miptree_create_for_region(struct intel_context *intel,
    mt = intel_miptree_create_internal(intel, target, format,
 				      0, 0,
 				      region->width, region->height, 1,
-				      true);
+				      true,
+                                      0 /* num_samples */);
    if (!mt)
       return mt;
 
@@ -267,7 +270,7 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
    }
 
    mt = intel_miptree_create(intel, GL_TEXTURE_2D, format, 0, 0,
-			     width, height, 1, true, num_samples > 0);
+			     width, height, 1, true, num_samples);
 
    return mt;
 }
@@ -538,7 +541,8 @@ intel_miptree_copy_teximage(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
-			struct intel_mipmap_tree *mt)
+			struct intel_mipmap_tree *mt,
+                        GLuint num_samples)
 {
    assert(mt->hiz_mt == NULL);
 
@@ -551,7 +555,7 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
                                      mt->height0,
                                      mt->depth0,
                                      true,
-                                     false /* is_msaa_surface */);
+                                     num_samples);
 
    if (!mt->hiz_mt)
       return false;
@@ -576,7 +580,7 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_downsampled(struct intel_context *intel,
-                                struct intel_mipmap_tree *mt)
+                                struct intel_mipmap_tree *mt) /* TODO: eliminate this function. */
 {
    /* We should only ever create 2D MSAA miptrees, since MSAA is only
     * supported for renderbuffers, not for textures.
@@ -592,7 +596,7 @@ intel_miptree_alloc_downsampled(struct intel_context *intel,
                                              mt->height0,
                                              mt->depth0,
                                              true,
-                                             false /* is_msaa_surface */);
+                                             0 /* num_samples */);
 
    if (!mt->downsampled_mt)
       return false;
