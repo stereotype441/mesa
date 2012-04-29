@@ -499,26 +499,29 @@ brw_msaa_resolve_program::emit_render_target_write()
 }
 
 uint32_t
-brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw) const
+brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw,
+                                    brw_blorp_prog_data **prog_data) const
 {
    return 0;
 }
 
 uint32_t
-brw_msaa_resolve_params::get_wm_prog(struct brw_context *brw) const
+brw_msaa_resolve_params::get_wm_prog(struct brw_context *brw,
+                                     brw_blorp_prog_data **prog_data) const
 {
    uint32_t prog_offset;
    if (!brw_search_cache(&brw->cache, BRW_MSAA_WM_PROG,
                          &this->wm_prog_key, sizeof(this->wm_prog_key),
-                         &prog_offset, NULL)) {
+                         &prog_offset, prog_data)) {
       brw_msaa_resolve_program prog(brw, &this->wm_prog_key);
       GLuint program_size;
       const GLuint *program = prog.compile(brw, &program_size);
+      brw_blorp_prog_data dummy; /* TODO: remove this stuff */
       brw_upload_cache(&brw->cache, BRW_MSAA_WM_PROG,
                        &this->wm_prog_key, sizeof(this->wm_prog_key),
                        program, program_size,
-                       NULL, 0,
-                       &prog_offset, NULL);
+                       &dummy, sizeof(dummy),
+                       &prog_offset, prog_data);
    }
    return prog_offset;
 }
@@ -765,15 +768,27 @@ gen6_hiz_disable_wm(struct brw_context *brw,
 }
 
 static void
-gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
+gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset,
+                   uint32_t wm_push_const_offset,
+                   brw_blorp_prog_data *prog_data)
 {
    struct intel_context *intel = &brw->intel;
    uint32_t dw2, dw4, dw5, dw6;
 
-   /* Disable the push constant buffers. */
+   /* Make sure the push constants fill an exact integer number of
+    * registers.
+    */
+   assert(sizeof(brw_blorp_wm_push_constants) % 32 == 0);
+
+   /* There must be at least one register worth of push constant data. */
+   assert(BRW_BLORP_NUM_PUSH_CONST_REGS > 0);
+
+   /* Enable push constant buffer 0. */
    BEGIN_BATCH(5);
-   OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 | (5 - 2));
-   OUT_BATCH(0);
+   OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 |
+             GEN6_CONSTANT_BUFFER_0_ENABLE |
+             (5 - 2));
+   OUT_BATCH(wm_push_const_offset + (BRW_BLORP_NUM_PUSH_CONST_REGS - 1));
    OUT_BATCH(0);
    OUT_BATCH(0);
    OUT_BATCH(0);
@@ -784,8 +799,7 @@ gen6_hiz_enable_wm(struct brw_context *brw, uint32_t prog_offset)
    dw5 |= GEN6_WM_LINE_AA_WIDTH_1_0;
    dw5 |= GEN6_WM_LINE_END_CAP_AA_WIDTH_0_5;
    dw2 |= 0 << GEN6_WM_SAMPLER_COUNT_SHIFT; /* No samplers */
-   dw4 |= 0 << GEN6_WM_DISPATCH_START_GRF_SHIFT_0; /* No constants */
-   dw4 |= 0 << GEN6_WM_DISPATCH_START_GRF_SHIFT_2; /* No constants */
+   dw4 |= prog_data->first_curbe_grf << GEN6_WM_DISPATCH_START_GRF_SHIFT_0;
    dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
    dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
    dw6 |= 0 << GEN6_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
@@ -858,7 +872,8 @@ gen6_hiz_exec(struct intel_context *intel,
    /* TODO: is it ok to do this before gen6_hiz_emit_batch_head or will it
     * screw up the program cache?
     */
-   uint32_t prog_offset = params->get_wm_prog(brw);
+   brw_blorp_prog_data *prog_data = NULL;
+   uint32_t prog_offset = params->get_wm_prog(brw, &prog_data);
 
    gen6_hiz_emit_batch_head(brw, params);
    gen6_hiz_emit_vertices(brw, params);
@@ -938,6 +953,16 @@ gen6_hiz_exec(struct intel_context *intel,
       OUT_BATCH(depthstencil_offset | 1); /* DEPTH_STENCIL_STATE offset */
       OUT_BATCH(cc_state_offset | 1); /* COLOR_CALC_STATE offset */
       ADVANCE_BATCH();
+   }
+
+   /* WM push constants */
+   uint32_t wm_push_const_offset = 0;
+   if (params->use_wm_prog) {
+      void *constants = brw_state_batch(brw, AUB_TRACE_WM_CONSTANTS,
+                                        sizeof(params->wm_push_consts),
+                                        32, &wm_push_const_offset);
+      memcpy(constants, &params->wm_push_consts,
+             sizeof(params->wm_push_consts));
    }
 
    /* SURFACE_STATE for renderbuffer surface (see
@@ -1224,7 +1249,7 @@ gen6_hiz_exec(struct intel_context *intel,
 
    /* 3DSTATE_WM */
    if (params->use_wm_prog)
-      gen6_hiz_enable_wm(brw, prog_offset);
+      gen6_hiz_enable_wm(brw, prog_offset, wm_push_const_offset, prog_data);
    else
       gen6_hiz_disable_wm(brw, params);
 

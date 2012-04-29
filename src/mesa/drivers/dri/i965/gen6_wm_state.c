@@ -148,7 +148,7 @@ upload_wm_state(struct brw_context *brw)
    dw2 |= (ALIGN(brw->sampler.count, 4) / 4) << GEN6_WM_SAMPLER_COUNT_SHIFT;
    dw4 |= (brw->wm.prog_data->first_curbe_grf <<
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_0);
-   dw4 |= (brw->wm.prog_data->first_curbe_grf_16 <<
+   dw4 |= (brw->wm.prog_data->first_curbe_grf_16 << /* TODO: this is wrong if no 8-wide prog */
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_2);
 
    dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;

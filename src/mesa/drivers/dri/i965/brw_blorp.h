@@ -82,12 +82,33 @@ public:
    bool map_stencil_as_y_tiled;
 };
 
+struct brw_blorp_wm_push_constants
+{
+   uint16_t dst_x0;
+   uint16_t dst_x1;
+   uint16_t dst_y0;
+   uint16_t dst_y1;
+
+   /* Pad out to an integral number of registers */
+   uint16_t pad[12];
+};
+
+/* Every 32 bytes of push constant data constitutes one GEN register. */
+const unsigned int BRW_BLORP_NUM_PUSH_CONST_REGS =
+   sizeof(brw_blorp_wm_push_constants) / 32;
+
+struct brw_blorp_prog_data
+{
+   unsigned int first_curbe_grf;
+};
+
 class brw_blorp_params
 {
 public:
    brw_blorp_params();
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw) const = 0;
+   virtual uint32_t get_wm_prog(struct brw_context *brw,
+                                brw_blorp_prog_data **prog_data) const = 0;
 
    void exec(struct intel_context *intel) const;
 
@@ -100,6 +121,7 @@ public:
    enum gen6_hiz_op op;
    bool use_wm_prog;
    bool src_multisampled;
+   brw_blorp_wm_push_constants wm_push_consts;
 };
 
 class brw_hiz_resolve_params : public brw_blorp_params
@@ -110,7 +132,8 @@ public:
                           unsigned int level, unsigned int layer,
                           gen6_hiz_op op);
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
+   virtual uint32_t get_wm_prog(struct brw_context *brw,
+                                brw_blorp_prog_data **prog_data) const;
 };
 
 enum brw_msaa_coord_transform
@@ -169,7 +192,8 @@ class brw_msaa_resolve_params : public brw_blorp_params
 public:
    brw_msaa_resolve_params(struct intel_mipmap_tree *mt);
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
+   virtual uint32_t get_wm_prog(struct brw_context *brw,
+                                brw_blorp_prog_data **prog_data) const;
 
 private:
    brw_msaa_resolve_prog_key wm_prog_key;
@@ -184,7 +208,8 @@ public:
                          GLuint dst_x, GLuint dst_y,
                          GLuint width, GLuint height);
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw) const;
+   virtual uint32_t get_wm_prog(struct brw_context *brw,
+                                brw_blorp_prog_data **prog_data) const;
 
 private:
    brw_blorp_blit_prog_key wm_prog_key;

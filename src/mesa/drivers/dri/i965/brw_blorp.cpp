@@ -157,8 +157,11 @@ public:
 
    const GLuint *compile(struct brw_context *brw, GLuint *program_size);
 
+   brw_blorp_prog_data prog_data;
+
 private:
    void alloc_regs();
+   void alloc_push_const_regs(int base_reg);
    void emit_frag_coord_computation();
    void kill_if_out_of_range();
    void emit_texture_coord_computation();
@@ -181,6 +184,12 @@ private:
 
    /* Pixel X/Y coordinates (always in R1). */
    struct brw_reg R1;
+
+   /* Push constants */
+   struct brw_reg dst_x0;
+   struct brw_reg dst_x1;
+   struct brw_reg dst_y0;
+   struct brw_reg dst_y1;
 
    /* Data returned from texture lookup (4 vec16's) */
    struct brw_reg Rdata;
@@ -245,11 +254,30 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
 }
 
 void
+brw_blorp_blit_program::alloc_push_const_regs(int base_reg)
+{
+#define CONST_LOC(name) offsetof(brw_blorp_wm_push_constants, name)
+#define ALLOC_REG(name) \
+   this->name = \
+      brw_uw1_reg(BRW_GENERAL_REGISTER_FILE, base_reg, CONST_LOC(name) / 2)
+
+   ALLOC_REG(dst_x0);
+   ALLOC_REG(dst_x1);
+   ALLOC_REG(dst_y0);
+   ALLOC_REG(dst_y1);
+#undef CONST_LOC
+#undef ALLOC_REG
+}
+
+void
 brw_blorp_blit_program::alloc_regs()
 {
    int reg = 0;
    this->R0 = retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW);
    this->R1 = retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW);
+   prog_data.first_curbe_grf = reg;
+   alloc_push_const_regs(reg);
+   reg += BRW_BLORP_NUM_PUSH_CONST_REGS;
    this->Rdata = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->x_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->y_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -386,12 +414,10 @@ brw_blorp_blit_program::kill_if_out_of_range()
    struct brw_reg g1 = retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UW);
    struct brw_reg null16 = vec16(retype(brw_null_reg(), BRW_REGISTER_TYPE_UW));
 
-   /* TODO: as a temporary measure, kill anything outside a static rect.
-    */
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_frag, brw_imm_uw(64));
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_frag, brw_imm_uw(64));
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_frag, brw_imm_uw(128));
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_frag, brw_imm_uw(128));
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_frag, dst_x0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_frag, dst_y0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_frag, dst_x1);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_frag, dst_y1);
 
    brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
    brw_push_insn_state(&func);
@@ -647,23 +673,30 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.adjust_coords_for_stencil = false;
       src_multisampled = true;
    }
+
+   /* TODO: as a tempoarary measure use a static destination rect */
+   wm_push_consts.dst_x0 = 64;
+   wm_push_consts.dst_y0 = 64;
+   wm_push_consts.dst_x1 = 128;
+   wm_push_consts.dst_y1 = 128;
 }
 
 uint32_t
-brw_blorp_blit_params::get_wm_prog(struct brw_context *brw) const
+brw_blorp_blit_params::get_wm_prog(struct brw_context *brw,
+                                   brw_blorp_prog_data **prog_data) const
 {
    uint32_t prog_offset;
    if (!brw_search_cache(&brw->cache, BRW_BLORP_BLIT_PROG,
                          &this->wm_prog_key, sizeof(this->wm_prog_key),
-                         &prog_offset, NULL)) {
+                         &prog_offset, prog_data)) {
       brw_blorp_blit_program prog(brw, &this->wm_prog_key);
       GLuint program_size;
       const GLuint *program = prog.compile(brw, &program_size);
       brw_upload_cache(&brw->cache, BRW_MSAA_WM_PROG,
                        &this->wm_prog_key, sizeof(this->wm_prog_key),
                        program, program_size,
-                       NULL, 0,
-                       &prog_offset, NULL);
+                       &prog.prog_data, sizeof(prog.prog_data),
+                       &prog_offset, prog_data);
    }
    return prog_offset;
 }
