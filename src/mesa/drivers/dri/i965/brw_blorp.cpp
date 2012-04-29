@@ -386,10 +386,12 @@ brw_blorp_blit_program::kill_if_out_of_range()
    struct brw_reg g1 = retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UW);
    struct brw_reg null16 = vec16(retype(brw_null_reg(), BRW_REGISTER_TYPE_UW));
 
-   /* TODO: as a temporary measure, kill anything with an X coordinate less
-    * than 64.
+   /* TODO: as a temporary measure, kill anything outside a static rect.
     */
    brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_frag, brw_imm_uw(64));
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_frag, brw_imm_uw(64));
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_frag, brw_imm_uw(128));
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_frag, brw_imm_uw(128));
 
    brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
    brw_push_insn_state(&func);
