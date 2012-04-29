@@ -614,8 +614,8 @@ brw_blorp_blit_program::emit_render_target_write()
 
 brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                                              struct intel_mipmap_tree *dst_mt,
-                                             GLuint src_x, GLuint src_y,
-                                             GLuint dst_x, GLuint dst_y,
+                                             GLuint src_x0, GLuint src_y0,
+                                             GLuint dst_x0, GLuint dst_y0,
                                              GLuint width, GLuint height)
 {
    src.set(src_mt, 0, 0);
@@ -625,10 +625,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    {
       assert(src_mt->num_samples > 0);
       assert(!dst_mt->num_samples > 0);
-      assert(src_x == 0);
-      assert(src_y == 0);
-      assert(dst_x == 0);
-      assert(dst_y == 0);
+      assert(src_x0 == 0);
+      assert(src_y0 == 0);
+      assert(dst_x0 == 0);
+      assert(dst_y0 == 0);
    }
 
    this->width = width;

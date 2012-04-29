@@ -204,8 +204,8 @@ class brw_blorp_blit_params : public brw_blorp_params
 public:
    brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                          struct intel_mipmap_tree *dst_mt,
-                         GLuint src_x, GLuint src_y,
-                         GLuint dst_x, GLuint dst_y,
+                         GLuint src_x0, GLuint src_y0,
+                         GLuint dst_x0, GLuint dst_y0,
                          GLuint width, GLuint height);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
