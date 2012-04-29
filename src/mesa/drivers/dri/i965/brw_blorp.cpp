@@ -560,7 +560,8 @@ brw_blorp_blit_program::emit_render_target_write()
    bool use_header = key->kill_out_of_range;
    if (use_header) {
       /* Copy R0/1 to MRF */
-      brw_MOV(&func, mrf_rt_write, R0);
+      brw_MOV(&func, retype(mrf_rt_write, BRW_REGISTER_TYPE_UD),
+              retype(R0, BRW_REGISTER_TYPE_UD));
       mrf_offset += 2;
    }
 
