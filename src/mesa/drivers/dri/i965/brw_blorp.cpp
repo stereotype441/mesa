@@ -623,6 +623,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       src.map_stencil_as_y_tiled = true;
       dst.map_stencil_as_y_tiled = true;
       wm_prog_key.adjust_coords_for_stencil = true;
+      wm_prog_key.kill_out_of_range = true; /* TODO: only do when necessary */
 
       /* Adjust width/height to compensate for the fact that src and dst will
        * be mapped as Y tiled instead of W tiled.
