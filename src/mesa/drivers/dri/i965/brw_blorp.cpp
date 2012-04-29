@@ -203,6 +203,16 @@ private:
    /* Y coordinate of each fragment */
    struct brw_reg y_frag;
 
+   /* X coordinate of each fragment, with offset applied to map to source
+    * coordinates
+    */
+   struct brw_reg x_src;
+
+   /* Y coordinate of each fragment, with offset applied to map to source
+    * coordinates
+    */
+   struct brw_reg y_src;
+
    /* U coordinate for texture lookup */
    struct brw_reg u_tex;
 
@@ -287,6 +297,8 @@ brw_blorp_blit_program::alloc_regs()
    this->Rdata = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->x_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->y_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->x_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->y_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->u_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->v_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->t1 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -416,8 +428,8 @@ brw_blorp_blit_program::emit_frag_coord_computation()
 void
 brw_blorp_blit_program::emit_offset()
 {
-   brw_ADD(&func, x_frag, x_frag, x_offset);
-   brw_ADD(&func, y_frag, y_frag, y_offset);
+   brw_ADD(&func, x_src, x_frag, x_offset);
+   brw_ADD(&func, y_src, y_frag, y_offset);
 }
 
 void
@@ -449,8 +461,8 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * samples that maxe up a pixel).  So we need to multiply our X and Y
        * coordinates each by 2 and then add 1.
        */
-      brw_SHL(&func, u_tex, x_frag, brw_imm_w(1));
-      brw_SHL(&func, v_tex, y_frag, brw_imm_w(1));
+      brw_SHL(&func, u_tex, x_src, brw_imm_w(1));
+      brw_SHL(&func, v_tex, y_src, brw_imm_w(1));
       brw_ADD(&func, u_tex, u_tex, brw_imm_w(1));
       brw_ADD(&func, v_tex, v_tex, brw_imm_w(1));
    } else if (key->manual_downsample) {
@@ -467,34 +479,34 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * Formats > Surface Layout and Tiling [DevSKL+] > Stencil Buffer
        * Layout):
        *
-       *   u_tex = (x_frag & ~0b1) << 1
+       *   u_tex = (x_src & ~0b1) << 1
        *         | (sample_num & 0b1) << 1
-       *         | (x_frag & 0b1)
-       *   v_tex = (y_frag & ~0b1) << 1
+       *         | (x_src & 0b1)
+       *   v_tex = (y_src & ~0b1) << 1
        *         | sample_num & 0b10
-       *         | (y_frag & 0b1)
+       *         | (y_src & 0b1)
        *
        * Since we just want to look up sample_num=0, this simplifies to:
        *
-       *   u_tex = (x_frag & ~0b1) << 1
-       *         | (x_frag & 0b1)
-       *   v_tex = (y_frag & ~0b1) << 1
-       *         | (y_frag & 0b1)
+       *   u_tex = (x_src & ~0b1) << 1
+       *         | (x_src & 0b1)
+       *   v_tex = (y_src & ~0b1) << 1
+       *         | (y_src & 0b1)
        */
-      brw_AND(&func, u_tex, x_frag, brw_imm_uw(0xfffe)); /* x_frag & ~0b1 */
-      brw_SHL(&func, u_tex, u_tex, brw_imm_uw(1)); /* (x_frag & ~0b1) << 1 */
-      brw_AND(&func, x_frag, x_frag, brw_imm_uw(1)); /* x_frag & 0b1 */
-      brw_OR(&func, u_tex, u_tex, x_frag); /* u_tex */
-      brw_AND(&func, v_tex, y_frag, brw_imm_uw(0xfffe)); /* y_frag & ~0b1 */
-      brw_SHL(&func, v_tex, v_tex, brw_imm_uw(1)); /* (y_frag & ~0b1) << 1 */
-      brw_AND(&func, y_frag, y_frag, brw_imm_uw(1)); /* y_frag & 0b1 */
-      brw_OR(&func, v_tex, v_tex, y_frag); /* v_tex */
+      brw_AND(&func, u_tex, x_src, brw_imm_uw(0xfffe)); /* x_src & ~0b1 */
+      brw_SHL(&func, u_tex, u_tex, brw_imm_uw(1)); /* (x_src & ~0b1) << 1 */
+      brw_AND(&func, x_src, x_src, brw_imm_uw(1)); /* x_src & 0b1 */
+      brw_OR(&func, u_tex, u_tex, x_src); /* u_tex */
+      brw_AND(&func, v_tex, y_src, brw_imm_uw(0xfffe)); /* y_src & ~0b1 */
+      brw_SHL(&func, v_tex, v_tex, brw_imm_uw(1)); /* (y_src & ~0b1) << 1 */
+      brw_AND(&func, y_src, y_src, brw_imm_uw(1)); /* y_src & 0b1 */
+      brw_OR(&func, v_tex, v_tex, y_src); /* v_tex */
    } else {
       /* When looking up samples in an MSAA texture using the SAMPLE_LD message,
        * Gen6 just needs the integer texture coordinates.
        */
-      brw_MOV(&func, u_tex, x_frag);
-      brw_MOV(&func, v_tex, y_frag);
+      brw_MOV(&func, u_tex, x_src);
+      brw_MOV(&func, v_tex, y_src);
    }
 
    if (key->adjust_coords_for_stencil) {
