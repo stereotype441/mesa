@@ -65,6 +65,21 @@ public:
    struct intel_mipmap_tree *mt;
    unsigned int level;
    unsigned int layer;
+
+   /* Setting this flag indicates that the buffer's contents are W-tiled
+    * stencil data, but the surface state should be set up for Y tiled
+    * MESA_FORMAT_R8 data (this is necessary because surface states don't
+    * support W tiling).
+    *
+    * Since W tiles are 64 pixels wide by 64 pixels high, whereas Y tiles of
+    * MESA_FORMAT_R8 data are 128 pixels wide by 32 pixels high, the width and
+    * pitch stored in the surface state will be multiplied by 2, and the
+    * height will be halved.  Also, since W and Y tiles store their data in a
+    * different order, the width and height will be rounded up to a multiple
+    * of the tile size, to ensure that the WM program can access the full
+    * width and height of the buffer.
+    */
+   bool map_stencil_as_y_tiled;
 };
 
 class brw_blorp_params
@@ -84,7 +99,6 @@ public:
    brw_hiz_mip_info dst;
    enum gen6_hiz_op op;
    bool use_wm_prog;
-   bool stencil_magic;
    bool src_multisampled;
 };
 
@@ -116,8 +130,29 @@ struct brw_blorp_blit_prog_key
 {
    bool blend;
 
+   /* Setting this flag indicates that the source and destination buffers are
+    * W-tiled stencil data, but their surface states have been set up for Y
+    * tiled MESA_FORMAT_R8 data (this is necessary because surface states
+    * don't support W tiling).
+    *
+    * This causes the WM program to make the appropriate coordinate
+    * adjustments to compensate for the differences between W and Y tile
+    * layout.
+    *
+    * Additionally it causes the WM program to discard any fragments whose x
+    * and y coordinates are outside the destination rectangle (this is
+    * necessary because the memory locations corresponding to a rectangluar
+    * region in W tiling do not necessarily correspond to a rectangular region
+    * in Y tiling, so to ensure that the proper blit happens, we may have to
+    * send a rectangle through the pipeline that is larger than the desired
+    * blit).
+    *
+    * TODO: discarding fragments is not implemented yet.
+    */
+   bool adjust_coords_for_stencil;
+
    /* Pad out to a multiple of 4 bytes in size. */
-   char pad[3];
+   char pad[2];
 };
 
 class brw_msaa_resolve_params : public brw_blorp_params

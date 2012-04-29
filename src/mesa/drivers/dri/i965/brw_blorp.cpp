@@ -56,6 +56,10 @@ try_blorp_blit(struct intel_context *intel,
       src_rb = read_fb->Attachment[BUFFER_DEPTH].Renderbuffer;
       dst_rb = draw_fb->Attachment[BUFFER_DEPTH].Renderbuffer;
       break;
+   case GL_STENCIL_BUFFER_BIT:
+      src_rb = read_fb->Attachment[BUFFER_STENCIL].Renderbuffer;
+      dst_rb = draw_fb->Attachment[BUFFER_STENCIL].Renderbuffer;
+      break;
    default:
       assert(false);
    }
@@ -66,6 +70,8 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_mipmap_tree *src_mt = src_irb->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (!src_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
+   if (buffer_bit == GL_STENCIL_BUFFER_BIT && src_mt->stencil_mt)
+      src_mt = src_mt->stencil_mt; /* TODO: verify that this line is needed */
 
    /* Validate destination */
    if (!dst_rb) return false;
@@ -73,6 +79,8 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_mipmap_tree *dst_mt = dst_irb->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
    if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
+   if (buffer_bit == GL_STENCIL_BUFFER_BIT && dst_mt->stencil_mt)
+      dst_mt = dst_mt->stencil_mt; /* TODO: verify that this line is needed */
 
    /* Make sure width and height match, and there is no mirroring.
     * TODO: allow mirroring.
@@ -124,6 +132,7 @@ brw_blorp_framebuffer(struct intel_context *intel,
    static GLbitfield buffer_bits[] = {
       GL_COLOR_BUFFER_BIT,
       GL_DEPTH_BUFFER_BIT,
+      GL_STENCIL_BUFFER_BIT,
    };
 
    for (unsigned int i = 0; i < ARRAY_SIZE(buffer_bits); ++i) {
@@ -278,6 +287,91 @@ brw_blorp_blit_program::emit_frag_coord_computation()
     */
    brw_ADD(&func, y_frag, stride(suboffset(R1, 5), 2, 4, 0),
            brw_imm_v(0x11001100));
+
+   /* Now that we're done with R1 we can safely use it as a temporary
+    * register.  Also, u_tex and v_tex haven't been set up yet so they are
+    * available as temporaries.
+    */
+   struct brw_reg t1 = vec16(R1);
+   struct brw_reg t2 = u_tex;
+   struct brw_reg t3 = v_tex;
+
+   if (key->adjust_coords_for_stencil) {
+      /* The render target is W-tiled stencil data, but the surface state has
+       * been set up for Y-tiled MESA_FORMAT_R8 data (this is necessary
+       * because surface states don't support W tiling).  So we need to adjust
+       * the coordinates by considering the memory location the output of
+       * rendering will be written to.
+       *
+       * Since the render target has been set up for Y-tiled MESA_FORMAT_R8
+       * data, the address where rendered output will be written, in terms of
+       * the x_frag and y_frag coordinates compute above, will be:
+       *
+       *   Y-tiled MESA_FORMAT_R8:
+       *   ttttttttttttttttttttxxxyyyyyxxxx                     (1)
+       *
+       * (That is, the first 20 bits of the memory address select which tile
+       * we are rendering to (offset appropriately by the surface start
+       * address), followed by bits 6-4 of the x coordinate within the tile,
+       * followed by the y coordinate within the tile, followed by bits 3-0 of
+       * the x coordinate).  See Graphics BSpec: vol1c Memory Interface and
+       * Command Stream [SNB+] > Graphics Memory Interface Functions > Address
+       * Tiling Function > W-Major Tile Format [DevIL+].
+       *
+       * However, since stencil data is actually W-tiled, the correct
+       * interpretation of those address bits is:
+       *
+       *   W-tiled:
+       *   ttttttttttttttttttttxxxyyyyxyxyx                     (2)
+       *
+       * Therefore, when the WM program appears to be generating a value for
+       * the pixel coordinate given by:
+       *
+       *   x_frag = A << 7 | 0bBCDEFGH
+       *   y_frag = J << 5 | 0bKLMNP                            (3)
+       *
+       * we can apply (1) to see that it is actually generating the byte that
+       * will be stored at:
+       *
+       *   offset = (J * tile_pitch + A) << 12 | 0bBCDKLMNPEFGH (4)
+       *
+       * within the render target surface (where tile_pitch is the number of
+       * tiles that cover the width of the render surface).  Rearranging these
+       * bits according to (2), this corresponds to a true pixel coordinate
+       * of:
+       *
+       *   x_stencil = A << 6 | 0bBCDPFH                        (5)
+       *   y_stencil = J << 6 | 0bKLMNEG
+       *
+       * Combining (3) and (5), we see that to transform (x_frag, y_frag) to
+       * (x_stencil, y_stencil), we need to make the following computation:
+       *
+       *   x_stencil = (x_frag & ~0b1011) >> 1
+       *             | (y_frag & 0b1) << 2
+       *             | x_frag & 0b1                             (6)
+       *   y_stencil = (y_frag & ~0b1) << 1
+       *             | (x_frag & 0b1000) >> 2
+       *             | (x_frag & 0b10) >> 1
+       */
+      brw_AND(&func, t1, x_frag, brw_imm_uw(0xfff4)); /* x_frag & ~0b1011 */
+      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (x_frag & ~0b1011) >> 1 */
+      brw_AND(&func, t2, y_frag, brw_imm_uw(1)); /* y_frag & 0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (y_frag & 0b1) << 2 */
+      brw_OR(&func, t1, t1, t2); /* (x_frag & ~0b1011) >> 1
+                                    | (y_frag & 0b1) << 2 */
+      brw_AND(&func, t2, x_frag, brw_imm_uw(1)); /* x_frag & 0b1 */
+      brw_OR(&func, t1, t1, t2); /* x_stencil */
+      brw_AND(&func, t2, y_frag, brw_imm_uw(0xfffe)); /* y_frag & ~0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (y_frag & ~0b1) << 1 */
+      brw_AND(&func, t3, x_frag, brw_imm_uw(8)); /* x_frag & 0b1000 */
+      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (x_frag & 0b1000) >> 2 */
+      brw_OR(&func, t2, t2, t3); /* (y_frag & ~0b1) << 1
+                                    | (x_frag & 0b1000) >> 2 */
+      brw_AND(&func, t3, x_frag, brw_imm_uw(2)); /* x_frag & 0b10 */
+      brw_SHR(&func, t3, t3, brw_imm_uw(1)); /* (x_frag & 0b10) >> 1 */
+      brw_OR(&func, y_frag, t2, t3); /* y_stencil */
+      brw_MOV(&func, x_frag, t1); /* x_stencil */
+   }
 }
 
 void
@@ -300,6 +394,53 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        */
       brw_MOV(&func, u_tex, x_frag);
       brw_MOV(&func, v_tex, y_frag);
+   }
+
+   /* Now that we've used x_frag and y_frag, they are available as
+    * temporaries.  R1 is also still available.
+    */
+   struct brw_reg t1 = vec16(R1);
+   struct brw_reg t2 = x_frag;
+   struct brw_reg t3 = y_frag;
+
+   if (key->adjust_coords_for_stencil) {
+      /* The texture is W-tiled stencil data, but the surface state has
+       * been set up for Y-tiled MESA_FORMAT_R8 data (this is necessary
+       * because surface states don't support W tiling).  So we need to adjust
+       * the coordinates by considering the memory location the output of
+       * rendering will be written to.
+       *
+       * In emit_frag_coord_computation(), we had to translate x and y
+       * coordinates which were incorrect (because they assumed Y tiling
+       * instead of W tiling) into correct ones.  Now, we need to translate
+       * correct u and v coordinates into incorrect ones so that we can use
+       * them for texture lookup.  So we simply reverse the computation:
+       *
+       * u_stencil =  AAABCDPFH
+       * u_tex =     AAABCDEFGH
+       * v_stencil =  JJJKLMNEG
+       * v_tex =       JJJKLMNP
+       *
+       * u_tex = (u_stencil & ~0b101) << 1
+       *       | (v_stencil & 0b10) << 2
+       *       | u_stencil & 0b1
+       * v_tex = (v_stencil & ~0b11) >> 1
+       *       | (u_stencil & 0b100) >> 2
+       */
+      brw_AND(&func, t1, u_tex, brw_imm_uw(0xfffa)); /* u_stencil & ~0b101 */
+      brw_SHL(&func, t1, t1, brw_imm_uw(1)); /* (u_stencil & ~0b101) << 1 */
+      brw_AND(&func, t2, v_tex, brw_imm_uw(2)); /* v_stencil & 0b10 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (v_stencil & 0b10) << 2 */
+      brw_OR(&func, t1, t1, t2); /* (u_stencil & ~0b101) << 1
+                                    | (v_stencil & 0b10) << 2 */
+      brw_AND(&func, t2, u_tex, brw_imm_uw(1)); /* u_stencil & 0b1 */
+      brw_OR(&func, t1, t1, t2); /* u_tex */
+      brw_AND(&func, t2, v_tex, brw_imm_uw(0xfffc)); /* v_stencil & ~0b11 */
+      brw_SHR(&func, t2, t2, brw_imm_uw(1)); /* (v_stencil & ~0b11) >> 1 */
+      brw_AND(&func, t3, u_tex, brw_imm_uw(4)); /* u_stencil & 0b100 */
+      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (u_stencil & 0b100) >> 2 */
+      brw_OR(&func, v_tex, t2, t3); /* v_tex */
+      brw_MOV(&func, u_tex, t1); /* u_tex */
    }
 }
 
@@ -403,13 +544,30 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    this->height = height;
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
-   if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
+   if (src_mt->format == MESA_FORMAT_S8) {
+      wm_prog_key.blend = false;
+      src_multisampled = false;
+      src.map_stencil_as_y_tiled = true;
+      dst.map_stencil_as_y_tiled = true;
+      wm_prog_key.adjust_coords_for_stencil = true;
+
+      /* Adjust width/height to compensate for the fact that src and dst will
+       * be mapped as Y tiled instead of W tiled.
+       */
+      assert((this->width & 63) == 0); /* TODO: because discarding is not implemented yet */
+      assert((this->height & 63) == 0); /* TODO: because discarding is not implemented yet */
+      this->width *= 2; /* TODO: what if this makes the width too large? */
+      this->height /= 2;
+   } else if (_mesa_get_format_base_format(src_mt->format) == GL_DEPTH_COMPONENT) {
       /* TODO: test all depth formats */
       wm_prog_key.blend = false;
+      wm_prog_key.adjust_coords_for_stencil = false;
+      src_multisampled = true;
    } else { /* Color buffer */
       wm_prog_key.blend = true;
+      wm_prog_key.adjust_coords_for_stencil = false;
+      src_multisampled = true;
    }
-   src_multisampled = true;
 }
 
 uint32_t

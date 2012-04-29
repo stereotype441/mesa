@@ -64,6 +64,7 @@ brw_hiz_mip_info::set(struct intel_mipmap_tree *mt,
    this->mt = mt;
    this->level = level;
    this->layer = layer;
+   this->map_stencil_as_y_tiled = false;
 }
 
 void
@@ -85,7 +86,6 @@ brw_blorp_params::brw_blorp_params()
      hiz_mt(NULL),
      op(GEN6_HIZ_OP_NONE),
      use_wm_prog(false),
-     stencil_magic(false),
      src_multisampled(false)
 {
 }
@@ -134,7 +134,7 @@ brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt)
    if (mt->format == MESA_FORMAT_S8) {
       wm_prog_key.coord_transform = BRW_MSAA_COORD_TRANSFORM_STENCIL_SWIZZLE;
       wm_prog_key.sampler_msg_type = GEN5_SAMPLER_MESSAGE_SAMPLE_LD; /* TODO: different for Gen7? */
-      stencil_magic = true;
+      /*      stencil_magic = true; */
       width = ALIGN(width, 64) / 2;
       height = ALIGN(height, 64) / 2;
    } else if (_mesa_get_format_base_format(mt->format) == GL_DEPTH_COMPONENT) { /* TODO: handle GL_DEPTH_STENCIL? */
@@ -947,8 +947,8 @@ gen6_hiz_exec(struct intel_context *intel,
    {
       uint32_t width, height;
       params->dst.get_miplevel_dims(&width, &height);
-      if (params->stencil_magic) {
-         width /= 2;
+      if (params->dst.map_stencil_as_y_tiled) {
+         width *= 2;
          height /= 2;
       }
       struct intel_region *region = params->dst.mt->region;
@@ -956,7 +956,8 @@ gen6_hiz_exec(struct intel_context *intel,
          brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
                          &wm_surf_offset_renderbuffer);
       /* TODO: handle other formats */
-      uint32_t format = BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
+      uint32_t format = params->dst.map_stencil_as_y_tiled
+         ? BRW_SURFACEFORMAT_R8_UNORM : BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
 
       surf[0] = (BRW_SURFACE_2D << BRW_SURFACE_TYPE_SHIFT |
                  format << BRW_SURFACE_FORMAT_SHIFT);
@@ -970,11 +971,11 @@ gen6_hiz_exec(struct intel_context *intel,
       /* Note: pitch needs to be multiplied by adj_factor because we're
        * grouping 4 pixels together into 1
        */
-      uint32_t tiling = params->stencil_magic
+      uint32_t tiling = params->dst.map_stencil_as_y_tiled
          ? BRW_SURFACE_TILED | BRW_SURFACE_TILED_Y
          : brw_get_surface_tiling_bits(region->tiling);
       uint32_t pitch_bytes = region->pitch * region->cpp;
-      if (params->stencil_magic)
+      if (params->dst.map_stencil_as_y_tiled)
          pitch_bytes *= 2;
       surf[3] = (tiling | (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
 
@@ -993,6 +994,7 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* SURFACE_STATE for texture surface (see brw_update_texture_surface) */
+   /* TODO: share vode with the block above. */
    uint32_t wm_surf_offset_texture = 0;
    if (params->src.mt)
    {
@@ -1005,14 +1007,15 @@ gen6_hiz_exec(struct intel_context *intel,
          width /= 2;
          height /= 2;
       }
-      if (params->stencil_magic) {
-         width /= 2;
+      if (params->src.map_stencil_as_y_tiled) {
+         width *= 2;
          height /= 2;
       }
       struct intel_region *region = params->src.mt->region;
 
       /* TODO: handle other formats */
-      uint32_t format = BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
+      uint32_t format = params->src.map_stencil_as_y_tiled
+         ? BRW_SURFACEFORMAT_R8_UNORM : BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
 
       uint32_t *surf = (uint32_t *)
          brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
@@ -1029,12 +1032,11 @@ gen6_hiz_exec(struct intel_context *intel,
                  (width - 1) << BRW_SURFACE_WIDTH_SHIFT |
                  (height - 1) << BRW_SURFACE_HEIGHT_SHIFT);
 
-      /* We still have to adjust the pitch though */
-      uint32_t tiling = params->stencil_magic
+      uint32_t tiling = params->src.map_stencil_as_y_tiled
          ? BRW_SURFACE_TILED | BRW_SURFACE_TILED_Y
          : brw_get_surface_tiling_bits(region->tiling);
       uint32_t pitch_bytes = region->pitch * region->cpp;
-      if (params->stencil_magic)
+      if (params->src.map_stencil_as_y_tiled)
          pitch_bytes *= 2;
       surf[3] = (tiling |
                  0 << BRW_SURFACE_DEPTH_SHIFT |
