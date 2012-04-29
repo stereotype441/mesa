@@ -162,7 +162,7 @@ public:
 private:
    void alloc_regs();
    void alloc_push_const_regs(int base_reg);
-   void emit_frag_coord_computation();
+   void emit_dst_coord_computation();
    void emit_offset();
    void kill_if_out_of_range();
    void emit_texture_coord_computation();
@@ -198,10 +198,10 @@ private:
    struct brw_reg Rdata;
 
    /* X coordinate of each fragment */
-   struct brw_reg x_frag;
+   struct brw_reg x_dst;
 
    /* Y coordinate of each fragment */
-   struct brw_reg y_frag;
+   struct brw_reg y_dst;
 
    /* X coordinate of each fragment, with offset applied to map to source
     * coordinates
@@ -257,7 +257,7 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
    brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
 
    alloc_regs();
-   emit_frag_coord_computation();
+   emit_dst_coord_computation();
    emit_offset();
    if (key->kill_out_of_range)
       kill_if_out_of_range();
@@ -295,8 +295,8 @@ brw_blorp_blit_program::alloc_regs()
    alloc_push_const_regs(reg);
    reg += BRW_BLORP_NUM_PUSH_CONST_REGS;
    this->Rdata = vec16(brw_vec8_grf(reg, 0)); reg += 8;
-   this->x_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
-   this->y_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->x_dst = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->y_dst = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->x_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->y_src = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->u_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -314,7 +314,7 @@ brw_blorp_blit_program::alloc_regs()
 }
 
 void
-brw_blorp_blit_program::emit_frag_coord_computation()
+brw_blorp_blit_program::emit_dst_coord_computation()
 {
    /* R1.2[15:0] = X coordinate of upper left pixel of subspan 0 (pixel 0)
     * R1.3[15:0] = X coordinate of upper left pixel of subspan 1 (pixel 4)
@@ -333,7 +333,7 @@ brw_blorp_blit_program::emit_frag_coord_computation()
     * Then, we need to add the repeating sequence (0, 1, 0, 1, ...) to the
     * result, since pixels n+1 and n+3 are in the right half of the subspan.
     */
-   brw_ADD(&func, x_frag, stride(suboffset(R1, 4), 2, 4, 0),
+   brw_ADD(&func, x_dst, stride(suboffset(R1, 4), 2, 4, 0),
            brw_imm_v(0x10101010));
 
    /* Similarly, Y coordinates for subspans come from R1.2[31:16] through
@@ -344,7 +344,7 @@ brw_blorp_blit_program::emit_frag_coord_computation()
     * And we need to add the repeating sequence (0, 0, 1, 1, ...), since
     * pixels n+2 and n+3 are in the bottom half of the subspan.
     */
-   brw_ADD(&func, y_frag, stride(suboffset(R1, 5), 2, 4, 0),
+   brw_ADD(&func, y_dst, stride(suboffset(R1, 5), 2, 4, 0),
            brw_imm_v(0x11001100));
 
    if (key->adjust_coords_for_stencil) {
@@ -356,7 +356,7 @@ brw_blorp_blit_program::emit_frag_coord_computation()
        *
        * Since the render target has been set up for Y-tiled MESA_FORMAT_R8
        * data, the address where rendered output will be written, in terms of
-       * the x_frag and y_frag coordinates compute above, will be:
+       * the x_dst and y_dst coordinates computed above, will be:
        *
        *   Y-tiled MESA_FORMAT_R8:
        *   ttttttttttttttttttttxxxyyyyyxxxx                     (1)
@@ -378,8 +378,8 @@ brw_blorp_blit_program::emit_frag_coord_computation()
        * Therefore, when the WM program appears to be generating a value for
        * the pixel coordinate given by:
        *
-       *   x_frag = A << 7 | 0bBCDEFGH
-       *   y_frag = J << 5 | 0bKLMNP                            (3)
+       *   x_dst = A << 7 | 0bBCDEFGH
+       *   y_dst = J << 5 | 0bKLMNP                             (3)
        *
        * we can apply (1) to see that it is actually generating the byte that
        * will be stored at:
@@ -394,42 +394,42 @@ brw_blorp_blit_program::emit_frag_coord_computation()
        *   x_stencil = A << 6 | 0bBCDPFH                        (5)
        *   y_stencil = J << 6 | 0bKLMNEG
        *
-       * Combining (3) and (5), we see that to transform (x_frag, y_frag) to
+       * Combining (3) and (5), we see that to transform (x_dst, y_dst) to
        * (x_stencil, y_stencil), we need to make the following computation:
        *
-       *   x_stencil = (x_frag & ~0b1011) >> 1
-       *             | (y_frag & 0b1) << 2
-       *             | x_frag & 0b1                             (6)
-       *   y_stencil = (y_frag & ~0b1) << 1
-       *             | (x_frag & 0b1000) >> 2
-       *             | (x_frag & 0b10) >> 1
+       *   x_stencil = (x_dst & ~0b1011) >> 1
+       *             | (y_dst & 0b1) << 2
+       *             | x_dst & 0b1                              (6)
+       *   y_stencil = (y_dst & ~0b1) << 1
+       *             | (x_dst & 0b1000) >> 2
+       *             | (x_dst & 0b10) >> 1
        */
-      brw_AND(&func, t1, x_frag, brw_imm_uw(0xfff4)); /* x_frag & ~0b1011 */
-      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (x_frag & ~0b1011) >> 1 */
-      brw_AND(&func, t2, y_frag, brw_imm_uw(1)); /* y_frag & 0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (y_frag & 0b1) << 2 */
-      brw_OR(&func, t1, t1, t2); /* (x_frag & ~0b1011) >> 1
-                                    | (y_frag & 0b1) << 2 */
-      brw_AND(&func, t2, x_frag, brw_imm_uw(1)); /* x_frag & 0b1 */
+      brw_AND(&func, t1, x_dst, brw_imm_uw(0xfff4)); /* x_dst & ~0b1011 */
+      brw_SHR(&func, t1, t1, brw_imm_uw(1)); /* (x_dst & ~0b1011) >> 1 */
+      brw_AND(&func, t2, y_dst, brw_imm_uw(1)); /* y_dst & 0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(2)); /* (y_dst & 0b1) << 2 */
+      brw_OR(&func, t1, t1, t2); /* (x_dst & ~0b1011) >> 1
+                                    | (y_dst & 0b1) << 2 */
+      brw_AND(&func, t2, x_dst, brw_imm_uw(1)); /* x_dst & 0b1 */
       brw_OR(&func, t1, t1, t2); /* x_stencil */
-      brw_AND(&func, t2, y_frag, brw_imm_uw(0xfffe)); /* y_frag & ~0b1 */
-      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (y_frag & ~0b1) << 1 */
-      brw_AND(&func, t3, x_frag, brw_imm_uw(8)); /* x_frag & 0b1000 */
-      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (x_frag & 0b1000) >> 2 */
-      brw_OR(&func, t2, t2, t3); /* (y_frag & ~0b1) << 1
-                                    | (x_frag & 0b1000) >> 2 */
-      brw_AND(&func, t3, x_frag, brw_imm_uw(2)); /* x_frag & 0b10 */
-      brw_SHR(&func, t3, t3, brw_imm_uw(1)); /* (x_frag & 0b10) >> 1 */
-      brw_OR(&func, y_frag, t2, t3); /* y_stencil */
-      brw_MOV(&func, x_frag, t1); /* x_stencil */
+      brw_AND(&func, t2, y_dst, brw_imm_uw(0xfffe)); /* y_dst & ~0b1 */
+      brw_SHL(&func, t2, t2, brw_imm_uw(1)); /* (y_dst & ~0b1) << 1 */
+      brw_AND(&func, t3, x_dst, brw_imm_uw(8)); /* x_dst & 0b1000 */
+      brw_SHR(&func, t3, t3, brw_imm_uw(2)); /* (x_dst & 0b1000) >> 2 */
+      brw_OR(&func, t2, t2, t3); /* (y_dst & ~0b1) << 1
+                                    | (x_dst & 0b1000) >> 2 */
+      brw_AND(&func, t3, x_dst, brw_imm_uw(2)); /* x_dst & 0b10 */
+      brw_SHR(&func, t3, t3, brw_imm_uw(1)); /* (x_dst & 0b10) >> 1 */
+      brw_OR(&func, y_dst, t2, t3); /* y_stencil */
+      brw_MOV(&func, x_dst, t1); /* x_stencil */
    }
 }
 
 void
 brw_blorp_blit_program::emit_offset()
 {
-   brw_ADD(&func, x_src, x_frag, x_offset);
-   brw_ADD(&func, y_src, y_frag, y_offset);
+   brw_ADD(&func, x_src, x_dst, x_offset);
+   brw_ADD(&func, y_src, y_dst, y_offset);
 }
 
 void
@@ -439,10 +439,10 @@ brw_blorp_blit_program::kill_if_out_of_range()
    struct brw_reg g1 = retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UW);
    struct brw_reg null16 = vec16(retype(brw_null_reg(), BRW_REGISTER_TYPE_UW));
 
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_frag, dst_x0);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_frag, dst_y0);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_frag, dst_x1);
-   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_frag, dst_y1);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, x_dst, dst_x0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_GE, y_dst, dst_y0);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, x_dst, dst_x1);
+   brw_CMP(&func, null16, BRW_CONDITIONAL_L, y_dst, dst_y1);
 
    brw_set_predicate_control(&func, BRW_PREDICATE_NONE);
    brw_push_insn_state(&func);
@@ -516,7 +516,7 @@ brw_blorp_blit_program::emit_texture_coord_computation()
        * the coordinates by considering the memory location the output of
        * rendering will be written to.
        *
-       * In emit_frag_coord_computation(), we had to translate x and y
+       * In emit_dst_coord_computation(), we had to translate x and y
        * coordinates which were incorrect (because they assumed Y tiling
        * instead of W tiling) into correct ones.  Now, we need to translate
        * correct u and v coordinates into incorrect ones so that we can use
