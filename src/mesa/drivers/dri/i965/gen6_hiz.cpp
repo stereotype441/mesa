@@ -126,7 +126,7 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
 brw_msaa_resolve_params::brw_msaa_resolve_params(struct intel_mipmap_tree *mt)
 {
    src.set(mt, 0, 0);
-   dst.set(mt->downsampled_mt, 0, 0);
+   dst.set(mt /* ->downsampled_mt */, 0, 0); /* TODO: this function should go away */
    dst.get_miplevel_dims(&width, &height);
 
    use_wm_prog = true;
@@ -1438,16 +1438,9 @@ gen6_resolve_depth_slice(struct intel_context *intel,
                          uint32_t level,
                          uint32_t layer)
 {
-   if (mt->downsampled_mt) {
-      assert(level == 0 && layer == 0);
-      brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE); /* TODO: it's silly for mt and mt->hiz_mt to be passed in separately */
-      gen6_hiz_exec(intel, &params);
-      brw_msaa_resolve_params downsample_params(mt);
-      gen6_hiz_exec(intel, &downsample_params);
-   } else {
-      brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
-      gen6_hiz_exec(intel, &params);
-   }
+   /* TODO: it's silly for mt and mt->hiz_mt to be passed in separately */
+   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
+   gen6_hiz_exec(intel, &params);
 }
 
 void

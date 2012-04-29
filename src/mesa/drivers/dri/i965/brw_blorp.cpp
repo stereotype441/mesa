@@ -69,7 +69,7 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_renderbuffer *src_irb = intel_renderbuffer(src_rb);
    struct intel_mipmap_tree *src_mt = src_irb->mt;
    if (!src_mt) return false; /* TODO: or is this guaranteed non-NULL? */
-   if (!src_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
+   if (!src_mt->num_samples > 0) return false; /* TODO: eliminate this restriction */
    if (buffer_bit == GL_STENCIL_BUFFER_BIT && src_mt->stencil_mt)
       src_mt = src_mt->stencil_mt; /* TODO: verify that this line is needed */
 
@@ -78,7 +78,7 @@ try_blorp_blit(struct intel_context *intel,
    struct intel_renderbuffer *dst_irb = intel_renderbuffer(dst_rb);
    struct intel_mipmap_tree *dst_mt = dst_irb->mt;
    if (!dst_mt) return false; /* TODO: or is this guaranteed non-NULL? */
-   if (dst_mt->downsampled_mt) return false; /* TODO: eliminate this restriction */
+   if (dst_mt->num_samples > 0) return false; /* TODO: eliminate this restriction */
    if (buffer_bit == GL_STENCIL_BUFFER_BIT && dst_mt->stencil_mt)
       dst_mt = dst_mt->stencil_mt; /* TODO: verify that this line is needed */
 
@@ -564,8 +564,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
 
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
-      assert(src_mt->downsampled_mt);
-      assert(!dst_mt->downsampled_mt);
+      assert(src_mt->num_samples > 0);
+      assert(!dst_mt->num_samples > 0);
       assert(src_x == 0);
       assert(src_y == 0);
       assert(dst_x == 0);

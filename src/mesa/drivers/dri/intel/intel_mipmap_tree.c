@@ -308,7 +308,6 @@ intel_miptree_release(struct intel_mipmap_tree **mt)
       intel_region_release(&((*mt)->region));
       intel_miptree_release(&(*mt)->stencil_mt);
       intel_miptree_release(&(*mt)->hiz_mt);
-      intel_miptree_release(&(*mt)->downsampled_mt);
       intel_resolve_map_clear(&(*mt)->resolve_map);
 
       for (i = 0; i < MAX_TEXTURE_LEVELS; i++) {
@@ -574,34 +573,6 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
 	 head->need = INTEL_NEED_HIZ_RESOLVE;
       }
    }
-
-   return true;
-}
-
-bool
-intel_miptree_alloc_downsampled(struct intel_context *intel,
-                                struct intel_mipmap_tree *mt) /* TODO: eliminate this function. */
-{
-   /* We should only ever create 2D MSAA miptrees, since MSAA is only
-    * supported for renderbuffers, not for textures.
-    */
-   assert(mt->depth0 == 1);
-   assert(mt->downsampled_mt == NULL);
-   mt->downsampled_mt = intel_miptree_create(intel,
-                                             mt->target,
-                                             mt->format,
-                                             mt->first_level,
-                                             mt->last_level,
-                                             mt->width0,
-                                             mt->height0,
-                                             mt->depth0,
-                                             true,
-                                             0 /* num_samples */);
-
-   if (!mt->downsampled_mt)
-      return false;
-
-   /* TODO: Mark that all slices need an MSAA resolve. */
 
    return true;
 }

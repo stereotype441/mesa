@@ -258,15 +258,6 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
       }
    }
 
-   if (num_samples > 0) {
-      bool ok = intel_miptree_alloc_downsampled(intel, irb->mt);
-      if (!ok) {
-         intel_miptree_release(&irb->mt->hiz_mt);
-         intel_miptree_release(&irb->mt);
-         return false;
-      }
-   }
-
    return true;
 }
 

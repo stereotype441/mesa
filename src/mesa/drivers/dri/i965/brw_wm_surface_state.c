@@ -988,7 +988,7 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
    surf[3] = (brw_get_surface_tiling_bits(region->tiling) |
 	      ((region->pitch * region->cpp) - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-   surf[4] = (mt->downsampled_mt
+   surf[4] = (mt->num_samples > 0
               ? BRW_SURFACE_MULTISAMPLECOUNT_4
               : BRW_SURFACE_MULTISAMPLECOUNT_1);
 
