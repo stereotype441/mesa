@@ -193,6 +193,11 @@ private:
    /* V coordinate for texture lookup */
    struct brw_reg v_tex;
 
+   /* Temporaries */
+   struct brw_reg t1;
+   struct brw_reg t2;
+   struct brw_reg t3;
+
    /* M2-3: u coordinate */
    GLuint base_mrf;
    struct brw_reg mrf_u_float;
@@ -246,6 +251,9 @@ brw_blorp_blit_program::alloc_regs()
    this->y_frag = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->u_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
    this->v_tex = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->t1 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->t2 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
+   this->t3 = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
 
    int mrf = 2;
    this->base_mrf = mrf;
@@ -287,14 +295,6 @@ brw_blorp_blit_program::emit_frag_coord_computation()
     */
    brw_ADD(&func, y_frag, stride(suboffset(R1, 5), 2, 4, 0),
            brw_imm_v(0x11001100));
-
-   /* Now that we're done with R1 we can safely use it as a temporary
-    * register.  Also, u_tex and v_tex haven't been set up yet so they are
-    * available as temporaries.
-    */
-   struct brw_reg t1 = vec16(R1);
-   struct brw_reg t2 = u_tex;
-   struct brw_reg t3 = v_tex;
 
    if (key->adjust_coords_for_stencil) {
       /* The render target is W-tiled stencil data, but the surface state has
@@ -431,13 +431,6 @@ brw_blorp_blit_program::emit_texture_coord_computation()
       brw_MOV(&func, u_tex, x_frag);
       brw_MOV(&func, v_tex, y_frag);
    }
-
-   /* Now that we've used x_frag and y_frag, they are available as
-    * temporaries.  R1 is also still available.
-    */
-   struct brw_reg t1 = vec16(R1);
-   struct brw_reg t2 = x_frag;
-   struct brw_reg t3 = y_frag;
 
    if (key->adjust_coords_for_stencil) {
       /* The texture is W-tiled stencil data, but the surface state has
