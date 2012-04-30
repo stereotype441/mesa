@@ -445,17 +445,7 @@ gen7_blorp_exec(struct intel_context *intel,
 
    gen7_blorp_emit_depth_stencil_config(brw, params, depth_format);
    gen7_blorp_emit_clear_params(brw, params);
-
-   /* 3DSTATE_DRAWING_RECTANGLE */
-   {
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(((params->x1 - 1) & 0xffff) |
-                ((params->y1 - 1) << 16));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_drawing_rectangle(brw, params);
 
    /* 3DPRIMITIVE */
    {

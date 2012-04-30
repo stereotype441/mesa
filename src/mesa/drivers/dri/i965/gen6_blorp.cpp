@@ -732,6 +732,23 @@ gen6_blorp_emit_clear_params(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_DRAWING_RECTANGLE */
+void
+gen6_blorp_emit_drawing_rectangle(struct brw_context *brw,
+                                  const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(((params->x1 - 1) & 0xffff) |
+             ((params->y1 - 1) << 16));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * \brief Execute a blit or render pass operation.
  *
@@ -1026,17 +1043,7 @@ gen6_blorp_exec(struct intel_context *intel,
 
    gen6_blorp_emit_depth_stencil_config(brw, params);
    gen6_blorp_emit_clear_params(brw, params);
-
-   /* 3DSTATE_DRAWING_RECTANGLE */
-   {
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(((params->x1 - 1) & 0xffff) |
-                ((params->y1 - 1) << 16));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_drawing_rectangle(brw, params);
 
    /* 3DPRIMITIVE */
    {
