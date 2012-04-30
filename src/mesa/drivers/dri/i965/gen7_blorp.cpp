@@ -34,6 +34,53 @@
 #include "brw_blorp.h"
 #include "gen7_blorp.h"
 
+
+/* 3DSTATE_URB_VS
+ * 3DSTATE_URB_HS
+ * 3DSTATE_URB_DS
+ * 3DSTATE_URB_GS
+ *
+ * If the 3DSTATE_URB_VS is emitted, than the others must be also. From the
+ * BSpec, Volume 2a "3D Pipeline Overview", Section 1.7.1 3DSTATE_URB_VS:
+ *     3DSTATE_URB_HS, 3DSTATE_URB_DS, and 3DSTATE_URB_GS must also be
+ *     programmed in order for the programming of this state to be
+ *     valid.
+ */
+static void
+gen7_blorp_emit_urb_config(struct brw_context *brw,
+                           const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   /* The minimum valid value is 32. See 3DSTATE_URB_VS,
+    * Dword 1.15:0 "VS Number of URB Entries".
+    */
+   int num_vs_entries = 32;
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_URB_VS << 16 | (2 - 2));
+   OUT_BATCH(1 << GEN7_URB_ENTRY_SIZE_SHIFT |
+             0 << GEN7_URB_STARTING_ADDRESS_SHIFT |
+             num_vs_entries);
+   ADVANCE_BATCH();
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_URB_GS << 16 | (2 - 2));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_URB_HS << 16 | (2 - 2));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_URB_DS << 16 | (2 - 2));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * Disable PS thread dispatch (3DSTATE_WM dw1.29) and enable the HiZ op.
  */
@@ -122,45 +169,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_batch_head(brw, params);
    gen6_blorp_emit_vertices(brw, params);
 
-   /* 3DSTATE_URB_VS
-    * 3DSTATE_URB_HS
-    * 3DSTATE_URB_DS
-    * 3DSTATE_URB_GS
-    *
-    * If the 3DSTATE_URB_VS is emitted, than the others must be also. From the
-    * BSpec, Volume 2a "3D Pipeline Overview", Section 1.7.1 3DSTATE_URB_VS:
-    *     3DSTATE_URB_HS, 3DSTATE_URB_DS, and 3DSTATE_URB_GS must also be
-    *     programmed in order for the programming of this state to be
-    *     valid.
-    */
-   {
-      /* The minimum valid value is 32. See 3DSTATE_URB_VS,
-       * Dword 1.15:0 "VS Number of URB Entries".
-       */
-      int num_vs_entries = 32;
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_URB_VS << 16 | (2 - 2));
-      OUT_BATCH(1 << GEN7_URB_ENTRY_SIZE_SHIFT |
-                0 << GEN7_URB_STARTING_ADDRESS_SHIFT |
-                num_vs_entries);
-      ADVANCE_BATCH();
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_URB_GS << 16 | (2 - 2));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_URB_HS << 16 | (2 - 2));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_URB_DS << 16 | (2 - 2));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen7_blorp_emit_urb_config(brw, params);
 
    /* 3DSTATE_DEPTH_STENCIL_STATE_POINTERS
     *
