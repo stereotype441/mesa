@@ -124,8 +124,8 @@ public:
    brw_hiz_mip_info dst;
    enum gen6_hiz_op op;
    bool use_wm_prog;
-   bool src_multisampled;
-   bool dst_multisampled;
+   bool src_multisampled; /* TODO: move into brw_hiz_mip_info */
+   bool dst_multisampled; /* TODO: move into brw_hiz_mip_info */
    brw_blorp_wm_push_constants wm_push_consts;
 };
 
@@ -156,40 +156,45 @@ struct brw_msaa_resolve_prog_key
 
 struct brw_blorp_blit_prog_key
 {
+   /* Number of samples per pixel that have been configured in the surface
+    * state for texturing from.
+    */
+   unsigned tex_samples;
+
+   /* Actual number of samples per pixel in the source image. */
+   unsigned src_samples;
+
+   /* Number of samples per pixel that have been configured in the render
+    * target.
+    */
+   unsigned rt_samples;
+
+   /* Actual number of samples per pixel in the destination image. */
+   unsigned dst_samples;
+
+   /* True if the source image is W tiled.  If true, the surface state for the
+    * source image must be configured as Y tiled, and tex_samples must be 0.
+    * TODO: try lifting the second restriction.
+    */
+   bool src_tiled_w;
+
+   /* True if the destination image is W tiled.  If true, the surface state
+    * for the render target must be configured as Y tiled, and rt_samples must
+    * be 0.  TODO: try lifting the second restriction.
+    */
+   bool dst_tiled_w;
+
+   /* True if all source samples should be blended together to produce each
+    * destination pixel.  If true, src_tiled_w must be false, tex_samples must
+    * equal src_samples, and tex_samples must be nonzero.
+    */
    bool blend;
 
-   /* Setting this flag indicates that the source and destination buffers are
-    * W-tiled stencil data, but their surface states have been set up for Y
-    * tiled MESA_FORMAT_R8 data (this is necessary because surface states
-    * don't support W tiling).
-    *
-    * This causes the WM program to make the appropriate coordinate
-    * adjustments to compensate for the differences between W and Y tile
-    * layout.
-    *
-    * Additionally it causes the WM program to discard any fragments whose x
-    * and y coordinates are outside the destination rectangle (this is
-    * necessary because the memory locations corresponding to a rectangluar
-    * region in W tiling do not necessarily correspond to a rectangular region
-    * in Y tiling, so to ensure that the proper blit happens, we may have to
-    * send a rectangle through the pipeline that is larger than the desired
-    * blit).
-    *
-    * TODO: discarding fragments is not implemented yet.
+   /* True if the rectangle being sent through the rendering pipeline might be
+    * larger than the destination rectangle, so the WM program should kill any
+    * pixels that are outside the destination rectangle.
     */
-   bool adjust_coords_for_stencil;
-
-   /* Setting this flag indicates that the source buffer is multisampled, but
-    * its surface state has been set up as single-sampled.  So the WM program
-    * needs to manually adjust the u and v texture coordinates to select just
-    * sample 0 out of each pixel.
-    */
-   bool manual_downsample;
-
-   /* Setting this flag indicates that the program should kill pixels whose
-    * coordinates are out of range.
-    */
-   bool kill_out_of_range;
+   bool use_kill;
 };
 
 class brw_msaa_resolve_params : public brw_blorp_params
