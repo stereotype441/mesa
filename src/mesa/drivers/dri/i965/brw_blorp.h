@@ -44,10 +44,10 @@ enum gen6_hiz_op {
    GEN6_HIZ_OP_NONE,
 };
 
-class brw_hiz_mip_info
+class brw_blorp_mip_info
 {
 public:
-   brw_hiz_mip_info()
+   brw_blorp_mip_info()
       : mt(NULL)
    {
    }
@@ -118,10 +118,10 @@ public:
    uint32_t y0;
    uint32_t x1;
    uint32_t y1;
-   brw_hiz_mip_info depth;
+   brw_blorp_mip_info depth;
    struct intel_mipmap_tree *hiz_mt;
-   brw_hiz_mip_info src;
-   brw_hiz_mip_info dst;
+   brw_blorp_mip_info src;
+   brw_blorp_mip_info dst;
    enum gen6_hiz_op op;
    bool use_wm_prog;
    bool src_multisampled; /* TODO: move into brw_hiz_mip_info */
@@ -201,33 +201,33 @@ private:
 };
 
 /**
- * \name HiZ internals
+ * \name BLORP internals
  * \{
  *
- * Used internally by gen6_hiz_exec() and gen7_hiz_exec().
+ * Used internally by gen6_blorp_exec() and gen7_blorp_exec().
  */
 
 void
-gen6_hiz_init(struct brw_context *brw);
+gen6_blorp_init(struct brw_context *brw);
 
 void
-gen6_hiz_emit_batch_head(struct brw_context *brw,
+gen6_blorp_emit_batch_head(struct brw_context *brw,
+                           const brw_blorp_params *params);
+
+void
+gen6_blorp_emit_vertices(struct brw_context *brw,
                          const brw_blorp_params *params);
 
 void
-gen6_hiz_emit_vertices(struct brw_context *brw,
-                       const brw_blorp_params *params);
-
-void
-gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
-                                  const brw_blorp_params *params,
-                                  uint32_t *out_offset);
+gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
+                                    const brw_blorp_params *params,
+                                    uint32_t *out_offset);
 /** \} */
 
 void
-gen6_hiz_exec(struct intel_context *intel,
-              const brw_blorp_params *params);
+gen6_blorp_exec(struct intel_context *intel,
+                const brw_blorp_params *params);
 
 void
-gen7_hiz_exec(struct intel_context *intel,
-              const brw_blorp_params *params);
+gen7_blorp_exec(struct intel_context *intel,
+                const brw_blorp_params *params);

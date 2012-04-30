@@ -243,8 +243,7 @@ intel_miptree_create_for_region(struct intel_context *intel,
    mt = intel_miptree_create_internal(intel, target, format,
 				      0, 0,
 				      region->width, region->height, 1,
-				      true,
-                                      0 /* num_samples */);
+				      true, 0 /* num_samples */);
    if (!mt)
       return mt;
 

@@ -26,8 +26,8 @@
 #include "brw_blorp.h"
 
 void
-brw_hiz_mip_info::set(struct intel_mipmap_tree *mt,
-                      unsigned int level, unsigned int layer)
+brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
+                        unsigned int level, unsigned int layer)
 {
    intel_miptree_check_level_layer(mt, level, layer);
 
@@ -38,7 +38,7 @@ brw_hiz_mip_info::set(struct intel_mipmap_tree *mt,
 }
 
 void
-brw_hiz_mip_info::get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const
+brw_blorp_mip_info::get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const
 {
    /* Construct a dummy renderbuffer just to extract tile offsets. */
    struct intel_renderbuffer rb;
@@ -68,10 +68,10 @@ brw_blorp_params::exec(struct intel_context *intel) const
 {
    switch (intel->gen) {
    case 6:
-      gen6_hiz_exec(intel, this);
+      gen6_blorp_exec(intel, this);
       break;
    case 7:
-      gen7_hiz_exec(intel, this);
+      gen7_blorp_exec(intel, this);
       break;
    default:
       /* BLORP is not supported before Gen7. */

@@ -500,8 +500,7 @@ intel_renderbuffer_update_wrapper(struct intel_context *intel,
 
    if (mt->hiz_mt == NULL &&
        intel->vtbl.is_hiz_depth_format(intel, rb->Format)) {
-      intel_miptree_alloc_hiz(intel, mt,
-                              0 /* num_samples */);
+      intel_miptree_alloc_hiz(intel, mt, 0 /* num_samples */);
       if (!mt->hiz_mt)
 	 return false;
    }

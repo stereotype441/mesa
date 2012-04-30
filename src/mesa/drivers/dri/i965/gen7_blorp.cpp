@@ -39,8 +39,8 @@
  * Disable PS thread dispatch (dw1.29) and enable the HiZ op.
  */
 static void
-gen7_hiz_disable_wm(struct brw_context *brw,
-                    const brw_blorp_params *params)
+gen7_blorp_disable_wm(struct brw_context *brw,
+                      const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -70,11 +70,11 @@ gen7_hiz_disable_wm(struct brw_context *brw,
 }
 
 /**
- * \copydoc gen6_hiz_exec()
+ * \copydoc gen6_blorp_exec()
  */
 void
-gen7_hiz_exec(struct intel_context *intel,
-              const brw_blorp_params *params)
+gen7_blorp_exec(struct intel_context *intel,
+                const brw_blorp_params *params)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
@@ -110,8 +110,8 @@ gen7_hiz_exec(struct intel_context *intel,
       tile_mask_y = depth_mask_y | hiz_mask_y;
    }
 
-   gen6_hiz_emit_batch_head(brw, params);
-   gen6_hiz_emit_vertices(brw, params);
+   gen6_blorp_emit_batch_head(brw, params);
+   gen6_blorp_emit_vertices(brw, params);
 
    /* 3DSTATE_URB_VS
     * 3DSTATE_URB_HS
@@ -159,7 +159,7 @@ gen7_hiz_exec(struct intel_context *intel,
     */
    {
       uint32_t depthstencil_offset;
-      gen6_hiz_emit_depth_stencil_state(brw, params, &depthstencil_offset);
+      gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
 
       BEGIN_BATCH(2);
       OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
@@ -321,7 +321,7 @@ gen7_hiz_exec(struct intel_context *intel,
    }
 
    /* 3DSTATE_WM */
-   gen7_hiz_disable_wm(brw, params);
+   gen7_blorp_disable_wm(brw, params);
 
    /* 3DSTATE_PS
     *
@@ -471,7 +471,7 @@ gen7_hiz_exec(struct intel_context *intel,
    }
 
    /* See comments above at first invocation of intel_flush() in
-    * gen6_hiz_emit_batch_head().
+    * gen6_blorp_emit_batch_head().
     */
    intel_flush(ctx);
 
@@ -488,7 +488,7 @@ gen7_resolve_hiz_slice(struct intel_context *intel,
                        uint32_t layer)
 {
    brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
-   gen7_hiz_exec(intel, &params);
+   gen7_blorp_exec(intel, &params);
 }
 
 /** \copydoc gen6_resolve_depth_slice() */
@@ -499,5 +499,5 @@ gen7_resolve_depth_slice(struct intel_context *intel,
                          uint32_t layer)
 {
    brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
-   gen7_hiz_exec(intel, &params);
+   gen7_blorp_exec(intel, &params);
 }

@@ -37,22 +37,20 @@
 #include "glsl/ralloc.h"
 
 /**
- * \name Constants for HiZ VBO
+ * \name Constants for BLORP VBO
  * \{
- *
- * \see brw_context::hiz::vertex_bo
  */
-#define GEN6_HIZ_NUM_VERTICES 3
-#define GEN6_HIZ_NUM_VUE_ELEMS 8
-#define GEN6_HIZ_VBO_SIZE (GEN6_HIZ_NUM_VERTICES \
-                           * GEN6_HIZ_NUM_VUE_ELEMS \
-                           * sizeof(float))
+#define GEN6_BLORP_NUM_VERTICES 3
+#define GEN6_BLORP_NUM_VUE_ELEMS 8
+#define GEN6_BLORP_VBO_SIZE (GEN6_BLORP_NUM_VERTICES \
+                             * GEN6_BLORP_NUM_VUE_ELEMS \
+                             * sizeof(float))
 /** \} */
 
 enum {
-   GEN6_HIZ_TEXTURE_BINDING_TABLE_INDEX,
-   GEN6_HIZ_RENDERBUFFER_BINDING_TABLE_INDEX,
-   GEN6_HIZ_NUM_BINDING_TABLE_ENTRIES
+   GEN6_BLORP_TEXTURE_BINDING_TABLE_INDEX,
+   GEN6_BLORP_RENDERBUFFER_BINDING_TABLE_INDEX,
+   GEN6_BLORP_NUM_BINDING_TABLE_ENTRIES
 };
 
 uint32_t
@@ -63,8 +61,8 @@ brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw,
 }
 
 void
-gen6_hiz_emit_batch_head(struct brw_context *brw,
-                         const brw_blorp_params *params)
+gen6_blorp_emit_batch_head(struct brw_context *brw,
+                           const brw_blorp_params *params)
 {
    struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
@@ -151,8 +149,8 @@ gen6_hiz_emit_batch_head(struct brw_context *brw,
 }
 
 void
-gen6_hiz_emit_vertices(struct brw_context *brw,
-                       const brw_blorp_params *params)
+gen6_blorp_emit_vertices(struct brw_context *brw,
+                         const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
    uint32_t vertex_offset;
@@ -189,16 +187,16 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
    {
       float *vertex_data;
 
-      const float vertices[GEN6_HIZ_VBO_SIZE] = {
+      const float vertices[GEN6_BLORP_VBO_SIZE] = {
          /* v0 */ 0, 0, 0, 0,     params->x0, params->y1, 0, 1,
          /* v1 */ 0, 0, 0, 0,     params->x1, params->y1, 0, 1,
          /* v2 */ 0, 0, 0, 0,     params->x0, params->y0, 0, 1,
       };
 
       vertex_data = (float *) brw_state_batch(brw, AUB_TRACE_NO_TYPE,
-                                              GEN6_HIZ_VBO_SIZE, 32,
+                                              GEN6_BLORP_VBO_SIZE, 32,
                                               &vertex_offset);
-      memcpy(vertex_data, vertices, GEN6_HIZ_VBO_SIZE);
+      memcpy(vertex_data, vertices, GEN6_BLORP_VBO_SIZE);
    }
 
    /* 3DSTATE_VERTEX_BUFFERS */
@@ -207,7 +205,7 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
       const int batch_length = 1 + 4 * num_buffers;
 
       uint32_t dw0 = GEN6_VB0_ACCESS_VERTEXDATA |
-                     (GEN6_HIZ_NUM_VUE_ELEMS * sizeof(float)) << BRW_VB0_PITCH_SHIFT;
+                     (GEN6_BLORP_NUM_VUE_ELEMS * sizeof(float)) << BRW_VB0_PITCH_SHIFT;
 
       if (intel->gen >= 7)
          dw0 |= GEN7_VB0_ADDRESS_MODIFYENABLE;
@@ -220,7 +218,7 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
 		vertex_offset);
       /* end address */
       OUT_RELOC(intel->batch.bo, I915_GEM_DOMAIN_VERTEX, 0,
-		vertex_offset + GEN6_HIZ_VBO_SIZE - 1);
+		vertex_offset + GEN6_BLORP_VBO_SIZE - 1);
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }
@@ -260,8 +258,8 @@ gen6_hiz_emit_vertices(struct brw_context *brw,
  * Disable thread dispatch (dw5.19) and enable the HiZ op.
  */
 static void
-gen6_hiz_disable_wm(struct brw_context *brw,
-                    const brw_blorp_params *params)
+gen6_blorp_disable_wm(struct brw_context *brw,
+                      const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -311,9 +309,9 @@ gen6_hiz_disable_wm(struct brw_context *brw,
 }
 
 static void
-gen6_hiz_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
-                   uint32_t prog_offset, uint32_t wm_push_const_offset,
-                   brw_blorp_prog_data *prog_data)
+gen6_blorp_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
+                     uint32_t prog_offset, uint32_t wm_push_const_offset,
+                     brw_blorp_prog_data *prog_data)
 {
    struct intel_context *intel = &brw->intel;
    uint32_t dw2, dw4, dw5, dw6;
@@ -386,8 +384,8 @@ gen6_hiz_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
  *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
  */
 void
-gen6_hiz_exec(struct intel_context *intel,
-              const brw_blorp_params *params)
+gen6_blorp_exec(struct intel_context *intel,
+                const brw_blorp_params *params)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
@@ -417,14 +415,14 @@ gen6_hiz_exec(struct intel_context *intel,
       }
    }
 
-   /* TODO: is it ok to do this before gen6_hiz_emit_batch_head or will it
+   /* TODO: is it ok to do this before gen6_blorp_emit_batch_head or will it
     * screw up the program cache?
     */
    brw_blorp_prog_data *prog_data = NULL;
    uint32_t prog_offset = params->get_wm_prog(brw, &prog_data);
 
-   gen6_hiz_emit_batch_head(brw, params);
-   gen6_hiz_emit_vertices(brw, params);
+   gen6_blorp_emit_batch_head(brw, params);
+   gen6_blorp_emit_vertices(brw, params);
 
    /* 3DSTATE_URB
     *
@@ -493,7 +491,7 @@ gen6_hiz_exec(struct intel_context *intel,
     */
    {
       uint32_t depthstencil_offset;
-      gen6_hiz_emit_depth_stencil_state(brw, params, &depthstencil_offset);
+      gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
 
       BEGIN_BATCH(4);
       OUT_BATCH(_3DSTATE_CC_STATE_POINTERS << 16 | (4 - 2));
@@ -637,11 +635,13 @@ gen6_hiz_exec(struct intel_context *intel,
    if (params->use_wm_prog) {
       uint32_t *bind = (uint32_t *)
          brw_state_batch(brw, AUB_TRACE_BINDING_TABLE,
-                         sizeof(uint32_t) * GEN6_HIZ_NUM_BINDING_TABLE_ENTRIES,
+                         sizeof(uint32_t) *
+                         GEN6_BLORP_NUM_BINDING_TABLE_ENTRIES,
                          32, /* alignment */
                          &wm_bind_bo_offset);
-      bind[GEN6_HIZ_RENDERBUFFER_BINDING_TABLE_INDEX] = wm_surf_offset_renderbuffer;
-      bind[GEN6_HIZ_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
+      bind[GEN6_BLORP_RENDERBUFFER_BINDING_TABLE_INDEX] =
+         wm_surf_offset_renderbuffer;
+      bind[GEN6_BLORP_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
    }
 
    /* SAMPLER_STATE */
@@ -803,9 +803,10 @@ gen6_hiz_exec(struct intel_context *intel,
 
    /* 3DSTATE_WM */
    if (params->use_wm_prog)
-      gen6_hiz_enable_wm(brw, params, prog_offset, wm_push_const_offset, prog_data);
+      gen6_blorp_enable_wm(brw, params, prog_offset, wm_push_const_offset,
+                           prog_data);
    else
-      gen6_hiz_disable_wm(brw, params);
+      gen6_blorp_disable_wm(brw, params);
 
    /* 3DSTATE_BINDING_TABLE_POINTERS */
    if (params->use_wm_prog) {
@@ -963,7 +964,7 @@ gen6_hiz_exec(struct intel_context *intel,
    }
 
    /* See comments above at first invocation of intel_flush() in
-    * gen6_hiz_emit_batch_head().
+    * gen6_blorp_emit_batch_head().
     */
    intel_flush(ctx);
 
@@ -977,9 +978,9 @@ gen6_hiz_exec(struct intel_context *intel,
  *        CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
  */
 void
-gen6_hiz_emit_depth_stencil_state(struct brw_context *brw,
-                                  const brw_blorp_params *params,
-                                  uint32_t *out_offset)
+gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
+                                    const brw_blorp_params *params,
+                                    uint32_t *out_offset)
 {
    struct gen6_depth_stencil_state *state;
    state = (struct gen6_depth_stencil_state *)
@@ -1008,7 +1009,7 @@ gen6_resolve_hiz_slice(struct intel_context *intel,
                        uint32_t layer)
 {
    brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
-   gen6_hiz_exec(intel, &params);
+   gen6_blorp_exec(intel, &params);
 }
 
 /** \see intel_context::vtbl::resolve_depth_slice */
@@ -1020,5 +1021,5 @@ gen6_resolve_depth_slice(struct intel_context *intel,
 {
    /* TODO: it's silly for mt and mt->hiz_mt to be passed in separately */
    brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
-   gen6_hiz_exec(intel, &params);
+   gen6_blorp_exec(intel, &params);
 }
