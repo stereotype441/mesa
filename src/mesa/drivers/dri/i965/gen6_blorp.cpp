@@ -53,13 +53,6 @@ enum {
    GEN6_BLORP_NUM_BINDING_TABLE_ENTRIES
 };
 
-uint32_t
-brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw,
-                                    brw_blorp_prog_data **prog_data) const
-{
-   return 0;
-}
-
 void
 gen6_blorp_emit_batch_head(struct brw_context *brw,
                            const brw_blorp_params *params)

@@ -123,3 +123,10 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
 
    assert(mt->hiz_mt != NULL);
 }
+
+uint32_t
+brw_hiz_resolve_params::get_wm_prog(struct brw_context *brw,
+                                    brw_blorp_prog_data **prog_data) const
+{
+   return 0;
+}
