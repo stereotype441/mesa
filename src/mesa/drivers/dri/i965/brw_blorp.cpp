@@ -108,7 +108,7 @@ try_blorp_blit(struct intel_context *intel,
 
    /* Do the blit */
    brw_blorp_blit_params params(src_mt, dst_mt,
-                                srcX0, srcY0, dstX0, dstY0, width, height);
+                                srcX0, srcY0, dstX0, dstY0, dstX1, dstY1);
    params.exec(intel);
 
    /* Mark the dst buffer as needing a HiZ resolve if necessary. */
