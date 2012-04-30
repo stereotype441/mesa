@@ -88,7 +88,7 @@ brw_blorp_params::brw_blorp_params()
      y0(0),
      x1(0),
      y1(0),
-     op(GEN6_HIZ_OP_NONE),
+     hiz_op(GEN6_HIZ_OP_NONE),
      use_wm_prog(false)
 {
 }
@@ -116,7 +116,7 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
                                                gen6_hiz_op op)
 {
    assert(op != GEN6_HIZ_OP_DEPTH_CLEAR); /* Not implemented yet. */
-   this->op = op;
+   this->hiz_op = op;
 
    depth.set(mt, level, layer);
    depth.get_miplevel_dims(&x1, &y1);

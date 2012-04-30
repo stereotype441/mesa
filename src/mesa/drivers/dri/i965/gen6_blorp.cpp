@@ -270,7 +270,7 @@ gen6_blorp_disable_wm(struct brw_context *brw,
     */
    uint32_t dw4 = 0, dw6 = 0;
 
-   switch (params->op) {
+   switch (params->hiz_op) {
    case GEN6_HIZ_OP_DEPTH_CLEAR:
       assert(!"not implemented");
       dw4 |= GEN6_WM_DEPTH_CLEAR;
@@ -992,7 +992,7 @@ gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
     *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
     */
    state->ds2.depth_write_enable = 1;
-   if (params->op == GEN6_HIZ_OP_DEPTH_RESOLVE) {
+   if (params->hiz_op == GEN6_HIZ_OP_DEPTH_RESOLVE) {
       state->ds2.depth_test_enable = 1;
       state->ds2.depth_test_func = COMPAREFUNC_NEVER;
    }

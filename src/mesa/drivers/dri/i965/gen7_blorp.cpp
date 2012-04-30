@@ -46,7 +46,7 @@ gen7_blorp_disable_wm(struct brw_context *brw,
 
    uint32_t dw1 = 0;
 
-   switch (params->op) {
+   switch (params->hiz_op) {
    case GEN6_HIZ_OP_DEPTH_CLEAR:
       assert(!"not implemented");
       dw1 |= GEN7_WM_DEPTH_CLEAR;
