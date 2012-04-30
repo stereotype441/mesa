@@ -391,6 +391,29 @@ gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
    }
 }
 
+
+/* 3DSTATE_GS
+ *
+ * Disable the geometry shader.
+ */
+void
+gen6_blorp_emit_gs_disable(struct brw_context *brw,
+                           const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(7);
+   OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * Disable thread dispatch (dw5.19) and enable the HiZ op.
  */
@@ -781,22 +804,7 @@ gen6_blorp_exec(struct intel_context *intel,
    }
 
    gen6_blorp_emit_vs_disable(brw, params);
-
-   /* 3DSTATE_GS
-    *
-    * Disable the geometry shader.
-    */
-   {
-      BEGIN_BATCH(7);
-      OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_gs_disable(brw, params);
 
    /* 3DSTATE_CLIP
     *
