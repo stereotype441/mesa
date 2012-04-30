@@ -304,6 +304,32 @@ gen6_blorp_emit_urb_config(struct brw_context *brw,
 }
 
 
+
+/* 3DSTATE_CC_STATE_POINTERS
+ *
+ * The pointer offsets are relative to
+ * CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
+ */
+static void
+gen6_blorp_emit_cc_state_pointers(struct brw_context *brw,
+                                  const brw_blorp_params *params,
+                                  uint32_t cc_blend_state_offset,
+                                  uint32_t cc_state_offset)
+{
+   struct intel_context *intel = &brw->intel;
+
+   uint32_t depthstencil_offset;
+   gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_CC_STATE_POINTERS << 16 | (4 - 2));
+   OUT_BATCH(cc_blend_state_offset | 1); /* BLEND_STATE offset */
+   OUT_BATCH(depthstencil_offset | 1); /* DEPTH_STENCIL_STATE offset */
+   OUT_BATCH(cc_state_offset | 1); /* COLOR_CALC_STATE offset */
+   ADVANCE_BATCH();
+}
+
+
 /**
  * \param out_offset is relative to
  *        CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
@@ -513,25 +539,8 @@ gen6_blorp_exec(struct intel_context *intel,
       memset(cc, 0, sizeof(*cc));
    }
 
-   /* 3DSTATE_CC_STATE_POINTERS
-    *
-    * The pointer offsets are relative to
-    * CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
-    *
-    * The HiZ op doesn't use BLEND_STATE or COLOR_CALC_STATE.
-    * But MSAA does.
-    */
-   {
-      uint32_t depthstencil_offset;
-      gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
-
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_CC_STATE_POINTERS << 16 | (4 - 2));
-      OUT_BATCH(cc_blend_state_offset | 1); /* BLEND_STATE offset */
-      OUT_BATCH(depthstencil_offset | 1); /* DEPTH_STENCIL_STATE offset */
-      OUT_BATCH(cc_state_offset | 1); /* COLOR_CALC_STATE offset */
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_cc_state_pointers(brw, params, cc_blend_state_offset,
+                                     cc_state_offset);
 
    /* WM push constants */
    uint32_t wm_push_const_offset = 0;
