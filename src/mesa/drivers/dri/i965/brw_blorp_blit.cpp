@@ -976,7 +976,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
        * and vice versa.
        */
       wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
-      src.map_multisampled = dst.map_multisampled = false;
    } else {
       GLenum base_format = _mesa_get_format_base_format(src_mt->format);
       if (base_format != GL_DEPTH_COMPONENT /* TODO: what about GL_DEPTH_STENCIL? */

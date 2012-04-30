@@ -44,7 +44,13 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
    this->level = level;
    this->layer = layer;
    this->map_stencil_as_y_tiled = mt->format == MESA_FORMAT_S8;
-   this->map_multisampled = mt->num_samples > 0;
+
+   /* If we are mapping a stencil buffer as Y-tiled, then we need to set up
+    * the surface state as single-sampled, because the memory layout of
+    * related samples doesn't match between W and Y tiling.
+    */
+   this->map_multisampled =
+      !this->map_stencil_as_y_tiled && mt->num_samples > 0;
 }
 
 void
