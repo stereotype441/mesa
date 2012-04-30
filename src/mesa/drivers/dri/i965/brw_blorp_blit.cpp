@@ -955,21 +955,12 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       src.num_samples = dst.num_samples = 0;
    }
 
-   if (src.map_stencil_as_y_tiled) {
-      /* We are blitting stencil buffers, which are W-tiled.  This requires
-       * that we use a single-sampled render target and a single-sampled
-       * texture, because two bytes that represent different samples for the
-       * same pixel in W tiling may represent different pixels in Y tiling,
-       * and vice versa.
-       */
-      src.num_samples = dst.num_samples = 0; /* TODO: unnecessary? */
-   } else {
-      GLenum base_format = _mesa_get_format_base_format(src_mt->format);
-      if (base_format != GL_DEPTH_COMPONENT /* TODO: what about GL_DEPTH_STENCIL? */
-          && src_mt->num_samples > 0 && dst_mt->num_samples == 0) {
-         /* We are downsampling a color buffer, so blend. */
-         wm_prog_key.blend = true;
-      }
+   GLenum base_format = _mesa_get_format_base_format(src_mt->format);
+   if (base_format != GL_DEPTH_COMPONENT && /* TODO: what about depth/stencil? */
+       base_format != GL_STENCIL_INDEX &&
+       src_mt->num_samples > 0 && dst_mt->num_samples == 0) {
+      /* We are downsampling a color buffer, so blend. */
+      wm_prog_key.blend = true;
    }
 
    /* src_samples and dst_samples are the true sample counts */
