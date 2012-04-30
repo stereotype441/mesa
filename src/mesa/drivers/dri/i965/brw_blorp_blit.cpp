@@ -949,7 +949,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    src_multisampled = src_mt->num_samples > 0;
    wm_prog_key.rt_samples  = wm_prog_key.dst_samples = dst_mt->num_samples;
    dst_multisampled = dst_mt->num_samples > 0;
-   wm_prog_key.src_tiled_w = wm_prog_key.dst_tiled_w = false;
+   wm_prog_key.src_tiled_w = src.map_stencil_as_y_tiled;
+   wm_prog_key.dst_tiled_w = dst.map_stencil_as_y_tiled;
    wm_prog_key.blend = false;
    wm_prog_key.use_kill = false;
    x0 = wm_push_consts.dst_x0 = dst_x0;
@@ -969,17 +970,12 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
    }
 
-   if (src_mt->format == MESA_FORMAT_S8) {
-      /* We are blitting stencil buffers, which are W-tiled.  So we need to
-       * configure their surface states as Y tiled.
-       */
-      wm_prog_key.src_tiled_w = wm_prog_key.dst_tiled_w = true;
-      src.map_stencil_as_y_tiled = true;
-      dst.map_stencil_as_y_tiled = true;
-      /* This requires that we use a single-sampled render target and a
-       * single-sampled texture, because two bytes that represent different
-       * samples for the same pixel in W tiling may represent different pixels
-       * in Y tiling, and vice versa.
+   if (src.map_stencil_as_y_tiled) {
+      /* We are blitting stencil buffers, which are W-tiled.  This requires
+       * that we use a single-sampled render target and a single-sampled
+       * texture, because two bytes that represent different samples for the
+       * same pixel in W tiling may represent different pixels in Y tiling,
+       * and vice versa.
        */
       wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
       src_multisampled = dst_multisampled = false;
