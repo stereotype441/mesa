@@ -20,3 +20,79 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
+
+#include "intel_fbo.h"
+
+#include "brw_blorp.h"
+
+void
+brw_hiz_mip_info::set(struct intel_mipmap_tree *mt,
+                      unsigned int level, unsigned int layer)
+{
+   intel_miptree_check_level_layer(mt, level, layer);
+
+   this->mt = mt;
+   this->level = level;
+   this->layer = layer;
+   this->map_stencil_as_y_tiled = false;
+}
+
+void
+brw_hiz_mip_info::get_draw_offsets(uint32_t *draw_x, uint32_t *draw_y) const
+{
+   /* Construct a dummy renderbuffer just to extract tile offsets. */
+   struct intel_renderbuffer rb;
+   rb.mt = mt;
+   rb.mt_level = level;
+   rb.mt_layer = layer;
+   intel_renderbuffer_set_draw_offset(&rb);
+   *draw_x = rb.draw_x;
+   *draw_y = rb.draw_y;
+}
+
+brw_blorp_params::brw_blorp_params()
+   : x0(0),
+     y0(0),
+     x1(0),
+     y1(0),
+     hiz_mt(NULL),
+     op(GEN6_HIZ_OP_NONE),
+     use_wm_prog(false),
+     src_multisampled(false),
+     dst_multisampled(false)
+{
+}
+
+void
+brw_blorp_params::exec(struct intel_context *intel) const
+{
+   switch (intel->gen) {
+   case 6:
+      gen6_hiz_exec(intel, this);
+      break;
+   case 7:
+      gen7_hiz_exec(intel, this);
+      break;
+   default:
+      /* BLORP is not supported before Gen7. */
+      assert(false);
+      break;
+   }
+}
+
+brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
+                                               struct intel_mipmap_tree *hiz_mt,
+                                               unsigned int level,
+                                               unsigned int layer,
+                                               gen6_hiz_op op)
+{
+   assert(op != GEN6_HIZ_OP_DEPTH_CLEAR); /* Not implemented yet. */
+   this->op = op;
+
+   depth.set(mt, level, layer);
+   depth.get_miplevel_dims(&x1, &y1);
+
+   assert(hiz_mt != NULL);
+   this->hiz_mt = hiz_mt;
+}
+
