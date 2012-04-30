@@ -78,7 +78,7 @@ public:
     */
    bool map_stencil_as_y_tiled;
 
-   bool map_multisampled;
+   unsigned num_samples;
 };
 
 struct brw_blorp_wm_push_constants

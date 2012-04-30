@@ -30,7 +30,7 @@ brw_blorp_mip_info::brw_blorp_mip_info()
      level(0),
      layer(0),
      map_stencil_as_y_tiled(false),
-     map_multisampled(false)
+     num_samples(0)
 {
 }
 
@@ -43,14 +43,19 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
    this->mt = mt;
    this->level = level;
    this->layer = layer;
-   this->map_stencil_as_y_tiled = mt->format == MESA_FORMAT_S8;
+   this->map_stencil_as_y_tiled = false;
+   this->num_samples = mt->num_samples;
 
-   /* If we are mapping a stencil buffer as Y-tiled, then we need to set up
-    * the surface state as single-sampled, because the memory layout of
-    * related samples doesn't match between W and Y tiling.
-    */
-   this->map_multisampled =
-      !this->map_stencil_as_y_tiled && mt->num_samples > 0;
+   if (mt->format == MESA_FORMAT_S8) {
+      /* The miptree is a W-tiled stencil buffer.  Surface states can't be set
+       * up for W tiling, so we'll need to use Y tiling and have the WM
+       * program swizzle the coordinates.  Furthermore, we need to set up the
+       * surface state as single-sampled, because the memory layout of related
+       * samples doesn't match between W and Y tiling.
+       */
+      this->map_stencil_as_y_tiled = true;
+      this->num_samples = 0;
+   }
 }
 
 void
