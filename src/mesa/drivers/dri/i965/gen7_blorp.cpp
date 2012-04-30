@@ -34,9 +34,8 @@
 #include "brw_blorp.h"
 #include "gen7_blorp.h"
 
-/* 3DSTATE_WM
- *
- * Disable PS thread dispatch (dw1.29) and enable the HiZ op.
+/**
+ * Disable PS thread dispatch (3DSTATE_WM dw1.29) and enable the HiZ op.
  */
 static void
 gen7_blorp_disable_wm(struct brw_context *brw,
@@ -44,6 +43,7 @@ gen7_blorp_disable_wm(struct brw_context *brw,
 {
    struct intel_context *intel = &brw->intel;
 
+   /* 3DSTATE_WM */
    {
       uint32_t dw1 = 0;
 
@@ -324,8 +324,7 @@ gen7_blorp_exec(struct intel_context *intel,
    {
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_SF << 16 | (7 - 2));
-      OUT_BATCH(depth_format <<
-                GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
+      OUT_BATCH(depth_format << GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
       OUT_BATCH(0);
       OUT_BATCH(0);
       OUT_BATCH(0);

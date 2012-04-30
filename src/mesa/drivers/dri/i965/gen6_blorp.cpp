@@ -369,19 +369,13 @@ gen6_blorp_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
 }
 
 /**
- * \brief Execute a HiZ op on a miptree slice.
+ * \brief Execute a blit or render pass operation.
  *
- * To execute the HiZ op, this function manually constructs and emits a batch
- * to "draw" the HiZ op's rectangle primitive. The batchbuffer is flushed
- * before constructing and after emitting the batch.
+ * To execute the operation, this function manually constructs and emits a
+ * batch to draw a rectangle primitive. The batchbuffer is flushed before
+ * constructing and after emitting the batch.
  *
  * This function alters no GL state.
- *
- * For an overview of HiZ ops, see the following sections of the Sandy Bridge
- * PRM, Volume 1, Part 2:
- *   - 7.5.3.1 Depth Buffer Clear
- *   - 7.5.3.2 Depth Buffer Resolve
- *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
  */
 void
 gen6_blorp_exec(struct intel_context *intel,

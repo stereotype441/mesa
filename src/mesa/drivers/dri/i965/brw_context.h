@@ -1092,7 +1092,7 @@ void
 gen7_end_transform_feedback(struct gl_context *ctx,
 			    struct gl_transform_feedback_object *obj);
 
-/* brw_blorp.cpp */
+/* brw_blorp_blit.cpp */
 GLbitfield
 brw_blorp_framebuffer(struct intel_context *intel,
                       GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,

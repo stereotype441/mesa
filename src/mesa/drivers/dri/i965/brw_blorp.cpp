@@ -123,4 +123,3 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
 
    assert(mt->hiz_mt != NULL);
 }
-
