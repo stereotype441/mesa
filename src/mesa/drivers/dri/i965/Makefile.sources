@@ -128,7 +128,7 @@ i965_CXX_FILES := \
 	brw_vec4_copy_propagation.cpp \
 	brw_vec4_reg_allocate.cpp \
 	brw_vec4_visitor.cpp \
-	gen6_hiz.cpp \
-	gen7_hiz.cpp
+	gen6_blorp.cpp \
+	gen7_blorp.cpp
 
 i965_ASM_FILES :=
