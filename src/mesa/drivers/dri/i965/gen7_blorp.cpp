@@ -44,29 +44,55 @@ gen7_blorp_disable_wm(struct brw_context *brw,
 {
    struct intel_context *intel = &brw->intel;
 
-   uint32_t dw1 = 0;
+   {
+      uint32_t dw1 = 0;
 
-   switch (params->hiz_op) {
-   case GEN6_HIZ_OP_DEPTH_CLEAR:
-      assert(!"not implemented");
-      dw1 |= GEN7_WM_DEPTH_CLEAR;
-      break;
-   case GEN6_HIZ_OP_DEPTH_RESOLVE:
-      dw1 |= GEN7_WM_DEPTH_RESOLVE;
-      break;
-   case GEN6_HIZ_OP_HIZ_RESOLVE:
-      dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
-      break;
-   default:
-      assert(0);
-      break;
+      switch (params->hiz_op) {
+      case GEN6_HIZ_OP_DEPTH_CLEAR:
+         assert(!"not implemented");
+         dw1 |= GEN7_WM_DEPTH_CLEAR;
+         break;
+      case GEN6_HIZ_OP_DEPTH_RESOLVE:
+         dw1 |= GEN7_WM_DEPTH_RESOLVE;
+         break;
+      case GEN6_HIZ_OP_HIZ_RESOLVE:
+         dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
+         break;
+      default:
+         assert(0);
+         break;
+      }
+
+      BEGIN_BATCH(3);
+      OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
+      OUT_BATCH(dw1);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
    }
 
-   BEGIN_BATCH(3);
-   OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
-   OUT_BATCH(dw1);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
+   /* 3DSTATE_PS
+    *
+    * Pixel shader dispatch is disabled above in 3DSTATE_WM, dw1.29. Despite
+    * that, thread dispatch info must still be specified.
+    *     - Maximum Number of Threads (dw4.24:31) must be nonzero, as the BSpec
+    *       states that the valid range for this field is [0x3, 0x2f].
+    *     - A dispatch mode must be given; that is, at least one of the
+    *       "N Pixel Dispatch Enable" (N=8,16,32) fields must be set. This was
+    *       discovered through simulator error messages.
+    */
+   {
+      BEGIN_BATCH(8);
+      OUT_BATCH(_3DSTATE_PS << 16 | (8 - 2));
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(((brw->max_wm_threads - 1) << IVB_PS_MAX_THREADS_SHIFT) |
+		GEN7_PS_32_DISPATCH_ENABLE);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+   }
 }
 
 /**
@@ -81,6 +107,8 @@ gen7_blorp_exec(struct intel_context *intel,
    uint32_t draw_x, draw_y;
    uint32_t tile_mask_x, tile_mask_y;
 
+   params->depth.get_draw_offsets(&draw_x, &draw_y);
+
    uint32_t depth_format;
    switch (params->depth.mt->format) {
    case MESA_FORMAT_Z16:       depth_format = BRW_DEPTHFORMAT_D16_UNORM; break;
@@ -88,8 +116,6 @@ gen7_blorp_exec(struct intel_context *intel,
    case MESA_FORMAT_X8_Z24:    depth_format = BRW_DEPTHFORMAT_D24_UNORM_X8_UINT; break;
    default:                    assert(0); break;
    }
-
-   params->depth.get_draw_offsets(&draw_x, &draw_y);
 
    /* Compute masks to determine how much of draw_x and draw_y should be
     * performed using the fine adjustment of "depth coordinate offset X/Y"
@@ -258,7 +284,7 @@ gen7_blorp_exec(struct intel_context *intel,
     *
     * Disable the clipper.
     *
-    * The HiZ op emits a rectangle primitive, which requires clipping to
+    * The BLORP op emits a rectangle primitive, which requires clipping to
     * be disabled. From page 10 of the Sandy Bridge PRM Volume 2 Part 1
     * Section 1.3 "3D Primitives Overview":
     *    RECTLIST:
@@ -320,32 +346,8 @@ gen7_blorp_exec(struct intel_context *intel,
       ADVANCE_BATCH();
    }
 
-   /* 3DSTATE_WM */
+   /* 3DSTATE_WM and 3DSTATE_PS */
    gen7_blorp_disable_wm(brw, params);
-
-   /* 3DSTATE_PS
-    *
-    * Pixel shader dispatch is disabled above in 3DSTATE_WM, dw1.29. Despite
-    * that, thread dispatch info must still be specified.
-    *     - Maximum Number of Threads (dw4.24:31) must be nonzero, as the BSpec
-    *       states that the valid range for this field is [0x3, 0x2f].
-    *     - A dispatch mode must be given; that is, at least one of the
-    *       "N Pixel Dispatch Enable" (N=8,16,32) fields must be set. This was
-    *       discovered through simulator error messages.
-    */
-   {
-      BEGIN_BATCH(8);
-      OUT_BATCH(_3DSTATE_PS << 16 | (8 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(((brw->max_wm_threads - 1) << IVB_PS_MAX_THREADS_SHIFT) |
-		GEN7_PS_32_DISPATCH_ENABLE);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
 
    /* 3DSTATE_DEPTH_BUFFER */
    {

@@ -134,6 +134,15 @@ public:
    brw_blorp_wm_push_constants wm_push_consts;
 };
 
+/**
+ * Parameters for a HiZ or depth resolve operation.
+ *
+ * For an overview of HiZ ops, see the following sections of the Sandy Bridge
+ * PRM, Volume 1, Part 2:
+ *   - 7.5.3.1 Depth Buffer Clear
+ *   - 7.5.3.2 Depth Buffer Resolve
+ *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
+ */
 class brw_hiz_resolve_params : public brw_blorp_params
 {
 public:

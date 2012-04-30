@@ -226,7 +226,7 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
    /* 3DSTATE_VERTEX_ELEMENTS
     *
     * Fetch dwords 0 - 7 from each VUE. See the comments above where
-    * hiz->vertex_bo is filled with data.
+    * the vertex_bo is filled with data.
     */
    {
       const int num_elements = 2;
@@ -751,7 +751,7 @@ gen6_blorp_exec(struct intel_context *intel,
     *
     * Disable the clipper.
     *
-    * The HiZ op emits a rectangle primitive, which requires clipping to
+    * The BLORP op emits a rectangle primitive, which requires clipping to
     * be disabled. From page 10 of the Sandy Bridge PRM Volume 2 Part 1
     * Section 1.3 "3D Primitives Overview":
     *    RECTLIST:
