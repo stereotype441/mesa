@@ -248,6 +248,34 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 /**
+ * \param out_offset is relative to
+ *        CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
+ */
+void
+gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
+                                    const brw_blorp_params *params,
+                                    uint32_t *out_offset)
+{
+   struct gen6_depth_stencil_state *state;
+   state = (struct gen6_depth_stencil_state *)
+      brw_state_batch(brw, AUB_TRACE_DEPTH_STENCIL_STATE,
+                      sizeof(*state), 64,
+                      out_offset);
+   memset(state, 0, sizeof(*state));
+
+   /* See the following sections of the Sandy Bridge PRM, Volume 1, Part2:
+    *   - 7.5.3.1 Depth Buffer Clear
+    *   - 7.5.3.2 Depth Buffer Resolve
+    *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
+    */
+   state->ds2.depth_write_enable = 1;
+   if (params->hiz_op == GEN6_HIZ_OP_DEPTH_RESOLVE) {
+      state->ds2.depth_test_enable = 1;
+      state->ds2.depth_test_func = COMPAREFUNC_NEVER;
+   }
+}
+
+/**
  * Disable thread dispatch (dw5.19) and enable the HiZ op.
  */
 static void
@@ -955,34 +983,6 @@ gen6_blorp_exec(struct intel_context *intel,
    /* Be safe. */
    brw->state.dirty.brw = ~0;
    brw->state.dirty.cache = ~0;
-}
-
-/**
- * \param out_offset is relative to
- *        CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
- */
-void
-gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
-                                    const brw_blorp_params *params,
-                                    uint32_t *out_offset)
-{
-   struct gen6_depth_stencil_state *state;
-   state = (struct gen6_depth_stencil_state *)
-      brw_state_batch(brw, AUB_TRACE_DEPTH_STENCIL_STATE,
-                      sizeof(*state), 64,
-                      out_offset);
-   memset(state, 0, sizeof(*state));
-
-   /* See the following sections of the Sandy Bridge PRM, Volume 1, Part2:
-    *   - 7.5.3.1 Depth Buffer Clear
-    *   - 7.5.3.2 Depth Buffer Resolve
-    *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
-    */
-   state->ds2.depth_write_enable = 1;
-   if (params->hiz_op == GEN6_HIZ_OP_DEPTH_RESOLVE) {
-      state->ds2.depth_test_enable = 1;
-      state->ds2.depth_test_func = COMPAREFUNC_NEVER;
-   }
 }
 
 /** \see intel_context::vtbl::resolve_hiz_slice */
