@@ -387,6 +387,28 @@ gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_CLEAR_PARAMS
+ *
+ * From the BSpec, Volume 2a.11 Windower, Section 1.5.6.3.2
+ * 3DSTATE_CLEAR_PARAMS:
+ *    [DevIVB] 3DSTATE_CLEAR_PARAMS must always be programmed in the along
+ *    with the other Depth/Stencil state commands(i.e.  3DSTATE_DEPTH_BUFFER,
+ *    3DSTATE_STENCIL_BUFFER, or 3DSTATE_HIER_DEPTH_BUFFER).
+ */
+static void
+gen7_blorp_emit_clear_params(struct brw_context *brw,
+                             const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(3);
+   OUT_BATCH(GEN7_3DSTATE_CLEAR_PARAMS << 16 | (3 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * \copydoc gen6_blorp_exec()
  */
@@ -422,22 +444,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_blorp_disable_wm(brw, params);
 
    gen7_blorp_emit_depth_stencil_config(brw, params, depth_format);
-
-   /* 3DSTATE_CLEAR_PARAMS
-    *
-    * From the BSpec, Volume 2a.11 Windower, Section 1.5.6.3.2
-    * 3DSTATE_CLEAR_PARAMS:
-    *    [DevIVB] 3DSTATE_CLEAR_PARAMS must always be programmed in the along
-    *    with the other Depth/Stencil state commands(i.e.  3DSTATE_DEPTH_BUFFER,
-    *    3DSTATE_STENCIL_BUFFER, or 3DSTATE_HIER_DEPTH_BUFFER).
-    */
-   {
-      BEGIN_BATCH(3);
-      OUT_BATCH(GEN7_3DSTATE_CLEAR_PARAMS << 16 | (3 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen7_blorp_emit_clear_params(brw, params);
 
    /* 3DSTATE_DRAWING_RECTANGLE */
    {

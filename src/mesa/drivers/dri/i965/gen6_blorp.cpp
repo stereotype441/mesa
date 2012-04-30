@@ -713,6 +713,25 @@ gen6_blorp_emit_depth_stencil_config(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_CLEAR_PARAMS
+ *
+ * From the Sandybridge PRM, Volume 2, Part 1, Section 3DSTATE_CLEAR_PARAMS:
+ *   [DevSNB] 3DSTATE_CLEAR_PARAMS packet must follow the DEPTH_BUFFER_STATE
+ *   packet when HiZ is enabled and the DEPTH_BUFFER_STATE changes.
+ */
+static void
+gen6_blorp_emit_clear_params(struct brw_context *brw,
+                             const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_CLEAR_PARAMS << 16 | (2 - 2));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * \brief Execute a blit or render pass operation.
  *
@@ -1006,19 +1025,7 @@ gen6_blorp_exec(struct intel_context *intel,
    }
 
    gen6_blorp_emit_depth_stencil_config(brw, params);
-
-   /* 3DSTATE_CLEAR_PARAMS
-    *
-    * From the Sandybridge PRM, Volume 2, Part 1, Section 3DSTATE_CLEAR_PARAMS:
-    *   [DevSNB] 3DSTATE_CLEAR_PARAMS packet must follow the DEPTH_BUFFER_STATE
-    *   packet when HiZ is enabled and the DEPTH_BUFFER_STATE changes.
-    */
-   {
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_CLEAR_PARAMS << 16 | (2 - 2));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_clear_params(brw, params);
 
    /* 3DSTATE_DRAWING_RECTANGLE */
    {
