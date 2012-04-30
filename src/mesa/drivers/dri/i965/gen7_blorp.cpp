@@ -32,7 +32,7 @@
 #include "brw_state.h"
 
 #include "brw_blorp.h"
-#include "gen7_hiz.h"
+#include "gen7_blorp.h"
 
 /* 3DSTATE_WM
  *
