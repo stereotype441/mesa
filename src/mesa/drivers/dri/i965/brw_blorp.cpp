@@ -28,8 +28,12 @@
 brw_blorp_mip_info::brw_blorp_mip_info()
    : mt(NULL),
      level(0),
-     layer(0),
-     map_stencil_as_y_tiled(false),
+     layer(0)
+{
+}
+
+brw_blorp_surface_info::brw_blorp_surface_info()
+   : map_stencil_as_y_tiled(false),
      num_samples(0)
 {
 }
@@ -43,8 +47,13 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
    this->mt = mt;
    this->level = level;
    this->layer = layer;
-   this->map_stencil_as_y_tiled = false;
-   this->num_samples = mt->num_samples;
+}
+
+void
+brw_blorp_surface_info::set(struct intel_mipmap_tree *mt,
+                            unsigned int level, unsigned int layer)
+{
+   brw_blorp_mip_info::set(mt, level, layer);
 
    if (mt->format == MESA_FORMAT_S8) {
       /* The miptree is a W-tiled stencil buffer.  Surface states can't be set
@@ -55,6 +64,9 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
        */
       this->map_stencil_as_y_tiled = true;
       this->num_samples = 0;
+   } else {
+      this->map_stencil_as_y_tiled = false;
+      this->num_samples = mt->num_samples;
    }
 }
 
