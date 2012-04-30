@@ -127,7 +127,6 @@ public:
    uint32_t x1;
    uint32_t y1;
    brw_blorp_mip_info depth;
-   struct intel_mipmap_tree *hiz_mt;
    brw_blorp_surface_info src;
    brw_blorp_surface_info dst;
    enum gen6_hiz_op op;
@@ -139,7 +138,6 @@ class brw_hiz_resolve_params : public brw_blorp_params
 {
 public:
    brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
-                          struct intel_mipmap_tree *hiz_mt,
                           unsigned int level, unsigned int layer,
                           gen6_hiz_op op);
 

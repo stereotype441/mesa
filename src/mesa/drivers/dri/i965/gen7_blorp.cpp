@@ -410,11 +410,8 @@ gen7_blorp_exec(struct intel_context *intel,
 
       BEGIN_BATCH(3);
       OUT_BATCH((GEN7_3DSTATE_HIER_DEPTH_BUFFER << 16) | (3 - 2));
-      uint32_t pitch_bytes =
-         params->depth.mt->hiz_mt->region->pitch *
-         params->depth.mt->hiz_mt->region->cpp;
-      OUT_BATCH(pitch_bytes - 1);
-      OUT_RELOC(params->depth.mt->hiz_mt->region->bo,
+      OUT_BATCH(hiz_region->pitch * hiz_region->cpp - 1);
+      OUT_RELOC(hiz_region->bo,
                 I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
                 hiz_offset);
       ADVANCE_BATCH();
@@ -487,7 +484,7 @@ gen7_resolve_hiz_slice(struct intel_context *intel,
                        uint32_t level,
                        uint32_t layer)
 {
-   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
+   brw_hiz_resolve_params params(mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
    gen7_blorp_exec(intel, &params);
 }
 
@@ -498,6 +495,6 @@ gen7_resolve_depth_slice(struct intel_context *intel,
                          uint32_t level,
                          uint32_t layer)
 {
-   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
+   brw_hiz_resolve_params params(mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
    gen7_blorp_exec(intel, &params);
 }

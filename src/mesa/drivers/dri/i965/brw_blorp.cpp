@@ -88,7 +88,6 @@ brw_blorp_params::brw_blorp_params()
      y0(0),
      x1(0),
      y1(0),
-     hiz_mt(NULL),
      op(GEN6_HIZ_OP_NONE),
      use_wm_prog(false)
 {
@@ -112,7 +111,6 @@ brw_blorp_params::exec(struct intel_context *intel) const
 }
 
 brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
-                                               struct intel_mipmap_tree *hiz_mt,
                                                unsigned int level,
                                                unsigned int layer,
                                                gen6_hiz_op op)
@@ -123,7 +121,6 @@ brw_hiz_resolve_params::brw_hiz_resolve_params(struct intel_mipmap_tree *mt,
    depth.set(mt, level, layer);
    depth.get_miplevel_dims(&x1, &y1);
 
-   assert(hiz_mt != NULL);
-   this->hiz_mt = hiz_mt;
+   assert(mt->hiz_mt != NULL);
 }
 

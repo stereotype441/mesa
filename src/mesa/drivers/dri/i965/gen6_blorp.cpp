@@ -404,7 +404,7 @@ gen6_blorp_exec(struct intel_context *intel,
          uint32_t depth_mask_x, depth_mask_y, hiz_mask_x, hiz_mask_y;
          intel_region_get_tile_masks(params->depth.mt->region,
                                      &depth_mask_x, &depth_mask_y);
-         intel_region_get_tile_masks(params->hiz_mt->region,
+         intel_region_get_tile_masks(params->depth.mt->hiz_mt->region,
                                      &hiz_mask_x, &hiz_mask_y);
 
          /* Each HiZ row represents 2 rows of pixels */
@@ -898,7 +898,7 @@ gen6_blorp_exec(struct intel_context *intel,
 
    /* 3DSTATE_HIER_DEPTH_BUFFER */
    if (params->depth.mt) {
-      struct intel_region *hiz_region = params->hiz_mt->region;
+      struct intel_region *hiz_region = params->depth.mt->hiz_mt->region;
       uint32_t hiz_offset =
          intel_region_get_aligned_offset(hiz_region,
                                          draw_x & ~tile_mask_x,
@@ -906,11 +906,8 @@ gen6_blorp_exec(struct intel_context *intel,
 
       BEGIN_BATCH(3);
       OUT_BATCH((_3DSTATE_HIER_DEPTH_BUFFER << 16) | (3 - 2));
-      uint32_t pitch_bytes =
-         params->hiz_mt->region->pitch *
-         params->hiz_mt->region->cpp;
-      OUT_BATCH(pitch_bytes - 1);
-      OUT_RELOC(params->hiz_mt->region->bo,
+      OUT_BATCH(hiz_region->pitch * hiz_region->cpp - 1);
+      OUT_RELOC(hiz_region->bo,
                 I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
                 hiz_offset);
       ADVANCE_BATCH();
@@ -1008,7 +1005,7 @@ gen6_resolve_hiz_slice(struct intel_context *intel,
                        uint32_t level,
                        uint32_t layer)
 {
-   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
+   brw_hiz_resolve_params params(mt, level, layer, GEN6_HIZ_OP_HIZ_RESOLVE);
    gen6_blorp_exec(intel, &params);
 }
 
@@ -1019,7 +1016,6 @@ gen6_resolve_depth_slice(struct intel_context *intel,
                          uint32_t level,
                          uint32_t layer)
 {
-   /* TODO: it's silly for mt and mt->hiz_mt to be passed in separately */
-   brw_hiz_resolve_params params(mt, mt->hiz_mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
+   brw_hiz_resolve_params params(mt, level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
    gen6_blorp_exec(intel, &params);
 }
