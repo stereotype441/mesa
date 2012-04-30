@@ -935,9 +935,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                                              GLuint dst_x1, GLuint dst_y1)
 {
    src.set(src_mt, 0, 0);
-   src.map_multisampled = src_mt->num_samples > 0;
    dst.set(dst_mt, 0, 0);
-   dst.map_multisampled = dst_mt->num_samples > 0;
 
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {

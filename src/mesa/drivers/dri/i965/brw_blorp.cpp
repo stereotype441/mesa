@@ -44,7 +44,7 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
    this->level = level;
    this->layer = layer;
    this->map_stencil_as_y_tiled = mt->format == MESA_FORMAT_S8;
-   this->map_multisampled = false;
+   this->map_multisampled = mt->num_samples > 0;
 }
 
 void
