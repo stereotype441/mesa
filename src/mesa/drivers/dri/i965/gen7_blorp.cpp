@@ -81,6 +81,26 @@ gen7_blorp_emit_urb_config(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_DEPTH_STENCIL_STATE_POINTERS
+ *
+ * The offset is relative to CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
+ */
+static void
+gen7_blorp_emit_depth_stencil_state_pointers(struct brw_context *brw,
+                                             const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   uint32_t depthstencil_offset;
+   gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
+
+   BEGIN_BATCH(2);
+   OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
+   OUT_BATCH(depthstencil_offset | 1);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * Disable PS thread dispatch (3DSTATE_WM dw1.29) and enable the HiZ op.
  */
@@ -170,20 +190,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_vertices(brw, params);
 
    gen7_blorp_emit_urb_config(brw, params);
-
-   /* 3DSTATE_DEPTH_STENCIL_STATE_POINTERS
-    *
-    * The offset is relative to CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
-    */
-   {
-      uint32_t depthstencil_offset;
-      gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
-
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
-      OUT_BATCH(depthstencil_offset | 1);
-      ADVANCE_BATCH();
-   }
+   gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
 
    /* 3DSTATE_VS
     *
