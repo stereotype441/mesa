@@ -937,26 +937,13 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    src.set(src_mt, 0, 0);
    dst.set(dst_mt, 0, 0);
 
+   use_wm_prog = true;
+   memset(&wm_prog_key, 0, sizeof(wm_prog_key));
+
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
       assert(dst_mt->num_samples == 0 || src_mt->num_samples == 0);
    }
-
-   /* Provisionally set up for a straightforward blit. */
-   use_wm_prog = true;
-   memset(&wm_prog_key, 0, sizeof(wm_prog_key));
-   wm_prog_key.tex_samples = wm_prog_key.src_samples = src_mt->num_samples;
-   wm_prog_key.rt_samples  = wm_prog_key.dst_samples = dst_mt->num_samples;
-   wm_prog_key.src_tiled_w = src.map_stencil_as_y_tiled;
-   wm_prog_key.dst_tiled_w = dst.map_stencil_as_y_tiled;
-   wm_prog_key.blend = false;
-   wm_prog_key.use_kill = false;
-   x0 = wm_push_consts.dst_x0 = dst_x0;
-   y0 = wm_push_consts.dst_y0 = dst_y0;
-   x1 = wm_push_consts.dst_x1 = dst_x1;
-   y1 = wm_push_consts.dst_y1 = dst_y1;
-   wm_push_consts.x_offset = (src_x0 - dst_x0);
-   wm_push_consts.y_offset = (src_y0 - dst_y0);
 
    if (src_mt->num_samples > 0 && dst_mt->num_samples > 0) {
       /* We are blitting from a multisample buffer to a multisample buffer, so
@@ -965,7 +952,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
        * single-sampled, so that the WM program can access each sample
        * individually.
        */
-      wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
+      src.num_samples = dst.num_samples = 0;
    }
 
    if (src.map_stencil_as_y_tiled) {
@@ -975,7 +962,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
        * same pixel in W tiling may represent different pixels in Y tiling,
        * and vice versa.
        */
-      wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
+      src.num_samples = dst.num_samples = 0; /* TODO: unnecessary? */
    } else {
       GLenum base_format = _mesa_get_format_base_format(src_mt->format);
       if (base_format != GL_DEPTH_COMPONENT /* TODO: what about GL_DEPTH_STENCIL? */
@@ -985,7 +972,26 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       }
    }
 
-   if (wm_prog_key.rt_samples == 0 && wm_prog_key.dst_samples > 0) {
+   /* src_samples and dst_samples are the true sample counts */
+   wm_prog_key.src_samples = src_mt->num_samples;
+   wm_prog_key.dst_samples = dst_mt->num_samples;
+
+   /* tex_samples and rt_samples are the sample counts that are set up in
+    * SURFACE_STATE.
+    */
+   wm_prog_key.tex_samples = src.num_samples;
+   wm_prog_key.rt_samples  = dst.num_samples;
+
+   wm_prog_key.src_tiled_w = src.map_stencil_as_y_tiled;
+   wm_prog_key.dst_tiled_w = dst.map_stencil_as_y_tiled;
+   x0 = wm_push_consts.dst_x0 = dst_x0;
+   y0 = wm_push_consts.dst_y0 = dst_y0;
+   x1 = wm_push_consts.dst_x1 = dst_x1;
+   y1 = wm_push_consts.dst_y1 = dst_y1;
+   wm_push_consts.x_offset = (src_x0 - dst_x0);
+   wm_push_consts.y_offset = (src_y0 - dst_y0);
+
+   if (dst.num_samples == 0 && dst_mt->num_samples > 0) {
       /* We must expand the rectangle we send through the rendering pipeline,
        * to account for the fact that we are mapping the destination region as
        * single-sampled when it is in fact multisampled.  We must also align
@@ -1001,7 +1007,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       wm_prog_key.use_kill = true;
    }
 
-   if (wm_prog_key.dst_tiled_w) {
+   if (dst.map_stencil_as_y_tiled) {
       /* We must modify the rectangle we send through the rendering pipeline,
        * to account for the fact that we are mapping it as Y-tiled when it is
        * in fact W-tiled.  Y tiles have dimensions 128x32 whereas W tiles have
