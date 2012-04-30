@@ -117,24 +117,7 @@ gen7_blorp_exec(struct intel_context *intel,
    default:                    assert(0); break;
    }
 
-   /* Compute masks to determine how much of draw_x and draw_y should be
-    * performed using the fine adjustment of "depth coordinate offset X/Y"
-    * (dw5 of 3DSTATE_DEPTH_BUFFER).  See the emit_depthbuffer() function for
-    * details.
-    */
-   {
-      uint32_t depth_mask_x, depth_mask_y, hiz_mask_x, hiz_mask_y;
-      intel_region_get_tile_masks(params->depth.mt->region,
-                                  &depth_mask_x, &depth_mask_y);
-      intel_region_get_tile_masks(params->depth.mt->hiz_mt->region,
-                                  &hiz_mask_x, &hiz_mask_y);
-
-      /* Each HiZ row represents 2 rows of pixels */
-      hiz_mask_y = hiz_mask_y << 1 | 1;
-
-      tile_mask_x = depth_mask_x | hiz_mask_x;
-      tile_mask_y = depth_mask_y | hiz_mask_y;
-   }
+   gen6_blorp_compute_tile_masks(params, &tile_mask_x, &tile_mask_y);
 
    gen6_blorp_emit_batch_head(brw, params);
    gen6_blorp_emit_vertices(brw, params);
