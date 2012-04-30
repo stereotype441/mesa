@@ -25,6 +25,15 @@
 
 #include "brw_blorp.h"
 
+brw_blorp_mip_info::brw_blorp_mip_info()
+   : mt(NULL),
+     level(0),
+     layer(0),
+     map_stencil_as_y_tiled(false),
+     map_multisampled(false)
+{
+}
+
 void
 brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
                         unsigned int level, unsigned int layer)

@@ -47,10 +47,7 @@ enum gen6_hiz_op {
 class brw_blorp_mip_info
 {
 public:
-   brw_blorp_mip_info()
-      : mt(NULL)
-   {
-   }
+   brw_blorp_mip_info();
 
    void set(struct intel_mipmap_tree *mt,
             unsigned int level, unsigned int layer);
