@@ -35,6 +35,7 @@ brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
    this->level = level;
    this->layer = layer;
    this->map_stencil_as_y_tiled = mt->format == MESA_FORMAT_S8;
+   this->map_multisampled = false;
 }
 
 void
@@ -57,9 +58,7 @@ brw_blorp_params::brw_blorp_params()
      y1(0),
      hiz_mt(NULL),
      op(GEN6_HIZ_OP_NONE),
-     use_wm_prog(false),
-     src_multisampled(false),
-     dst_multisampled(false)
+     use_wm_prog(false)
 {
 }
 

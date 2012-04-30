@@ -80,6 +80,8 @@ public:
     * width and height of the buffer.
     */
    bool map_stencil_as_y_tiled;
+
+   bool map_multisampled;
 };
 
 struct brw_blorp_wm_push_constants
@@ -124,8 +126,6 @@ public:
    brw_blorp_mip_info dst;
    enum gen6_hiz_op op;
    bool use_wm_prog;
-   bool src_multisampled; /* TODO: move into brw_hiz_mip_info */
-   bool dst_multisampled; /* TODO: move into brw_hiz_mip_info */
    brw_blorp_wm_push_constants wm_push_consts;
 };
 

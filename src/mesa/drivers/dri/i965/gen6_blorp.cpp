@@ -97,8 +97,8 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
       BEGIN_BATCH(length);
       OUT_BATCH(_3DSTATE_MULTISAMPLE << 16 | (length - 2));
       OUT_BATCH(MS_PIXEL_LOCATION_CENTER |
-                (params->dst_multisampled ? MS_NUMSAMPLES_4 : MS_NUMSAMPLES_1));
-      OUT_BATCH(params->dst_multisampled ? 0xae2ae662 : 0); /* positions for 4/8-sample */
+                (params->dst.map_multisampled ? MS_NUMSAMPLES_4 : MS_NUMSAMPLES_1));
+      OUT_BATCH(params->dst.map_multisampled ? 0xae2ae662 : 0); /* positions for 4/8-sample */
       if (length >= 4)
          OUT_BATCH(0);
       ADVANCE_BATCH();
@@ -109,7 +109,7 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
    {
       BEGIN_BATCH(2);
       OUT_BATCH(_3DSTATE_SAMPLE_MASK << 16 | (2 - 2));
-      OUT_BATCH(params->dst_multisampled ? 15 : 1);
+      OUT_BATCH(params->dst.map_multisampled ? 15 : 1);
       ADVANCE_BATCH();
    }
 
@@ -287,7 +287,7 @@ gen6_blorp_disable_wm(struct brw_context *brw,
    }
 
    dw6 |= (1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* only position */
-   if (params->dst_multisampled) {
+   if (params->dst.map_multisampled) {
       dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
       dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
    } else {
@@ -347,7 +347,7 @@ gen6_blorp_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
    dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */
    dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
    dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
-   if (params->dst_multisampled) {
+   if (params->dst.map_multisampled) {
       dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
       dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
    } else {
@@ -519,7 +519,7 @@ gen6_blorp_exec(struct intel_context *intel,
    {
       uint32_t width, height;
       params->dst.get_miplevel_dims(&width, &height);
-      if (params->dst_multisampled) {
+      if (params->dst.map_multisampled) {
          width /= 2;
          height /= 2;
       }
@@ -555,7 +555,7 @@ gen6_blorp_exec(struct intel_context *intel,
          pitch_bytes *= 2;
       surf[3] = (tiling | (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-      surf[4] = params->dst_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
+      surf[4] = params->dst.map_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
 
       surf[5] = (0 << BRW_SURFACE_X_OFFSET_SHIFT |
                  0 << BRW_SURFACE_Y_OFFSET_SHIFT |
@@ -579,7 +579,7 @@ gen6_blorp_exec(struct intel_context *intel,
        */
       uint32_t width, height;
       params->src.get_miplevel_dims(&width, &height);
-      if (params->src_multisampled) {
+      if (params->src.map_multisampled) {
          width /= 2;
          height /= 2;
       }
@@ -619,7 +619,7 @@ gen6_blorp_exec(struct intel_context *intel,
                  (pitch_bytes - 1) <<
                  BRW_SURFACE_PITCH_SHIFT);
 
-      surf[4] = params->src_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
+      surf[4] = params->src.map_multisampled ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
 
       surf[5] = (params->src.mt->align_h == 4) ? BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0;
 
@@ -795,7 +795,7 @@ gen6_blorp_exec(struct intel_context *intel,
                 1 << GEN6_SF_URB_ENTRY_READ_LENGTH_SHIFT |
                 0 << GEN6_SF_URB_ENTRY_READ_OFFSET_SHIFT);
       OUT_BATCH(0); /* dw2 */
-      OUT_BATCH(params->dst_multisampled ? GEN6_SF_MSRAST_ON_PATTERN : 0); /* dw3 */
+      OUT_BATCH(params->dst.map_multisampled ? GEN6_SF_MSRAST_ON_PATTERN : 0); /* dw3 */
       for (int i = 0; i < 16; ++i)
          OUT_BATCH(0);
       ADVANCE_BATCH();

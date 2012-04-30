@@ -935,7 +935,9 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                                              GLuint dst_x1, GLuint dst_y1)
 {
    src.set(src_mt, 0, 0);
+   src.map_multisampled = src_mt->num_samples > 0;
    dst.set(dst_mt, 0, 0);
+   dst.map_multisampled = dst_mt->num_samples > 0;
 
    /* Temporary implementation restrictions.  TODO: eliminate. */
    {
@@ -946,9 +948,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    use_wm_prog = true;
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
    wm_prog_key.tex_samples = wm_prog_key.src_samples = src_mt->num_samples;
-   src_multisampled = src_mt->num_samples > 0;
    wm_prog_key.rt_samples  = wm_prog_key.dst_samples = dst_mt->num_samples;
-   dst_multisampled = dst_mt->num_samples > 0;
    wm_prog_key.src_tiled_w = src.map_stencil_as_y_tiled;
    wm_prog_key.dst_tiled_w = dst.map_stencil_as_y_tiled;
    wm_prog_key.blend = false;
@@ -978,7 +978,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
        * and vice versa.
        */
       wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
-      src_multisampled = dst_multisampled = false;
+      src.map_multisampled = dst.map_multisampled = false;
    } else {
       GLenum base_format = _mesa_get_format_base_format(src_mt->format);
       if (base_format != GL_DEPTH_COMPONENT /* TODO: what about GL_DEPTH_STENCIL? */
