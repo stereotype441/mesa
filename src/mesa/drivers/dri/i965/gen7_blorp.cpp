@@ -409,6 +409,26 @@ gen7_blorp_emit_clear_params(struct brw_context *brw,
 }
 
 
+/* 3DPRIMITIVE */
+static void
+gen7_blorp_emit_primitive(struct brw_context *brw,
+                          const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(7);
+   OUT_BATCH(CMD_3D_PRIM << 16 | (7 - 2));
+   OUT_BATCH(GEN7_3DPRIM_VERTEXBUFFER_ACCESS_SEQUENTIAL |
+             _3DPRIM_RECTLIST);
+   OUT_BATCH(3); /* vertex count per instance */
+   OUT_BATCH(0);
+   OUT_BATCH(1); /* instance count */
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * \copydoc gen6_blorp_exec()
  */
@@ -446,20 +466,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_blorp_emit_depth_stencil_config(brw, params, depth_format);
    gen7_blorp_emit_clear_params(brw, params);
    gen6_blorp_emit_drawing_rectangle(brw, params);
-
-   /* 3DPRIMITIVE */
-   {
-     BEGIN_BATCH(7);
-     OUT_BATCH(CMD_3D_PRIM << 16 | (7 - 2));
-     OUT_BATCH(GEN7_3DPRIM_VERTEXBUFFER_ACCESS_SEQUENTIAL |
-               _3DPRIM_RECTLIST);
-     OUT_BATCH(3); /* vertex count per instance */
-     OUT_BATCH(0);
-     OUT_BATCH(1); /* instance count */
-     OUT_BATCH(0);
-     OUT_BATCH(0);
-     ADVANCE_BATCH();
-   }
+   gen7_blorp_emit_primitive(brw, params);
 
    /* See comments above at first invocation of intel_flush() in
     * gen6_blorp_emit_batch_head().
