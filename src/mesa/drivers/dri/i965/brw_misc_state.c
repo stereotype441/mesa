@@ -439,7 +439,6 @@ static void emit_depthbuffer(struct brw_context *brw)
 
    } else {
       struct intel_region *region = depth_irb->mt->region;
-
       uint32_t tile_x, tile_y, offset;
 
       /* If using separate stencil, hiz must be enabled. */

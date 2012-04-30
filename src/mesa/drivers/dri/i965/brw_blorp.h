@@ -141,19 +141,6 @@ public:
                                 brw_blorp_prog_data **prog_data) const;
 };
 
-enum brw_msaa_coord_transform
-{
-   BRW_MSAA_COORD_TRANSFORM_STENCIL_SWIZZLE,
-   BRW_MSAA_COORD_TRANSFORM_DEPTH_SWIZZLE,
-   BRW_MSAA_COORD_TRANSFORM_NORMAL,
-};
-
-struct brw_msaa_resolve_prog_key
-{
-   brw_msaa_coord_transform coord_transform;
-   GLuint sampler_msg_type;
-};
-
 struct brw_blorp_blit_prog_key
 {
    /* Number of samples per pixel that have been configured in the surface
@@ -195,18 +182,6 @@ struct brw_blorp_blit_prog_key
     * pixels that are outside the destination rectangle.
     */
    bool use_kill;
-};
-
-class brw_msaa_resolve_params : public brw_blorp_params
-{
-public:
-   brw_msaa_resolve_params(struct intel_mipmap_tree *mt);
-
-   virtual uint32_t get_wm_prog(struct brw_context *brw,
-                                brw_blorp_prog_data **prog_data) const;
-
-private:
-   brw_msaa_resolve_prog_key wm_prog_key;
 };
 
 class brw_blorp_blit_params : public brw_blorp_params

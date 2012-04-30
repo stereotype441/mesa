@@ -44,12 +44,6 @@ gen6_resolve_depth_slice(struct intel_context *intel,
                          uint32_t level,
                          uint32_t layer);
 
-void
-gen6_downsample_msaa_slice(struct intel_context *intel,
-                           struct intel_mipmap_tree *mt,
-                           uint32_t level,
-                           uint32_t layer);
-
 #ifdef __cplusplus
 }
 #endif

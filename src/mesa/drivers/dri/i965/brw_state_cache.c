@@ -151,8 +151,7 @@ brw_search_cache(struct brw_cache *cache,
    if (item == NULL)
       return false;
 
-   if (out_aux)
-      *(void **)out_aux = ((char *)item->key + item->key_size);
+   *(void **)out_aux = ((char *)item->key + item->key_size);
 
    if (item->offset != *inout_offset) {
       brw->state.dirty.cache |= (1 << cache_id);
@@ -314,8 +313,7 @@ brw_upload_cache(struct brw_cache *cache,
    drm_intel_bo_subdata(cache->bo, item->offset, data_size, data);
 
    *out_offset = item->offset;
-   if (out_aux)
-      *(void **)out_aux = (void *)((char *)item->key + item->key_size);
+   *(void **)out_aux = (void *)((char *)item->key + item->key_size);
    cache->brw->state.dirty.cache |= 1 << cache_id;
 }
 
