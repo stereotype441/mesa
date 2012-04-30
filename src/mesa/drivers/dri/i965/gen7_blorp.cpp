@@ -293,45 +293,18 @@ gen7_blorp_disable_wm(struct brw_context *brw,
    }
 }
 
-/**
- * \copydoc gen6_blorp_exec()
- */
-void
-gen7_blorp_exec(struct intel_context *intel,
-                const brw_blorp_params *params)
+
+static void
+gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
+                                     const brw_blorp_params *params,
+                                     uint32_t depth_format) /* TODO: depth_format should be in params */
 {
-   struct gl_context *ctx = &intel->ctx;
-   struct brw_context *brw = brw_context(ctx);
+   struct intel_context *intel = &brw->intel;
    uint32_t draw_x, draw_y;
    uint32_t tile_mask_x, tile_mask_y;
 
    params->depth.get_draw_offsets(&draw_x, &draw_y);
-
-   uint32_t depth_format;
-   switch (params->depth.mt->format) {
-   case MESA_FORMAT_Z16:       depth_format = BRW_DEPTHFORMAT_D16_UNORM; break;
-   case MESA_FORMAT_Z32_FLOAT: depth_format = BRW_DEPTHFORMAT_D32_FLOAT; break;
-   case MESA_FORMAT_X8_Z24:    depth_format = BRW_DEPTHFORMAT_D24_UNORM_X8_UINT; break;
-   default:                    assert(0); break;
-   }
-
    gen6_blorp_compute_tile_masks(params, &tile_mask_x, &tile_mask_y);
-
-   gen6_blorp_emit_batch_head(brw, params);
-   gen6_blorp_emit_vertices(brw, params);
-   gen7_blorp_emit_urb_config(brw, params);
-   gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
-   gen6_blorp_emit_vs_disable(brw, params);
-   gen7_blorp_emit_hs_disable(brw, params);
-   gen7_blorp_emit_te_disable(brw, params);
-   gen7_blorp_emit_ds_disable(brw, params);
-   gen6_blorp_emit_gs_disable(brw, params);
-   gen7_blorp_emit_streamout_disable(brw, params);
-   gen6_blorp_emit_clip_disable(brw, params);
-   gen7_blorp_emit_sf_config(brw, params, depth_format);
-
-   /* 3DSTATE_WM and 3DSTATE_PS */
-   gen7_blorp_disable_wm(brw, params);
 
    /* 3DSTATE_DEPTH_BUFFER */
    {
@@ -411,6 +384,44 @@ gen7_blorp_exec(struct intel_context *intel,
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }
+}
+
+
+/**
+ * \copydoc gen6_blorp_exec()
+ */
+void
+gen7_blorp_exec(struct intel_context *intel,
+                const brw_blorp_params *params)
+{
+   struct gl_context *ctx = &intel->ctx;
+   struct brw_context *brw = brw_context(ctx);
+
+   uint32_t depth_format;
+   switch (params->depth.mt->format) {
+   case MESA_FORMAT_Z16:       depth_format = BRW_DEPTHFORMAT_D16_UNORM; break;
+   case MESA_FORMAT_Z32_FLOAT: depth_format = BRW_DEPTHFORMAT_D32_FLOAT; break;
+   case MESA_FORMAT_X8_Z24:    depth_format = BRW_DEPTHFORMAT_D24_UNORM_X8_UINT; break;
+   default:                    assert(0); break;
+   }
+
+   gen6_blorp_emit_batch_head(brw, params);
+   gen6_blorp_emit_vertices(brw, params);
+   gen7_blorp_emit_urb_config(brw, params);
+   gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
+   gen6_blorp_emit_vs_disable(brw, params);
+   gen7_blorp_emit_hs_disable(brw, params);
+   gen7_blorp_emit_te_disable(brw, params);
+   gen7_blorp_emit_ds_disable(brw, params);
+   gen6_blorp_emit_gs_disable(brw, params);
+   gen7_blorp_emit_streamout_disable(brw, params);
+   gen6_blorp_emit_clip_disable(brw, params);
+   gen7_blorp_emit_sf_config(brw, params, depth_format);
+
+   /* 3DSTATE_WM and 3DSTATE_PS */
+   gen7_blorp_disable_wm(brw, params);
+
+   gen7_blorp_emit_depth_stencil_config(brw, params, depth_format);
 
    /* 3DSTATE_CLEAR_PARAMS
     *
