@@ -101,6 +101,68 @@ gen7_blorp_emit_depth_stencil_state_pointers(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_HS
+ *
+ * Disable the hull shader.
+ */
+static void
+gen7_blorp_emit_hs_disable(struct brw_context *brw,
+                           const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(7);
+   OUT_BATCH(_3DSTATE_HS << 16 | (7 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
+/* 3DSTATE_TE
+ *
+ * Disable the tesselation engine.
+ */
+static void
+gen7_blorp_emit_te_disable(struct brw_context *brw,
+                           const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_TE << 16 | (4 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
+/* 3DSTATE_DS
+ *
+ * Disable the domain shader.
+ */
+static void
+gen7_blorp_emit_ds_disable(struct brw_context *brw,
+                           const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(6);
+   OUT_BATCH(_3DSTATE_DS << 16 | (6 - 2));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+}
+
+
 /**
  * Disable PS thread dispatch (3DSTATE_WM dw1.29) and enable the HiZ op.
  */
@@ -191,50 +253,9 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_blorp_emit_urb_config(brw, params);
    gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
    gen6_blorp_emit_vs_disable(brw, params);
-
-   /* 3DSTATE_HS
-    *
-    * Disable the hull shader.
-    */
-   {
-      BEGIN_BATCH(7);
-      OUT_BATCH(_3DSTATE_HS << 16 | (7 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
-
-   /* 3DSTATE_TE
-    *
-    * Disable the tesselation engine.
-    */
-   {
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_TE << 16 | (4 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
-
-   /* 3DSTATE_DS
-    *
-    * Disable the domain shader.
-    */
-   {
-      BEGIN_BATCH(6);
-      OUT_BATCH(_3DSTATE_DS << 16 | (6 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen7_blorp_emit_hs_disable(brw, params);
+   gen7_blorp_emit_te_disable(brw, params);
+   gen7_blorp_emit_ds_disable(brw, params);
 
    /* 3DSTATE_GS
     *
