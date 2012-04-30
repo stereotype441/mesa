@@ -143,6 +143,10 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
    uint32_t wm_surf_offset;
    uint32_t width, height;
    surface->get_miplevel_dims(&width, &height);
+   if (surface->num_samples > 0) { /* TODO: wrong for 8x */
+      width /= 2;
+      height /= 2;
+   }
    if (surface->map_stencil_as_y_tiled) {
       width *= 2;
       height /= 2;
@@ -180,6 +184,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
    if (surface->map_stencil_as_y_tiled)
       pitch_bytes *= 2;
    surf->ss3.pitch = pitch_bytes - 1;
+
+   gen7_set_surface_num_multisamples(surf, surface->num_samples);
 
    if (intel->is_haswell) {
       surf->ss7.shader_chanel_select_r = HSW_SCS_RED;
@@ -366,7 +372,7 @@ gen7_blorp_emit_sf_config(struct brw_context *brw,
       OUT_BATCH(_3DSTATE_SF << 16 | (7 - 2));
       OUT_BATCH(params->depth_format <<
                 GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
-      OUT_BATCH(0);
+      OUT_BATCH(params->num_samples > 0 ? GEN6_SF_MSRAST_ON_PATTERN : 0);
       OUT_BATCH(0);
       OUT_BATCH(0);
       OUT_BATCH(0);
@@ -402,7 +408,7 @@ gen7_blorp_emit_wm_disable(struct brw_context *brw,
     * Disable PS thread dispatch (dw1.29) and enable the HiZ op.
     */
    {
-      uint32_t dw1 = 0;
+      uint32_t dw1 = 0, dw2 = 0;
 
       switch (params->hiz_op) {
       case GEN6_HIZ_OP_DEPTH_CLEAR:
@@ -420,10 +426,18 @@ gen7_blorp_emit_wm_disable(struct brw_context *brw,
          break;
       }
 
+      if (params->num_samples > 0) {
+         dw1 |= GEN7_WM_MSRAST_ON_PATTERN;
+         dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
+      } else {
+         dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
+         dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+      }
+
       BEGIN_BATCH(3);
       OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
       OUT_BATCH(dw1);
-      OUT_BATCH(0);
+      OUT_BATCH(dw2);
       ADVANCE_BATCH();
    }
 
@@ -458,7 +472,7 @@ gen7_blorp_emit_wm_enable(struct brw_context *brw,
                           const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
-   uint32_t dw1 = 0;
+   uint32_t dw1 = 0, dw2 = 0;
 
    dw1 |= GEN7_WM_STATISTICS_ENABLE;
    dw1 |= GEN7_WM_LINE_AA_WIDTH_1_0;
@@ -466,11 +480,18 @@ gen7_blorp_emit_wm_enable(struct brw_context *brw,
    dw1 |= 0 << GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
    dw1 |= GEN7_WM_KILL_ENABLE; /* TODO: temporarily smash on */
    dw1 |= GEN7_WM_DISPATCH_ENABLE; /* We are rendering */
+   if (params->num_samples > 0) {
+      dw1 |= GEN7_WM_MSRAST_ON_PATTERN;
+      dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
+   } else {
+      dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
+      dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+   }
 
    BEGIN_BATCH(3);
    OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
    OUT_BATCH(dw1);
-   OUT_BATCH(0);
+   OUT_BATCH(dw2);
    ADVANCE_BATCH();
 }
 
