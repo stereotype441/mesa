@@ -188,24 +188,9 @@ gen7_blorp_exec(struct intel_context *intel,
 
    gen6_blorp_emit_batch_head(brw, params);
    gen6_blorp_emit_vertices(brw, params);
-
    gen7_blorp_emit_urb_config(brw, params);
    gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
-
-   /* 3DSTATE_VS
-    *
-    * Disable vertex shader.
-    */
-   {
-      BEGIN_BATCH(6);
-      OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   }
+   gen6_blorp_emit_vs_disable(brw, params);
 
    /* 3DSTATE_HS
     *
