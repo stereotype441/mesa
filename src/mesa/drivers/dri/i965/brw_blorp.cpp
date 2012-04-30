@@ -959,6 +959,16 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    wm_push_consts.x_offset = (src_x0 - dst_x0);
    wm_push_consts.y_offset = (src_y0 - dst_y0);
 
+   if (src_mt->num_samples > 0 && dst_mt->num_samples > 0) {
+      /* We are blitting from a multisample buffer to a multisample buffer, so
+       * we must preserve samples within a pixel.  This means we have to
+       * configure the render target and texture surface states as
+       * single-sampled, so that the WM program can access each sample
+       * individually.
+       */
+      wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
+   }
+
    if (src_mt->format == MESA_FORMAT_S8) {
       /* We are blitting stencil buffers, which are W-tiled.  So we need to
        * configure their surface states as Y tiled.
@@ -973,19 +983,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
        */
       wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
       src_multisampled = dst_multisampled = false;
-      /* Furthermore, we must align the rectangle we send through the render
-       * pipeline to W tile boundaries, because the differences between W and
-       * Y tiling will mean that pixels are scrambled within each tile.  And
-       * we must modify the coordinates of the rectangle to account for the
-       * fact that W tiles are 64x64 pixels, and Y tiles (of single-byte data)
-       * are 128x32 pixels.
-       */
-      wm_prog_key.use_kill = true;
-      x0 = (x0 & ~63) * 2;
-      y0 = (y0 & ~63) / 2;
-      x1 = ALIGN(x1, 64) * 2;
-      y1 = ALIGN(y1, 64) / 2;
-      /* TODO: what if multipliers make the coordinates too large? */
    } else {
       GLenum base_format = _mesa_get_format_base_format(src_mt->format);
       if (base_format != GL_DEPTH_COMPONENT /* TODO: what about GL_DEPTH_STENCIL? */
@@ -995,24 +992,36 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       }
    }
 
-   if (src_mt->num_samples > 0 && dst_mt->num_samples > 0) {
-      /* We are blitting from a multisample buffer to a multisample buffer, so
-       * we must preserve samples within a pixel.  This means we have to
-       * configure the render target and texture surface states as
-       * single-sampled, so that the WM program can access each sample
-       * individually.
+   if (wm_prog_key.rt_samples == 0 && wm_prog_key.dst_samples > 0) {
+      /* We must expand the rectangle we send through the rendering pipeline,
+       * to account for the fact that we are mapping the destination region as
+       * single-sampled when it is in fact multisampled.  We must also align
+       * it to a multiple of the multisampling pattern, because the
+       * differences between multisampled and single-sampled surface formats
+       * will mean that pixels are scrambled within the multisampling pattern.
+       * TODO: what if this makes the coordinates too large?
        */
-      wm_prog_key.tex_samples = wm_prog_key.rt_samples = 0;
-      /* Furthermore, we must align the rectangle we send through the render
-       * pipeline to the multisampling pattern, because the differences
-       * between multisampled and single-sampled surface formats will mean
-       * that pixels are scrambled within the multisampling pattern.
-       */
+      x0 = (x0 * 2) & ~3;
+      y0 = (y0 * 2) & ~3;
+      x1 = ALIGN(x1 * 2, 4);
+      y1 = ALIGN(y1 * 2, 4);
       wm_prog_key.use_kill = true;
-      x0 = x0 & ~1;
-      y0 = y1 & ~1;
-      x1 = ALIGN(x1, 2);
-      y1 = ALIGN(y1, 2);
+   }
+
+   if (wm_prog_key.dst_tiled_w) {
+      /* We must modify the rectangle we send through the rendering pipeline,
+       * to account for the fact that we are mapping it as Y-tiled when it is
+       * in fact W-tiled.  Y tiles have dimensions 128x32 whereas W tiles have
+       * dimensions 64x64.  We must also align it to a multiple of the tile
+       * size, because the differences between W and Y tiling formats will
+       * mean that pixels are scrambled within the tile.
+       * TODO: what if this makes the coordinates too large?
+       */
+      x0 = (x0 * 2) & ~127;
+      y0 = (y0 / 2) & ~31;
+      x1 = ALIGN(x1 * 2, 128);
+      y1 = ALIGN(y1 / 2, 32);
+      wm_prog_key.use_kill = true;
    }
 }
 
