@@ -82,6 +82,7 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
 {
    struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
+   unsigned num_samples = params->dst.mt ? params->dst.num_samples : 0;
 
    /* To ensure that the batch contains only the resolve, flush the batch
     * before beginning and after finishing emitting the resolve packets.
@@ -106,28 +107,8 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
       ADVANCE_BATCH();
    }
 
-   /* 3DSTATE_MULTISAMPLE */
-   {
-      int length = intel->gen == 7 ? 4 : 3;
-
-      BEGIN_BATCH(length);
-      OUT_BATCH(_3DSTATE_MULTISAMPLE << 16 | (length - 2));
-      OUT_BATCH(MS_PIXEL_LOCATION_CENTER |
-                (params->dst.num_samples > 0 ? MS_NUMSAMPLES_4 : MS_NUMSAMPLES_1));
-      OUT_BATCH(params->dst.num_samples > 0 ? 0xae2ae662 : 0); /* positions for 4/8-sample */
-      if (length >= 4)
-         OUT_BATCH(0);
-      ADVANCE_BATCH();
-
-   }
-
-   /* 3DSTATE_SAMPLE_MASK */
-   {
-      BEGIN_BATCH(2);
-      OUT_BATCH(_3DSTATE_SAMPLE_MASK << 16 | (2 - 2));
-      OUT_BATCH(params->dst.num_samples > 0 ? 15 : 1);
-      ADVANCE_BATCH();
-   }
+   gen6_emit_3dstate_multisample(brw, num_samples);
+   gen6_emit_3dstate_sample_mask(brw, num_samples);
 
    /* CMD_STATE_BASE_ADDRESS
     *
@@ -1030,19 +1011,16 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
+   brw_blorp_prog_data *prog_data = NULL;
    uint32_t cc_blend_state_offset = 0;
    uint32_t cc_state_offset = 0;
    uint32_t depthstencil_offset;
    uint32_t wm_push_const_offset = 0;
-   uint32_t wm_surf_offset_renderbuffer = 0;
-   uint32_t wm_surf_offset_texture = 0;
    uint32_t wm_bind_bo_offset = 0;
-   uint32_t sampler_offset = 0;
 
    /* TODO: is it ok to do this before gen6_blorp_emit_batch_head or will it
     * screw up the program cache?
     */
-   brw_blorp_prog_data *prog_data = NULL;
    uint32_t prog_offset = params->get_wm_prog(brw, &prog_data);
 
    gen6_blorp_emit_batch_head(brw, params);
@@ -1057,6 +1035,9 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_cc_state_pointers(brw, params, cc_blend_state_offset,
                                      depthstencil_offset, cc_state_offset);
    if (params->use_wm_prog) {
+      uint32_t wm_surf_offset_renderbuffer;
+      uint32_t wm_surf_offset_texture;
+      uint32_t sampler_offset;
       wm_push_const_offset = gen6_blorp_emit_wm_constants(brw, params);
       wm_surf_offset_renderbuffer =
          gen6_blorp_emit_surface_state(brw, params, &params->dst,
@@ -1077,8 +1058,6 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_gs_disable(brw, params);
    gen6_blorp_emit_clip_disable(brw, params);
    gen6_blorp_emit_sf_config(brw, params);
-
-   /* 3DSTATE_WM */
    if (params->use_wm_prog) {
       gen6_blorp_enable_wm(brw, params, prog_offset, wm_push_const_offset,
                            prog_data);
@@ -1086,7 +1065,6 @@ gen6_blorp_exec(struct intel_context *intel,
    } else {
       gen6_blorp_emit_wm_disable(brw, params);
    }
-
    gen6_blorp_emit_depth_stencil_config(brw, params);
    gen6_blorp_emit_clear_params(brw, params);
    gen6_blorp_emit_drawing_rectangle(brw, params);
