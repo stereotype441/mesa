@@ -573,6 +573,60 @@ gen6_blorp_emit_binding_table(struct brw_context *brw,
 }
 
 
+/* SAMPLER_STATE */
+static uint32_t
+gen6_blorp_emit_sampler_state(struct brw_context *brw,
+                              const brw_blorp_params *params)
+{
+   uint32_t sampler_offset;
+
+   struct brw_sampler_state *sampler = (struct brw_sampler_state *)
+      brw_state_batch(brw, AUB_TRACE_SAMPLER_STATE,
+                      sizeof(struct brw_sampler_state),
+                      32, &sampler_offset);
+   memset(sampler, 0, sizeof(*sampler));
+
+   sampler->ss0.min_filter = BRW_MAPFILTER_LINEAR;
+   sampler->ss0.mip_filter = BRW_MIPFILTER_NONE;
+   sampler->ss0.mag_filter = BRW_MAPFILTER_LINEAR;
+
+   sampler->ss1.r_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+   sampler->ss1.s_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+   sampler->ss1.t_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+
+   sampler->ss0.min_mag_neq = 1;
+
+   /* Set LOD bias: 
+    */
+   sampler->ss0.lod_bias = 0;
+
+   sampler->ss0.lod_preclamp = 1; /* OpenGL mode */
+   sampler->ss0.default_color_mode = 0; /* OpenGL/DX10 mode */
+
+   /* Set BaseMipLevel, MaxLOD, MinLOD: 
+    *
+    * XXX: I don't think that using firstLevel, lastLevel works,
+    * because we always setup the surface state as if firstLevel ==
+    * level zero.  Probably have to subtract firstLevel from each of
+    * these:
+    */
+   sampler->ss0.base_level = U_FIXED(0, 1);
+
+   sampler->ss1.max_lod = U_FIXED(0, 6);
+   sampler->ss1.min_lod = U_FIXED(0, 6);
+
+   sampler->ss3.non_normalized_coord = 1;
+
+   sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MIN |
+      BRW_ADDRESS_ROUNDING_ENABLE_V_MIN |
+      BRW_ADDRESS_ROUNDING_ENABLE_R_MIN;
+   sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MAG |
+      BRW_ADDRESS_ROUNDING_ENABLE_V_MAG |
+      BRW_ADDRESS_ROUNDING_ENABLE_R_MAG;
+
+   return sampler_offset;
+}
+
 /* 3DSTATE_VS
  *
  * Disable vertex shader.
@@ -1047,54 +1101,9 @@ gen6_blorp_exec(struct intel_context *intel,
                                        wm_surf_offset_texture);
    }
 
-   /* SAMPLER_STATE */
    uint32_t sampler_offset = 0;
    if (params->src.mt)
-   {
-      struct brw_sampler_state *sampler = (struct brw_sampler_state *)
-         brw_state_batch(brw, AUB_TRACE_SAMPLER_STATE,
-                         sizeof(struct brw_sampler_state),
-                         32, &sampler_offset);
-      memset(sampler, 0, sizeof(*sampler));
-
-      sampler->ss0.min_filter = BRW_MAPFILTER_LINEAR;
-      sampler->ss0.mip_filter = BRW_MIPFILTER_NONE;
-      sampler->ss0.mag_filter = BRW_MAPFILTER_LINEAR;
-
-      sampler->ss1.r_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
-      sampler->ss1.s_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
-      sampler->ss1.t_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
-
-      sampler->ss0.min_mag_neq = 1;
-
-      /* Set LOD bias: 
-       */
-      sampler->ss0.lod_bias = 0;
-
-      sampler->ss0.lod_preclamp = 1; /* OpenGL mode */
-      sampler->ss0.default_color_mode = 0; /* OpenGL/DX10 mode */
-
-      /* Set BaseMipLevel, MaxLOD, MinLOD: 
-       *
-       * XXX: I don't think that using firstLevel, lastLevel works,
-       * because we always setup the surface state as if firstLevel ==
-       * level zero.  Probably have to subtract firstLevel from each of
-       * these:
-       */
-      sampler->ss0.base_level = U_FIXED(0, 1);
-
-      sampler->ss1.max_lod = U_FIXED(0, 6);
-      sampler->ss1.min_lod = U_FIXED(0, 6);
-
-      sampler->ss3.non_normalized_coord = 1;
-
-      sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MIN |
-         BRW_ADDRESS_ROUNDING_ENABLE_V_MIN |
-         BRW_ADDRESS_ROUNDING_ENABLE_R_MIN;
-      sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MAG |
-         BRW_ADDRESS_ROUNDING_ENABLE_V_MAG |
-         BRW_ADDRESS_ROUNDING_ENABLE_R_MAG;
-   }
+      sampler_offset = gen6_blorp_emit_sampler_state(brw, params);
 
    /* 3DSTATE_SAMPLER_STATE_POINTERS */
    if (params->src.mt) {
