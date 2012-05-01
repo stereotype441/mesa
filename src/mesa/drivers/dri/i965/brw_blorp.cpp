@@ -89,6 +89,7 @@ brw_blorp_params::brw_blorp_params()
      x1(0),
      y1(0),
      hiz_op(GEN6_HIZ_OP_NONE),
+     num_samples(0),
      use_wm_prog(false)
 {
 }

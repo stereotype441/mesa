@@ -956,6 +956,11 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       src.num_samples = dst.num_samples = 0;
    }
 
+   /* The render path must be configured to use the same number of samples as
+    * the destination buffer.
+    */
+   num_samples = dst.num_samples;
+
    GLenum base_format = _mesa_get_format_base_format(src_mt->format);
    if (base_format != GL_DEPTH_COMPONENT && /* TODO: what about depth/stencil? */
        base_format != GL_STENCIL_INDEX &&

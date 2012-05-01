@@ -82,7 +82,6 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
 {
    struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
-   unsigned num_samples = params->dst.mt ? params->dst.num_samples : 0;
 
    /* To ensure that the batch contains only the resolve, flush the batch
     * before beginning and after finishing emitting the resolve packets.
@@ -107,8 +106,8 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
       ADVANCE_BATCH();
    }
 
-   gen6_emit_3dstate_multisample(brw, num_samples);
-   gen6_emit_3dstate_sample_mask(brw, num_samples);
+   gen6_emit_3dstate_multisample(brw, params->num_samples);
+   gen6_emit_3dstate_sample_mask(brw, params->num_samples);
 
    /* CMD_STATE_BASE_ADDRESS
     *
@@ -681,7 +680,8 @@ gen6_blorp_emit_sf_config(struct brw_context *brw,
              1 << GEN6_SF_URB_ENTRY_READ_LENGTH_SHIFT |
              0 << GEN6_SF_URB_ENTRY_READ_OFFSET_SHIFT);
    OUT_BATCH(0); /* dw2 */
-   OUT_BATCH(params->dst.num_samples > 0 ? GEN6_SF_MSRAST_ON_PATTERN : 0); /* dw3 */
+   OUT_BATCH(params->num_samples > 0 ?
+             GEN6_SF_MSRAST_ON_PATTERN : 0); /* dw3 */
    for (int i = 0; i < 16; ++i)
       OUT_BATCH(0);
    ADVANCE_BATCH();
@@ -721,7 +721,7 @@ gen6_blorp_emit_wm_disable(struct brw_context *brw,
    }
 
    dw6 |= (1 - 1) << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* only position */
-   if (params->dst.num_samples > 0) {
+   if (params->num_samples > 0) {
       dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
       dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
    } else {
@@ -801,7 +801,7 @@ gen6_blorp_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
    dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */
    dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
    dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
-   if (params->dst.num_samples > 0) {
+   if (params->num_samples > 0) {
       dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
       dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
    } else {
