@@ -831,13 +831,11 @@ gen6_blorp_emit_depth_stencil_config(struct brw_context *brw,
    uint32_t draw_x = 0, draw_y = 0;
    uint32_t tile_mask_x, tile_mask_y;
 
-   if (params->depth.mt) {
-      gen6_blorp_compute_tile_masks(params, &tile_mask_x, &tile_mask_y);
-      params->depth.get_draw_offsets(&draw_x, &draw_y);
-   }
+   gen6_blorp_compute_tile_masks(params, &tile_mask_x, &tile_mask_y);
+   params->depth.get_draw_offsets(&draw_x, &draw_y);
 
    /* 3DSTATE_DEPTH_BUFFER */
-   if (params->depth.mt) {
+   {
       uint32_t width, height;
       params->depth.get_miplevel_dims(&width, &height);
 
@@ -899,21 +897,10 @@ gen6_blorp_emit_depth_stencil_config(struct brw_context *brw,
                 tile_y << 16);
       OUT_BATCH(0);
       ADVANCE_BATCH();
-   } else {
-      BEGIN_BATCH(7);
-      OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-      OUT_BATCH((BRW_DEPTHFORMAT_D32_FLOAT << 18) |
-                (BRW_SURFACE_NULL << 29));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
    }
 
    /* 3DSTATE_HIER_DEPTH_BUFFER */
-   if (params->depth.mt) {
+   {
       struct intel_region *hiz_region = params->depth.mt->hiz_mt->region;
       uint32_t hiz_offset =
          intel_region_get_aligned_offset(hiz_region,
@@ -930,13 +917,32 @@ gen6_blorp_emit_depth_stencil_config(struct brw_context *brw,
    }
 
    /* 3DSTATE_STENCIL_BUFFER */
-   if (params->depth.mt) {
+   {
       BEGIN_BATCH(3);
       OUT_BATCH((_3DSTATE_STENCIL_BUFFER << 16) | (3 - 2));
       OUT_BATCH(0);
       OUT_BATCH(0);
       ADVANCE_BATCH();
    }
+}
+
+
+static void
+gen6_blorp_emit_depth_disable(struct brw_context *brw,
+                              const brw_blorp_params *params)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(7);
+   OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
+   OUT_BATCH((BRW_DEPTHFORMAT_D32_FLOAT << 18) |
+             (BRW_SURFACE_NULL << 29));
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
 }
 
 
@@ -1065,7 +1071,10 @@ gen6_blorp_exec(struct intel_context *intel,
    } else {
       gen6_blorp_emit_wm_disable(brw, params);
    }
-   gen6_blorp_emit_depth_stencil_config(brw, params);
+   if (params->depth.mt)
+      gen6_blorp_emit_depth_stencil_config(brw, params);
+   else
+      gen6_blorp_emit_depth_disable(brw, params);
    gen6_blorp_emit_clear_params(brw, params);
    gen6_blorp_emit_drawing_rectangle(brw, params);
    gen6_blorp_emit_primitive(brw, params);
