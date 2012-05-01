@@ -404,6 +404,23 @@ gen6_blorp_emit_cc_state_pointers(struct brw_context *brw,
 }
 
 
+/* WM push constants */
+static uint32_t
+gen6_blorp_emit_wm_constants(struct brw_context *brw,
+                             const brw_blorp_params *params)
+{
+   uint32_t wm_push_const_offset;
+
+   void *constants = brw_state_batch(brw, AUB_TRACE_WM_CONSTANTS,
+                                     sizeof(params->wm_push_consts),
+                                     32, &wm_push_const_offset);
+   memcpy(constants, &params->wm_push_consts,
+          sizeof(params->wm_push_consts));
+
+   return wm_push_const_offset;
+}
+
+
 /* 3DSTATE_VS
  *
  * Disable vertex shader.
@@ -854,15 +871,9 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_cc_state_pointers(brw, params, cc_blend_state_offset,
                                      depthstencil_offset, cc_state_offset);
 
-   /* WM push constants */
    uint32_t wm_push_const_offset = 0;
-   if (params->use_wm_prog) {
-      void *constants = brw_state_batch(brw, AUB_TRACE_WM_CONSTANTS,
-                                        sizeof(params->wm_push_consts),
-                                        32, &wm_push_const_offset);
-      memcpy(constants, &params->wm_push_consts,
-             sizeof(params->wm_push_consts));
-   }
+   if (params->use_wm_prog)
+      wm_push_const_offset = gen6_blorp_emit_wm_constants(brw, params);
 
    /* SURFACE_STATE for renderbuffer surface (see
     * brw_update_renderbuffer_surface)
