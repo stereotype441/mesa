@@ -97,12 +97,9 @@ upload_wm_state(struct brw_context *brw)
    struct gl_context *ctx = &intel->ctx;
    const struct brw_fragment_program *fp =
       brw_fragment_program_const(brw->fragment_program);
-   uint32_t dw2, dw4, dw5, dw6;
-   uint32_t kernel_start_pointer[3] = { 0, 0, 0 };
-
-   assert(ctx->DrawBuffer->_ColorDrawBuffers[0]); // TODO
    /* _NEW_BUFFERS */
-   bool multisampled = ctx->DrawBuffer->_ColorDrawBuffers[0]->NumSamples > 1; // TODO: what does 1 mean?
+   bool multisampled = ctx->DrawBuffer->_ColorDrawBuffers[0]->NumSamples > 0;
+   uint32_t dw2, dw4, dw5, dw6;
 
     /* CACHE_NEW_WM_PROG */
    if (brw->wm.prog_data->nr_params == 0) {
@@ -148,7 +145,7 @@ upload_wm_state(struct brw_context *brw)
    dw2 |= (ALIGN(brw->sampler.count, 4) / 4) << GEN6_WM_SAMPLER_COUNT_SHIFT;
    dw4 |= (brw->wm.prog_data->first_curbe_grf <<
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_0);
-   dw4 |= (brw->wm.prog_data->first_curbe_grf_16 << /* TODO: this is wrong if no 8-wide prog */
+   dw4 |= (brw->wm.prog_data->first_curbe_grf_16 <<
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_2);
 
    dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
@@ -156,14 +153,10 @@ upload_wm_state(struct brw_context *brw)
    /* CACHE_NEW_WM_PROG */
    if (brw->wm.prog_data->dispatch_width == 8) {
       dw5 |= GEN6_WM_8_DISPATCH_ENABLE;
-      kernel_start_pointer[0] = brw->wm.prog_offset;
-      if (brw->wm.prog_data->prog_offset_16) {
+      if (brw->wm.prog_data->prog_offset_16)
 	 dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
-         kernel_start_pointer[2] = brw->wm.prog_offset + brw->wm.prog_data->prog_offset_16;
-      }
    } else {
       dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
-      kernel_start_pointer[0] = brw->wm.prog_offset + brw->wm.prog_data->prog_offset_16;
    }
 
    /* _NEW_LINE */
@@ -197,11 +190,14 @@ upload_wm_state(struct brw_context *brw)
    if (multisampled) {
       dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
       dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
+   } else {
+      dw6 |= GEN6_WM_MSRAST_OFF_PIXEL;
+      dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE;
    }
 
    BEGIN_BATCH(9);
    OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
-   OUT_BATCH(kernel_start_pointer[0]);
+   OUT_BATCH(brw->wm.prog_offset);
    OUT_BATCH(dw2);
    if (brw->wm.prog_data->total_scratch) {
       OUT_RELOC(brw->wm.scratch_bo, I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
@@ -212,8 +208,9 @@ upload_wm_state(struct brw_context *brw)
    OUT_BATCH(dw4);
    OUT_BATCH(dw5);
    OUT_BATCH(dw6);
-   OUT_BATCH(kernel_start_pointer[1]);
-   OUT_BATCH(kernel_start_pointer[2]);
+   OUT_BATCH(0); /* kernel 1 pointer */
+   /* kernel 2 pointer */
+   OUT_BATCH(brw->wm.prog_offset + brw->wm.prog_data->prog_offset_16);
    ADVANCE_BATCH();
 }
 
