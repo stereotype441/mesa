@@ -32,6 +32,7 @@
 #include "brw_eu.h"
 #include "brw_state.h"
 
+
 static bool
 try_blorp_blit(struct intel_context *intel,
                GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,

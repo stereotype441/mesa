@@ -451,7 +451,7 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
               0 << BRW_SURFACE_DEPTH_SHIFT |
               (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-   surf[4] = surface->num_samples > 0 ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
+   surf[4] = brw_get_surface_num_multisamples(surface->num_samples);
 
    surf[5] = (0 << BRW_SURFACE_X_OFFSET_SHIFT |
               0 << BRW_SURFACE_Y_OFFSET_SHIFT |
