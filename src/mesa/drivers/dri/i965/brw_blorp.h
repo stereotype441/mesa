@@ -239,10 +239,9 @@ void
 gen6_blorp_emit_vs_disable(struct brw_context *brw,
                            const brw_blorp_params *params);
 
-void
+uint32_t
 gen6_blorp_emit_depth_stencil_state(struct brw_context *brw,
-                                    const brw_blorp_params *params,
-                                    uint32_t *out_offset);
+                                    const brw_blorp_params *params);
 
 void
 gen6_blorp_emit_gs_disable(struct brw_context *brw,

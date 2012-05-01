@@ -87,12 +87,10 @@ gen7_blorp_emit_urb_config(struct brw_context *brw,
  */
 static void
 gen7_blorp_emit_depth_stencil_state_pointers(struct brw_context *brw,
-                                             const brw_blorp_params *params)
+                                             const brw_blorp_params *params,
+                                             uint32_t depthstencil_offset)
 {
    struct intel_context *intel = &brw->intel;
-
-   uint32_t depthstencil_offset;
-   gen6_blorp_emit_depth_stencil_state(brw, params, &depthstencil_offset);
 
    BEGIN_BATCH(2);
    OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
@@ -450,7 +448,10 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_batch_head(brw, params);
    gen6_blorp_emit_vertices(brw, params);
    gen7_blorp_emit_urb_config(brw, params);
-   gen7_blorp_emit_depth_stencil_state_pointers(brw, params);
+   uint32_t depthstencil_offset =
+      gen6_blorp_emit_depth_stencil_state(brw, params);
+   gen7_blorp_emit_depth_stencil_state_pointers(brw, params,
+                                                depthstencil_offset);
    gen6_blorp_emit_vs_disable(brw, params);
    gen7_blorp_emit_hs_disable(brw, params);
    gen7_blorp_emit_te_disable(brw, params);
