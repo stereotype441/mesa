@@ -262,8 +262,12 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
    struct intel_mipmap_tree *mt;
 
    /* Adjust width/height for MSAA */
-   if (num_samples > 0) {
-      /* TODO: handle 8x */
+   if (num_samples > 4) {
+      num_samples = 8;
+      width *= 4;
+      height *= 2;
+   } else if (num_samples > 0) {
+      num_samples = 4;
       width *= 2;
       height *= 2;
    }
@@ -543,7 +547,6 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
                         GLuint num_samples)
 {
    assert(mt->hiz_mt == NULL);
-
    mt->hiz_mt = intel_miptree_create(intel,
                                      mt->target,
                                      MESA_FORMAT_X8_Z24,

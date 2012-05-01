@@ -35,7 +35,7 @@
 #include "brw_defines.h"
 #include "brw_wm.h"
 
-static void
+void
 gen7_set_surface_tiling(struct gen7_surface_state *surf, uint32_t tiling)
 {
    switch (tiling) {
@@ -53,6 +53,20 @@ gen7_set_surface_tiling(struct gen7_surface_state *surf, uint32_t tiling)
       break;
    }
 }
+
+
+void
+gen7_set_surface_num_multisamples(struct gen7_surface_state *surf,
+                                  unsigned num_samples)
+{
+   if (num_samples > 4)
+      surf->ss4.num_multisamples = GEN7_SURFACE_MULTISAMPLECOUNT_8;
+   else if (num_samples > 0)
+      surf->ss4.num_multisamples = GEN7_SURFACE_MULTISAMPLECOUNT_4;
+   else
+      surf->ss4.num_multisamples = GEN7_SURFACE_MULTISAMPLECOUNT_1;
+}
+
 
 static void
 gen7_update_buffer_texture_surface(struct gl_context *ctx, GLuint unit)
@@ -324,6 +338,8 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    surf->ss2.height = rb->Height - 1;
    gen7_set_surface_tiling(surf, region->tiling);
    surf->ss3.pitch = (region->pitch * region->cpp) - 1;
+
+   gen7_set_surface_num_multisamples(surf, irb->mt->num_samples);
 
    if (intel->is_haswell) {
       surf->ss7.shader_chanel_select_r = HSW_SCS_RED;
