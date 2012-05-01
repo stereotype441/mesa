@@ -421,133 +421,72 @@ gen6_blorp_emit_wm_constants(struct brw_context *brw,
 }
 
 
-/* SURFACE_STATE for renderbuffer surface (see
- * brw_update_renderbuffer_surface)
+/* SURFACE_STATE for renderbuffer or texture surface (see
+ * brw_update_renderbuffer_surface and brw_update_texture_surface)
  */
 static uint32_t
-gen6_blorp_emit_render_surface_state(struct brw_context *brw,
-                                     const brw_blorp_params *params)
+gen6_blorp_emit_surface_state(struct brw_context *brw,
+                              const brw_blorp_params *params,
+                              const brw_blorp_surface_info *surface,
+                              uint32_t read_domains, uint32_t write_domain)
 {
-   uint32_t wm_surf_offset_renderbuffer;
+   uint32_t wm_surf_offset;
    uint32_t width, height;
-   params->dst.get_miplevel_dims(&width, &height);
-   if (params->dst.num_samples > 0) {
+   surface->get_miplevel_dims(&width, &height);
+   if (surface->num_samples > 0) {
       width /= 2;
       height /= 2;
    }
-   if (params->dst.map_stencil_as_y_tiled) {
+   if (surface->map_stencil_as_y_tiled) {
       width *= 2;
       height /= 2;
    }
-   struct intel_region *region = params->dst.mt->region;
-   uint32_t *surf = (uint32_t *)
-      brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
-                      &wm_surf_offset_renderbuffer);
+   struct intel_region *region = surface->mt->region;
+
    /* TODO: handle other formats */
-   uint32_t format = params->dst.map_stencil_as_y_tiled
+   uint32_t format = surface->map_stencil_as_y_tiled
       ? BRW_SURFACEFORMAT_R8_UNORM : BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
 
+   uint32_t *surf = (uint32_t *)
+      brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
+                      &wm_surf_offset);
+
    surf[0] = (BRW_SURFACE_2D << BRW_SURFACE_TYPE_SHIFT |
+              BRW_SURFACE_MIPMAPLAYOUT_BELOW << BRW_SURFACE_MIPLAYOUT_SHIFT |
+              BRW_SURFACE_CUBEFACE_ENABLES |
               format << BRW_SURFACE_FORMAT_SHIFT);
 
    /* reloc */
    surf[1] = region->bo->offset; /* No tile offsets needed */
 
-   surf[2] = ((width - 1) << BRW_SURFACE_WIDTH_SHIFT |
-              (height - 1) << BRW_SURFACE_HEIGHT_SHIFT);
-
-   /* Note: pitch needs to be multiplied by adj_factor because we're
-    * grouping 4 pixels together into 1
-    */
-   uint32_t tiling = params->dst.map_stencil_as_y_tiled
-      ? BRW_SURFACE_TILED | BRW_SURFACE_TILED_Y
-      : brw_get_surface_tiling_bits(region->tiling);
-   uint32_t pitch_bytes = region->pitch * region->cpp;
-   if (params->dst.map_stencil_as_y_tiled)
-      pitch_bytes *= 2;
-   surf[3] = (tiling | (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
-
-   surf[4] = params->dst.num_samples > 0 ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
-
-   surf[5] = (0 << BRW_SURFACE_X_OFFSET_SHIFT |
-              0 << BRW_SURFACE_Y_OFFSET_SHIFT |
-              (params->dst.mt->align_h == 4 ? BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0));
-
-   drm_intel_bo_emit_reloc(brw->intel.batch.bo,
-                           wm_surf_offset_renderbuffer + 4,
-                           region->bo,
-                           surf[1] - region->bo->offset,
-                           I915_GEM_DOMAIN_RENDER,
-                           I915_GEM_DOMAIN_RENDER);
-
-   return wm_surf_offset_renderbuffer;
-}
-
-
-/* SURFACE_STATE for texture surface (see brw_update_texture_surface) */
-static uint32_t
-gen6_blorp_emit_texture_surface_state(struct brw_context *brw,
-                                      const brw_blorp_params *params)
-{
-   /* TODO: share code with the block above. */
-   uint32_t wm_surf_offset_texture;
-
-   /* Note: don't use adj_factor because when downsampling a stencil
-    * texture we map the texture in non-multisampled mode.
-    */
-   uint32_t width, height;
-   params->src.get_miplevel_dims(&width, &height);
-   if (params->src.num_samples > 0) {
-      width /= 2;
-      height /= 2;
-   }
-   if (params->src.map_stencil_as_y_tiled) {
-      width *= 2;
-      height /= 2;
-   }
-   struct intel_region *region = params->src.mt->region;
-
-   /* TODO: handle other formats */
-   uint32_t format = params->src.map_stencil_as_y_tiled
-      ? BRW_SURFACEFORMAT_R8_UNORM : BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
-
-   uint32_t *surf = (uint32_t *)
-      brw_state_batch(brw, AUB_TRACE_SURFACE_STATE, 6 * 4, 32,
-                      &wm_surf_offset_texture);
-
-   surf[0] = (BRW_SURFACE_2D << BRW_SURFACE_TYPE_SHIFT |
-              BRW_SURFACE_MIPMAPLAYOUT_BELOW << BRW_SURFACE_MIPLAYOUT_SHIFT |
-              BRW_SURFACE_CUBEFACE_ENABLES |
-              (format << BRW_SURFACE_FORMAT_SHIFT));
-
-   surf[1] = region->bo->offset; /* reloc */
-
    surf[2] = (0 << BRW_SURFACE_LOD_SHIFT |
               (width - 1) << BRW_SURFACE_WIDTH_SHIFT |
               (height - 1) << BRW_SURFACE_HEIGHT_SHIFT);
 
-   uint32_t tiling = params->src.map_stencil_as_y_tiled
+   uint32_t tiling = surface->map_stencil_as_y_tiled
       ? BRW_SURFACE_TILED | BRW_SURFACE_TILED_Y
       : brw_get_surface_tiling_bits(region->tiling);
    uint32_t pitch_bytes = region->pitch * region->cpp;
-   if (params->src.map_stencil_as_y_tiled)
+   if (surface->map_stencil_as_y_tiled)
       pitch_bytes *= 2;
    surf[3] = (tiling |
               0 << BRW_SURFACE_DEPTH_SHIFT |
-              (pitch_bytes - 1) <<
-              BRW_SURFACE_PITCH_SHIFT);
+              (pitch_bytes - 1) << BRW_SURFACE_PITCH_SHIFT);
 
-   surf[4] = params->src.num_samples > 0 ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
+   surf[4] = surface->num_samples > 0 ? BRW_SURFACE_MULTISAMPLECOUNT_4 : BRW_SURFACE_MULTISAMPLECOUNT_1;
 
-   surf[5] = (params->src.mt->align_h == 4) ? BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0;
+   surf[5] = (0 << BRW_SURFACE_X_OFFSET_SHIFT |
+              0 << BRW_SURFACE_Y_OFFSET_SHIFT |
+              (surface->mt->align_h == 4 ? BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0));
 
    /* Emit relocation to surface contents */
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
-                           wm_surf_offset_texture + 4,
-                           region->bo, 0,
-                           I915_GEM_DOMAIN_SAMPLER, 0);
+                           wm_surf_offset + 4,
+                           region->bo,
+                           surf[1] - region->bo->offset,
+                           read_domains, write_domain);
 
-   return wm_surf_offset_texture;
+   return wm_surf_offset;
 }
 
 
@@ -1125,13 +1064,16 @@ gen6_blorp_exec(struct intel_context *intel,
    uint32_t wm_surf_offset_renderbuffer = 0;
    if (params->dst.mt) {
       wm_surf_offset_renderbuffer =
-         gen6_blorp_emit_render_surface_state(brw, params);
+         gen6_blorp_emit_surface_state(brw, params, &params->dst,
+                                       I915_GEM_DOMAIN_RENDER,
+                                       I915_GEM_DOMAIN_RENDER);
    }
 
    uint32_t wm_surf_offset_texture = 0;
    if (params->src.mt) {
       wm_surf_offset_texture =
-         gen6_blorp_emit_texture_surface_state(brw, params);
+         gen6_blorp_emit_surface_state(brw, params, &params->src,
+                                       I915_GEM_DOMAIN_SAMPLER, 0);
    }
 
    uint32_t wm_bind_bo_offset = 0;
