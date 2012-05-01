@@ -331,6 +331,24 @@ gen6_blorp_emit_blend_state(struct brw_context *brw,
    return cc_blend_state_offset;
 }
 
+
+/* CC_STATE */
+static uint32_t
+gen6_blorp_emit_cc_state(struct brw_context *brw,
+                         const brw_blorp_params *params)
+{
+   uint32_t cc_state_offset;
+
+   struct gen6_color_calc_state *cc = (struct gen6_color_calc_state *)
+      brw_state_batch(brw, AUB_TRACE_CC_STATE,
+                      sizeof(gen6_color_calc_state), 64,
+                      &cc_state_offset);
+   memset(cc, 0, sizeof(*cc));
+
+   return cc_state_offset;
+}
+
+
 /* 3DSTATE_CC_STATE_POINTERS
  *
  * The pointer offsets are relative to
@@ -821,21 +839,13 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_vertices(brw, params);
    gen6_blorp_emit_urb_config(brw, params);
 
-   /* BLEND_STATE */
    uint32_t cc_blend_state_offset = 0;
    if (params->use_wm_prog)
       cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
 
-   /* TODO: gen6_color_calc_state */
    uint32_t cc_state_offset = 0;
    if (params->use_wm_prog)
-   {
-      struct gen6_color_calc_state *cc = (struct gen6_color_calc_state *)
-         brw_state_batch(brw, AUB_TRACE_CC_STATE,
-                         sizeof(gen6_color_calc_state), 64,
-                         &cc_state_offset);
-      memset(cc, 0, sizeof(*cc));
-   }
+      cc_state_offset = gen6_blorp_emit_cc_state(brw, params);
 
    gen6_blorp_emit_cc_state_pointers(brw, params, cc_blend_state_offset,
                                      cc_state_offset);
