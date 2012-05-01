@@ -304,6 +304,32 @@ gen6_blorp_emit_urb_config(struct brw_context *brw,
 }
 
 
+/* BLEND_STATE */
+static uint32_t
+gen6_blorp_emit_blend_state(struct brw_context *brw,
+                            const brw_blorp_params *params)
+{
+   uint32_t cc_blend_state_offset;
+
+   struct gen6_blend_state *blend = (struct gen6_blend_state *)
+      brw_state_batch(brw, AUB_TRACE_BLEND_STATE,
+                      sizeof(struct gen6_blend_state), 64,
+                      &cc_blend_state_offset);
+
+   memset(blend, 0, sizeof(*blend));
+
+   // TODO: handle other formats.
+   blend->blend1.pre_blend_clamp_enable = 1;
+   blend->blend1.post_blend_clamp_enable = 1;
+   blend->blend1.clamp_range = BRW_RENDERTARGET_CLAMPRANGE_FORMAT;
+
+   blend->blend1.write_disable_r = false;
+   blend->blend1.write_disable_g = false;
+   blend->blend1.write_disable_b = false;
+   blend->blend1.write_disable_a = false;
+
+   return cc_blend_state_offset;
+}
 
 /* 3DSTATE_CC_STATE_POINTERS
  *
@@ -798,24 +824,7 @@ gen6_blorp_exec(struct intel_context *intel,
    /* BLEND_STATE */
    uint32_t cc_blend_state_offset = 0;
    if (params->use_wm_prog)
-   {
-      struct gen6_blend_state *blend = (struct gen6_blend_state *)
-         brw_state_batch(brw, AUB_TRACE_BLEND_STATE,
-                         sizeof(struct gen6_blend_state), 64,
-                         &cc_blend_state_offset);
-
-      memset(blend, 0, sizeof(*blend));
-
-      // TODO: handle other formats.
-      blend->blend1.pre_blend_clamp_enable = 1;
-      blend->blend1.post_blend_clamp_enable = 1;
-      blend->blend1.clamp_range = BRW_RENDERTARGET_CLAMPRANGE_FORMAT;
-
-      blend->blend1.write_disable_r = false;
-      blend->blend1.write_disable_g = false;
-      blend->blend1.write_disable_b = false;
-      blend->blend1.write_disable_a = false;
-   }
+      cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
 
    /* TODO: gen6_color_calc_state */
    uint32_t cc_state_offset = 0;
