@@ -825,6 +825,25 @@ gen6_blorp_disable_wm(struct brw_context *brw,
 }
 
 
+/* 3DSTATE_BINDING_TABLE_POINTERS */
+static void
+gen6_blorp_emit_binding_table_pointers(struct brw_context *brw,
+                                       const brw_blorp_params *params,
+                                       uint32_t wm_bind_bo_offset)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS << 16 |
+             GEN6_BINDING_TABLE_MODIFY_PS |
+             (4 - 2));
+   OUT_BATCH(0); /* vs -- ignored */
+   OUT_BATCH(0); /* gs -- ignored */
+   OUT_BATCH(wm_bind_bo_offset); /* wm/ps */
+   ADVANCE_BATCH();
+}
+
+
 static void
 gen6_blorp_enable_wm(struct brw_context *brw, const brw_blorp_params *params,
                      uint32_t prog_offset, uint32_t wm_push_const_offset,
@@ -1142,17 +1161,8 @@ gen6_blorp_exec(struct intel_context *intel,
    else
       gen6_blorp_disable_wm(brw, params);
 
-   /* 3DSTATE_BINDING_TABLE_POINTERS */
-   if (params->use_wm_prog) {
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS << 16 |
-                GEN6_BINDING_TABLE_MODIFY_PS |
-                (4 - 2));
-      OUT_BATCH(0); /* vs -- ignored */
-      OUT_BATCH(0); /* gs -- ignored */
-      OUT_BATCH(wm_bind_bo_offset); /* wm/ps */
-      ADVANCE_BATCH();
-   }
+   if (params->use_wm_prog)
+      gen6_blorp_emit_binding_table_pointers(brw, params, wm_bind_bo_offset);
 
    gen6_blorp_emit_depth_stencil_config(brw, params);
    gen6_blorp_emit_clear_params(brw, params);
