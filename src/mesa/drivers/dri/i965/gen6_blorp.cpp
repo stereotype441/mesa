@@ -551,6 +551,28 @@ gen6_blorp_emit_texture_surface_state(struct brw_context *brw,
 }
 
 
+/* brw_wm_binding_table */
+static uint32_t
+gen6_blorp_emit_binding_table(struct brw_context *brw,
+                              const brw_blorp_params *params,
+                              uint32_t wm_surf_offset_renderbuffer,
+                              uint32_t wm_surf_offset_texture)
+{
+   uint32_t wm_bind_bo_offset;
+   uint32_t *bind = (uint32_t *)
+      brw_state_batch(brw, AUB_TRACE_BINDING_TABLE,
+                      sizeof(uint32_t) *
+                      GEN6_BLORP_NUM_BINDING_TABLE_ENTRIES,
+                      32, /* alignment */
+                      &wm_bind_bo_offset);
+   bind[GEN6_BLORP_RENDERBUFFER_BINDING_TABLE_INDEX] =
+      wm_surf_offset_renderbuffer;
+   bind[GEN6_BLORP_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
+
+   return wm_bind_bo_offset;
+}
+
+
 /* 3DSTATE_VS
  *
  * Disable vertex shader.
@@ -1017,18 +1039,12 @@ gen6_blorp_exec(struct intel_context *intel,
          gen6_blorp_emit_texture_surface_state(brw, params);
    }
 
-   /* brw_wm_binding_table */
-   uint32_t wm_bind_bo_offset;
+   uint32_t wm_bind_bo_offset = 0;
    if (params->use_wm_prog) {
-      uint32_t *bind = (uint32_t *)
-         brw_state_batch(brw, AUB_TRACE_BINDING_TABLE,
-                         sizeof(uint32_t) *
-                         GEN6_BLORP_NUM_BINDING_TABLE_ENTRIES,
-                         32, /* alignment */
-                         &wm_bind_bo_offset);
-      bind[GEN6_BLORP_RENDERBUFFER_BINDING_TABLE_INDEX] =
-         wm_surf_offset_renderbuffer;
-      bind[GEN6_BLORP_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
+      wm_bind_bo_offset =
+         gen6_blorp_emit_binding_table(brw, params,
+                                       wm_surf_offset_renderbuffer,
+                                       wm_surf_offset_texture);
    }
 
    /* SAMPLER_STATE */
