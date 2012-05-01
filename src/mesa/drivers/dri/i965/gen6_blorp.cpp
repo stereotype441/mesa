@@ -627,6 +627,28 @@ gen6_blorp_emit_sampler_state(struct brw_context *brw,
    return sampler_offset;
 }
 
+
+/* 3DSTATE_SAMPLER_STATE_POINTERS */
+static void
+gen6_blorp_emit_sampler_state_pointers(struct brw_context *brw,
+                                       const brw_blorp_params *params,
+                                       uint32_t sampler_offset)
+{
+   struct intel_context *intel = &brw->intel;
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_SAMPLER_STATE_POINTERS << 16 |
+             VS_SAMPLER_STATE_CHANGE |
+             GS_SAMPLER_STATE_CHANGE |
+             PS_SAMPLER_STATE_CHANGE |
+             (4 - 2));
+   OUT_BATCH(0); /* VS */
+   OUT_BATCH(0); /* GS */
+   OUT_BATCH(sampler_offset);
+   ADVANCE_BATCH();
+}
+
+
 /* 3DSTATE_VS
  *
  * Disable vertex shader.
@@ -1105,19 +1127,8 @@ gen6_blorp_exec(struct intel_context *intel,
    if (params->src.mt)
       sampler_offset = gen6_blorp_emit_sampler_state(brw, params);
 
-   /* 3DSTATE_SAMPLER_STATE_POINTERS */
-   if (params->src.mt) {
-      BEGIN_BATCH(4);
-      OUT_BATCH(_3DSTATE_SAMPLER_STATE_POINTERS << 16 |
-                VS_SAMPLER_STATE_CHANGE |
-                GS_SAMPLER_STATE_CHANGE |
-                PS_SAMPLER_STATE_CHANGE |
-                (4 - 2));
-      OUT_BATCH(0); /* VS */
-      OUT_BATCH(0); /* GS */
-      OUT_BATCH(sampler_offset);
-      ADVANCE_BATCH();
-   }
+   if (params->src.mt)
+      gen6_blorp_emit_sampler_state_pointers(brw, params, sampler_offset);
 
    gen6_blorp_emit_vs_disable(brw, params);
    gen6_blorp_emit_gs_disable(brw, params);
