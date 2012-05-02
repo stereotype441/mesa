@@ -101,17 +101,28 @@ public:
    unsigned num_samples;
 };
 
+
+struct brw_blorp_coord_transform_params
+{
+   void setup(GLuint src0, GLuint dst0, GLuint dst1,
+              bool mirror);
+
+   int16_t multiplier;
+   int16_t offset;
+};
+
+
 struct brw_blorp_wm_push_constants
 {
    uint16_t dst_x0;
    uint16_t dst_x1;
    uint16_t dst_y0;
    uint16_t dst_y1;
-   uint16_t x_offset;
-   uint16_t y_offset;
+   brw_blorp_coord_transform_params x_transform;
+   brw_blorp_coord_transform_params y_transform;
 
    /* Pad out to an integral number of registers */
-   uint16_t pad[10];
+   uint16_t pad[8];
 };
 
 /* Every 32 bytes of push constant data constitutes one GEN register. */
@@ -216,7 +227,8 @@ public:
                          struct intel_mipmap_tree *dst_mt,
                          GLuint src_x0, GLuint src_y0,
                          GLuint dst_x0, GLuint dst_y0,
-                         GLuint width, GLuint height);
+                         GLuint width, GLuint height,
+                         bool mirror_x, bool mirror_y);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
                                 brw_blorp_prog_data **prog_data) const;

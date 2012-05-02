@@ -148,8 +148,8 @@ try_blorp_blit(struct intel_context *intel,
    fixup_mirroring(mirror_y, srcY0, srcY1);
    fixup_mirroring(mirror_y, dstY0, dstY1);
 
-   /* TODO: mirroring is not implemented yet. */
-   if (mirror_x || mirror_y) return false;
+   /* TODO: X mirroring is not implemented yet. */
+   if (mirror_x) return false;
 
    /* Make sure width and height match */
    GLsizei width = srcX1 - srcX0;
@@ -174,7 +174,8 @@ try_blorp_blit(struct intel_context *intel,
 
    /* Do the blit */
    brw_blorp_blit_params params(src_mt, dst_mt,
-                                srcX0, srcY0, dstX0, dstY0, dstX1, dstY1);
+                                srcX0, srcY0, dstX0, dstY0, dstX1, dstY1,
+                                mirror_x, mirror_y);
    params.exec(intel);
 
    /* Mark the dst buffer as needing a HiZ resolve if necessary. */
@@ -366,8 +367,10 @@ private:
    struct brw_reg dst_x1;
    struct brw_reg dst_y0;
    struct brw_reg dst_y1;
-   struct brw_reg x_offset;
-   struct brw_reg y_offset;
+   struct {
+      struct brw_reg multiplier;
+      struct brw_reg offset;
+   } x_transform, y_transform;
 
    /* Data returned from texture lookup (4 vec16's) */
    struct brw_reg Rdata;
@@ -559,8 +562,10 @@ brw_blorp_blit_program::alloc_push_const_regs(int base_reg)
    ALLOC_REG(dst_x1);
    ALLOC_REG(dst_y0);
    ALLOC_REG(dst_y1);
-   ALLOC_REG(x_offset);
-   ALLOC_REG(y_offset);
+   ALLOC_REG(x_transform.multiplier);
+   ALLOC_REG(x_transform.offset);
+   ALLOC_REG(y_transform.multiplier);
+   ALLOC_REG(y_transform.offset);
 #undef CONST_LOC
 #undef ALLOC_REG
 }
@@ -860,8 +865,10 @@ brw_blorp_blit_program::kill_if_outside_dst_rect()
 void
 brw_blorp_blit_program::translate_dst_to_src()
 {
-   brw_ADD(&func, Xp, X, x_offset);
-   brw_ADD(&func, Yp, Y, y_offset);
+   brw_MUL(&func, Xp, X, x_transform.multiplier);
+   brw_MUL(&func, Yp, Y, y_transform.multiplier);
+   brw_ADD(&func, Xp, Xp, x_transform.offset);
+   brw_ADD(&func, Yp, Yp, y_transform.offset);
    SWAP_XY_AND_XPYP();
 }
 
@@ -981,11 +988,37 @@ brw_blorp_blit_program::render_target_write()
                 use_header);
 }
 
+
+void
+brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
+                                        bool mirror)
+{
+   if (!mirror) {
+      /* When not mirroring a coordinate (say, X), we need:
+       *   x' - src_x0 = x - dst_x0
+       * Therefore:
+       *   x' = 1*x + (src_x0 - dst_x0)
+       */
+      multiplier = 1;
+      offset = src0 - dst0;
+   } else {
+      /* When mirroring X we need:
+       *   x' - src_x0 = dst_x1 - x - 1
+       * Therefore:
+       *   x' = -1*x + (src_x0 + dst_x1 - 1)
+       */
+      multiplier = -1;
+      offset = src0 + dst1 - 1;
+   }
+}
+
+
 brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
                                              struct intel_mipmap_tree *dst_mt,
                                              GLuint src_x0, GLuint src_y0,
                                              GLuint dst_x0, GLuint dst_y0,
-                                             GLuint dst_x1, GLuint dst_y1)
+                                             GLuint dst_x1, GLuint dst_y1,
+                                             bool mirror_x, bool mirror_y)
 {
    src.set(src_mt, 0, 0);
    dst.set(dst_mt, 0, 0);
@@ -1032,8 +1065,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
    y0 = wm_push_consts.dst_y0 = dst_y0;
    x1 = wm_push_consts.dst_x1 = dst_x1;
    y1 = wm_push_consts.dst_y1 = dst_y1;
-   wm_push_consts.x_offset = (src_x0 - dst_x0);
-   wm_push_consts.y_offset = (src_y0 - dst_y0);
+   wm_push_consts.x_transform.setup(src_x0, dst_x0, dst_x1, mirror_x);
+   wm_push_consts.y_transform.setup(src_y0, dst_y0, dst_y1, mirror_y);
 
    if (dst.num_samples == 0 && dst_mt->num_samples > 0) {
       /* We must expand the rectangle we send through the rendering pipeline,
