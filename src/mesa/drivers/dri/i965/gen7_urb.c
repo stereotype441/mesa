@@ -50,7 +50,7 @@
  *
  * See "Volume 2a: 3D Pipeline," section 1.8.
  */
-static void
+void
 gen7_allocate_push_constants(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;

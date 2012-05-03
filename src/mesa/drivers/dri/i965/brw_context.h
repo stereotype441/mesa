@@ -1146,6 +1146,10 @@ void
 gen6_emit_3dstate_sample_mask(struct brw_context *brw,
                               unsigned num_samples);
 
+/* gen7_urb.c */
+void
+gen7_allocate_push_constants(struct brw_context *brw);
+
 
 
 /*======================================================================
