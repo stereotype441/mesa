@@ -136,7 +136,7 @@ gen6_blorp_emit_state_base_address(struct brw_context *brw,
       OUT_BATCH(1); /* InstructionBaseAddress */
    }
    OUT_BATCH(1); /* GeneralStateUpperBound */
-   OUT_BATCH(1); /* DynamicStateUpperBound */
+   OUT_BATCH(0xfffff001); /* DynamicStateUpperBound */
    OUT_BATCH(1); /* IndirectObjectUpperBound*/
    OUT_BATCH(1); /* InstructionAccessUpperBound */
    ADVANCE_BATCH();

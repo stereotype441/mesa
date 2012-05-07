@@ -404,6 +404,7 @@ private:
    /* M2-3: u coordinate */
    GLuint base_mrf;
    struct brw_reg mrf_u_float;
+   struct brw_reg mrf_lod_float;
 
    /* M4-5: v coordinate */
    struct brw_reg mrf_v_float;
@@ -456,7 +457,7 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
        */
       assert(!key->src_tiled_w);
       assert(key->tex_samples == key->src_samples);
-      assert(key->tex_samples > 0);
+      //      assert(key->tex_samples > 0); HACK
    }
 
    brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
@@ -595,6 +596,7 @@ brw_blorp_blit_program::alloc_regs()
    int mrf = 2;
    this->base_mrf = mrf;
    this->mrf_u_float = vec16(brw_message_reg(mrf)); mrf += 2;
+   this->mrf_lod_float = vec16(brw_message_reg(mrf)); mrf += 2;
    this->mrf_v_float = vec16(brw_message_reg(mrf)); mrf += 2;
 }
 
@@ -925,6 +927,7 @@ brw_blorp_blit_program::texture_lookup(GLuint msg_type,
    brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
    brw_MOV(&func, offset(vec8(mrf_u), 1), suboffset(vec8(X), 8));
    brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
+   brw_MOV(&func, retype(mrf_lod_float, BRW_REGISTER_TYPE_UD), brw_imm_ud(0));
    brw_MOV(&func, vec8(mrf_v), vec8(Y));
    brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
    brw_MOV(&func, offset(vec8(mrf_v), 1), suboffset(vec8(Y), 8));
@@ -939,7 +942,7 @@ brw_blorp_blit_program::texture_lookup(GLuint msg_type,
               WRITEMASK_XYZW,
               msg_type,
               8 /* response_length.  TODO: should be smaller for non-RGBA formats? */,
-              4 /* msg_length */,
+              6 /* msg_length */,
               0 /* header_present */,
               BRW_SAMPLER_SIMD_MODE_SIMD16,
               BRW_SAMPLER_RETURN_FORMAT_FLOAT32);
@@ -1048,6 +1051,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct intel_mipmap_tree *src_mt,
       /* We are downsampling a color buffer, so blend. */
       wm_prog_key.blend = true;
    }
+   //   wm_prog_key.blend = true; /* HACK */
 
    /* src_samples and dst_samples are the true sample counts */
    wm_prog_key.src_samples = src_mt->num_samples;

@@ -171,7 +171,10 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
    surf->ss0.surface_type = BRW_SURFACE_2D;
 
    /* reloc */
-   surf->ss1.base_addr = region->bo->offset; /* No tile offsets needed */
+   uint32_t hack = 0;
+   if (false && surface == &params->src)
+      hack = 0x80000000;
+   surf->ss1.base_addr = region->bo->offset | hack; /* No tile offsets needed */
 
    surf->ss2.width = width - 1;
    surf->ss2.height = height - 1;
