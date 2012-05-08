@@ -182,7 +182,7 @@ struct intel_mipmap_tree
    bool array_spacing_lod0;
 
    /**
-    * For MSAA buffers, there are possible layouts:
+    * For MSAA buffers, there are two possible layouts:
     * - Interleaved, in which the additional samples are accommodated
     *   by scaling up the width and height of the surface.
     * - Sliced, in which the surface is stored as a 2D array, with
