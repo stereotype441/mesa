@@ -1859,25 +1859,6 @@ fs_visitor::emit(fs_inst inst)
    return list_inst;
 }
 
-/** Emits a dummy fragment shader consisting of magenta for bringup purposes. */
-void
-fs_visitor::emit_dummy_fs()
-{
-   int reg_width = c->dispatch_width / 8;
-
-   /* Everyone's favorite color. */
-   emit(BRW_OPCODE_MOV, fs_reg(MRF, 2 + 0 * reg_width), fs_reg(1.0f));
-   emit(BRW_OPCODE_MOV, fs_reg(MRF, 2 + 1 * reg_width), fs_reg(0.0f));
-   emit(BRW_OPCODE_MOV, fs_reg(MRF, 2 + 2 * reg_width), fs_reg(1.0f));
-   emit(BRW_OPCODE_MOV, fs_reg(MRF, 2 + 3 * reg_width), fs_reg(0.0f));
-
-   fs_inst *write;
-   write = emit(FS_OPCODE_FB_WRITE, fs_reg(0), fs_reg(0));
-   write->base_mrf = 2;
-   write->mlen = 4 * reg_width;
-   write->eot = true;
-}
-
 /* The register location here is relative to the start of the URB
  * data.  It will get adjusted to be a real location before
  * generate_code() time.

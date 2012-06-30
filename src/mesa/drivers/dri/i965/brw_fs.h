@@ -519,7 +519,6 @@ public:
    void generate_unspill(fs_inst *inst, struct brw_reg dst);
    void generate_pull_constant_load(fs_inst *inst, struct brw_reg dst);
 
-   void emit_dummy_fs();
    fs_reg *emit_fragcoord_interpolation(ir_variable *ir);
    fs_inst *emit_linterp(const fs_reg &attr, const fs_reg &interp,
                          glsl_interp_qualifier interpolation_mode,

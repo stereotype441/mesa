@@ -1721,72 +1721,68 @@ fs_visitor::run()
       brw_set_compression_control(p, BRW_COMPRESSION_COMPRESSED);
    }
 
+   calculate_urb_setup();
+   if (intel->gen < 6)
+      emit_interpolation_setup_gen4();
+   else
+      emit_interpolation_setup_gen6();
+
+   /* Generate FS IR for main().  (the visitor only descends into
+    * functions called "main").
+    */
+   foreach_list(node, &*shader->ir) {
+      ir_instruction *ir = (ir_instruction *)node;
+      base_ir = ir;
+      this->result = reg_undef;
+      ir->accept(this);
+   }
+   if (failed)
+      return false;
+
+   emit_fb_writes();
+
+   split_virtual_grfs();
+
+   setup_paramvalues_refs();
+   setup_pull_constants();
+
+   bool progress;
+   do {
+      progress = false;
+
+      progress = remove_duplicate_mrf_writes() || progress;
+
+      progress = propagate_constants() || progress;
+      progress = opt_algebraic() || progress;
+      progress = opt_cse() || progress;
+      progress = opt_copy_propagate() || progress;
+      progress = register_coalesce() || progress;
+      progress = register_coalesce_2() || progress;
+      progress = compute_to_mrf() || progress;
+      progress = dead_code_eliminate() || progress;
+   } while (progress);
+
+   remove_dead_constants();
+
+   schedule_instructions();
+
+   assign_curb_setup();
+   assign_urb_setup();
+
    if (0) {
-      emit_dummy_fs();
-   } else {
-      calculate_urb_setup();
-      if (intel->gen < 6)
-	 emit_interpolation_setup_gen4();
-      else
-	 emit_interpolation_setup_gen6();
-
-      /* Generate FS IR for main().  (the visitor only descends into
-       * functions called "main").
-       */
-      foreach_list(node, &*shader->ir) {
-	 ir_instruction *ir = (ir_instruction *)node;
-	 base_ir = ir;
-	 this->result = reg_undef;
-	 ir->accept(this);
+      /* Debug of register spilling: Go spill everything. */
+      int virtual_grf_count = virtual_grf_next;
+      for (int i = 0; i < virtual_grf_count; i++) {
+         spill_reg(i);
       }
-      if (failed)
-	 return false;
+   }
 
-      emit_fb_writes();
-
-      split_virtual_grfs();
-
-      setup_paramvalues_refs();
-      setup_pull_constants();
-
-      bool progress;
-      do {
-	 progress = false;
-
-	 progress = remove_duplicate_mrf_writes() || progress;
-
-	 progress = propagate_constants() || progress;
-	 progress = opt_algebraic() || progress;
-	 progress = opt_cse() || progress;
-	 progress = opt_copy_propagate() || progress;
-	 progress = register_coalesce() || progress;
-	 progress = register_coalesce_2() || progress;
-	 progress = compute_to_mrf() || progress;
-	 progress = dead_code_eliminate() || progress;
-      } while (progress);
-
-      remove_dead_constants();
-
-      schedule_instructions();
-
-      assign_curb_setup();
-      assign_urb_setup();
-
-      if (0) {
-	 /* Debug of register spilling: Go spill everything. */
-	 int virtual_grf_count = virtual_grf_next;
-	 for (int i = 0; i < virtual_grf_count; i++) {
-	    spill_reg(i);
-	 }
-      }
-
-      if (0)
-	 assign_regs_trivial();
-      else {
-	 while (!assign_regs()) {
-	    if (failed)
-	       break;
-	 }
+   if (0)
+      assign_regs_trivial();
+   else {
+      while (!assign_regs()) {
+         if (failed)
+            break;
       }
    }
    assert(force_uncompressed_stack == 0);
