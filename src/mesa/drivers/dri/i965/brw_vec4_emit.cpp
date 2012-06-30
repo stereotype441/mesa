@@ -773,6 +773,21 @@ vec4_visitor::prologue()
       setup_uniform_clipplane_values();
 }
 
+void
+vec4_visitor::pre_optimize()
+{
+   /* Before any optimization, push array accesses out to scratch
+    * space where we need them to be.  This pass may allocate new
+    * virtual GRFs, so we want to do it early.  It also makes sure
+    * that we have reladdr computations available for CSE, since we'll
+    * often do repeated subexpressions for those.
+    */
+   move_grf_array_access_to_scratch();
+   move_uniform_array_access_to_pull_constants();
+   pack_uniform_registers();
+   move_push_constants_to_pull_constants();
+}
+
 bool
 vec4_visitor::run()
 {
@@ -785,16 +800,7 @@ vec4_visitor::run()
 
    epilogue();
 
-   /* Before any optimization, push array accesses out to scratch
-    * space where we need them to be.  This pass may allocate new
-    * virtual GRFs, so we want to do it early.  It also makes sure
-    * that we have reladdr computations available for CSE, since we'll
-    * often do repeated subexpressions for those.
-    */
-   move_grf_array_access_to_scratch();
-   move_uniform_array_access_to_pull_constants();
-   pack_uniform_registers();
-   move_push_constants_to_pull_constants();
+   pre_optimize();
 
    bool progress;
    do {

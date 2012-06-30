@@ -552,6 +552,7 @@ public:
 
 private:
    void prologue();
+   void pre_optimize();
 };
 
 } /* namespace brw */
