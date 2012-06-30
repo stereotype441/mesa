@@ -314,7 +314,7 @@ public:
       return dst_reg(retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
    }
 
-   const struct gl_vertex_program *vp;
+   const struct gl_vertex_program *gp;
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_vs_prog_data *prog_data;

@@ -504,7 +504,7 @@ int
 vec4_visitor::setup_uniform_values(int loc, const glsl_type *type)
 {
    unsigned int offset = 0;
-   float *values = &this->vp->Base.Parameters->ParameterValues[loc][0].f;
+   float *values = &this->gp->Base.Parameters->ParameterValues[loc][0].f;
 
    if (type->is_matrix()) {
       const glsl_type *column = type->column_type();
@@ -610,9 +610,9 @@ vec4_visitor::setup_builtin_uniform_values(ir_variable *ir)
        * ParameterValues directly, since unlike brw_fs.cpp, we never
        * add new state references during compile.
        */
-      int index = _mesa_add_state_reference(this->vp->Base.Parameters,
+      int index = _mesa_add_state_reference(this->gp->Base.Parameters,
 					    (gl_state_index *)slots[i].tokens);
-      float *values = &this->vp->Base.Parameters->ParameterValues[index][0].f;
+      float *values = &this->gp->Base.Parameters->ParameterValues[index][0].f;
 
       this->uniform_vector_size[this->uniforms] = 0;
       /* Add each of the unique swizzled channels of the element.
@@ -1823,8 +1823,8 @@ vec4_visitor::visit(ir_call *ir)
 void
 vec4_visitor::visit(ir_texture *ir)
 {
-   int sampler = _mesa_get_sampler_uniform_value(ir->sampler, prog, &vp->Base);
-   sampler = vp->Base.SamplerUnits[sampler];
+   int sampler = _mesa_get_sampler_uniform_value(ir->sampler, prog, &gp->Base);
+   sampler = gp->Base.SamplerUnits[sampler];
 
    /* Should be lowered by do_lower_texture_projection */
    assert(!ir->projector);
@@ -2634,7 +2634,7 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->base_ir = NULL;
    this->current_annotation = NULL;
 
-   this->vp = (struct gl_vertex_program *)
+   this->gp = (struct gl_vertex_program *)
      prog->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
    this->prog_data = &c->prog_data;
 
