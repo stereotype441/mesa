@@ -79,7 +79,7 @@ fs_compilation::generate_fb_write(fs_inst *inst)
       implied_header = brw_null_reg();
    }
 
-   if (this->dual_src_output.file != BAD_FILE)
+   if (c->prog_data.dual_src_blend)
       msg_control = BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD8_DUAL_SOURCE_SUBSPAN01;
    else if (c->dispatch_width == 16)
       msg_control = BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE;
