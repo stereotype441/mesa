@@ -26,3 +26,8 @@
 class backend_visitor_common : public ir_visitor
 {
 };
+
+template<class policy>
+class backend_visitor : public backend_visitor_common
+{
+};

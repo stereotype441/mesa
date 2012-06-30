@@ -292,7 +292,11 @@ public:
    bool is_math();
 };
 
-class vec4_visitor : public backend_visitor_common
+class vec4_policy
+{
+};
+
+class vec4_visitor : public backend_visitor<vec4_policy>
 {
 public:
    vec4_visitor(struct brw_vs_compile *c,

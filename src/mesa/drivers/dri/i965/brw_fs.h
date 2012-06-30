@@ -354,7 +354,11 @@ public:
    /** @} */
 };
 
-class fs_visitor : public backend_visitor_common
+class fs_policy
+{
+};
+
+class fs_visitor : public backend_visitor<fs_policy>
 {
 public:
 
