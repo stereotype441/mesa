@@ -564,6 +564,7 @@ private:
    void prologue();
    void pre_optimize();
    void optimize();
+   void setup_payload();
 
 public:
    exec_list instructions;

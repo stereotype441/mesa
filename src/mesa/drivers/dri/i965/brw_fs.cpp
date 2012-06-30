@@ -1757,6 +1757,13 @@ fs_visitor::optimize()
    } while (progress);
 }
 
+void
+fs_visitor::setup_payload()
+{
+   assign_curb_setup();
+   assign_urb_setup();
+}
+
 bool
 fs_visitor::run()
 {
@@ -1779,8 +1786,7 @@ fs_visitor::run()
 
    schedule_instructions();
 
-   assign_curb_setup();
-   assign_urb_setup();
+   setup_payload();
 
    if (0) {
       /* Debug of register spilling: Go spill everything. */
