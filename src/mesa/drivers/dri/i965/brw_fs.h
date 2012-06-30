@@ -505,13 +505,17 @@ public:
    void import_uniforms(fs_visitor *v);
 protected:
    void setup_paramvalues_refs();
+private:
    void calculate_urb_setup();
+protected:
    void emit_dummy_fs();
+private:
    void emit_interpolation_setup_gen4();
    void emit_interpolation_setup_gen6();
    void emit_color_write(int target, int index, int first_color_mrf);
    void emit_fb_writes();
    void visit_instructions(const exec_list *list);
+protected:
    void emit_instructions(const exec_list *list);
 
 public:
