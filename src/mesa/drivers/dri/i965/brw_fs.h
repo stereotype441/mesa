@@ -390,7 +390,6 @@ public:
       memset(this->outputs, 0, sizeof(this->outputs));
       this->first_non_payload_grf = 0;
 
-      this->current_annotation = NULL;
       this->base_ir = NULL;
 
       this->virtual_grf_sizes = NULL;
@@ -598,7 +597,6 @@ public:
    bool kill_emitted;
 
    /** @{ debug annotation info */
-   const char *current_annotation;
    ir_instruction *base_ir;
    /** @} */
 

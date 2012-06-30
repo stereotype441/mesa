@@ -324,7 +324,6 @@ public:
     * driver IR instructions for debugging purposes.
     */
    ir_instruction *base_ir;
-   const char *current_annotation;
 
    int *virtual_grf_sizes;
    int virtual_grf_count;

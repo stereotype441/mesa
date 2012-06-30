@@ -43,6 +43,10 @@ public:
    bool failed;
    struct hash_table * const variable_ht;
    const unsigned max_grf;
+
+   /** @{ debug annotation info */
+   const char *current_annotation;
+   /** @} */
 };
 
 template<class policy>

@@ -2624,7 +2624,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    : backend_visitor(c, prog, shader)
 {
    this->base_ir = NULL;
-   this->current_annotation = NULL;
 
    this->prog_data = &c->prog_data;
 
