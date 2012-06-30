@@ -81,7 +81,7 @@ fs_visitor::type_size(const struct glsl_type *type)
 }
 
 void
-fs_visitor::fail(const char *format, ...)
+fs_assembly::fail(const char *format, ...)
 {
    va_list va;
    char *msg;

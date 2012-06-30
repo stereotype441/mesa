@@ -353,14 +353,35 @@ public:
    /** @} */
 };
 
-class fs_visitor : protected ir_visitor
+class fs_assembly
+{
+protected:
+   fs_assembly()
+   {
+      this->mem_ctx = ralloc_context(NULL);
+      this->failed = false;
+   }
+
+   ~fs_assembly()
+   {
+      ralloc_free(this->mem_ctx);
+   }
+
+   void fail(const char *msg, ...);
+
+   bool failed;
+public:
+   void *mem_ctx;
+   char *fail_msg;
+};
+
+class fs_visitor : public fs_assembly, protected ir_visitor
 {
    friend class fs_reg;
 
 protected:
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog)
    {
-      this->mem_ctx = ralloc_context(NULL);
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
 					  hash_table_pointer_compare);
@@ -370,7 +391,6 @@ protected:
       this->p = &c->func;
       this->brw = p->brw;
       this->intel = &brw->intel;
-      this->failed = false;
       this->ctx = &intel->ctx;
       this->prog = prog;
       this->fp = (struct gl_fragment_program *)
@@ -405,7 +425,6 @@ protected:
 
    ~fs_visitor()
    {
-      ralloc_free(this->mem_ctx);
       hash_table_dtor(this->variable_ht);
    }
 
@@ -431,8 +450,6 @@ private:
    fs_reg *emit_fragcoord_interpolation(ir_variable *ir);
    fs_reg *emit_frontfacing_interpolation(ir_variable *ir);
    fs_reg *emit_general_interpolation(ir_variable *ir);
-protected:
-   void fail(const char *msg, ...);
 private:
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_uniform_values(int loc, const glsl_type *type);
@@ -519,7 +536,6 @@ protected:
    void emit_instructions(const exec_list *list);
 
 public:
-   void *mem_ctx;
    exec_list instructions;
 private:
    struct hash_table *variable_ht;
@@ -539,10 +555,6 @@ protected:
    struct brw_compile *p;
    struct brw_context *brw;
    struct intel_context *intel;
-   bool failed;
-public:
-   char *fail_msg;
-protected:
    struct gl_context *ctx;
 
 private:
