@@ -595,7 +595,7 @@ public:
    unsigned output_components[BRW_MAX_DRAW_BUFFERS];
    fs_reg dual_src_output;
    int first_non_payload_grf;
-   int max_grf;
+   unsigned max_grf;
    int urb_setup[FRAG_ATTRIB_MAX];
    bool kill_emitted;
 
@@ -617,7 +617,7 @@ public:
    fs_reg delta_y[BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT];
    fs_reg reg_null_cmp;
 
-   int grf_used;
+   unsigned grf_used;
 
    int force_uncompressed_stack;
    int force_sechalf_stack;
