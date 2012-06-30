@@ -436,9 +436,7 @@ protected:
 private:
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_uniform_values(int loc, const glsl_type *type);
-public:
    int type_size(const struct glsl_type *type);
-private:
    bool try_emit_saturate(ir_expression *ir);
    bool try_emit_mad(ir_expression *ir, int mul_arg);
    fs_inst *emit(fs_inst inst);
@@ -471,7 +469,7 @@ private:
 
    fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0);
    fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0, fs_reg src1);
-public:
+protected:
    int virtual_grf_alloc(int size);
 private:
    struct brw_reg interp_reg(int location, int channel);
