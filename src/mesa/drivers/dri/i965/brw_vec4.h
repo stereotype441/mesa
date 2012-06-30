@@ -445,7 +445,6 @@ public:
 			       vec4_instruction *pre_rhs_inst,
 			       vec4_instruction *last_rhs_inst);
 
-   /** Walks an exec_list of ir_instruction and sends it through this visitor. */
    void visit_instructions(const exec_list *list);
 
    void emit_bool_to_cond_code(ir_rvalue *ir, uint32_t *predicate);

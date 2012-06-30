@@ -33,6 +33,10 @@ public:
                           struct brw_shader *shader);
    ~backend_visitor_common();
 
+protected:
+   void visit_instructions(const exec_list *list);
+
+public:
    struct brw_compile * const p;
    struct brw_context * const brw;
    struct gl_shader_program * const prog;

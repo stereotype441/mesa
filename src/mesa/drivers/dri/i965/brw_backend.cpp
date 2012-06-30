@@ -55,3 +55,17 @@ backend_visitor_common::~backend_visitor_common()
    ralloc_free(this->mem_ctx);
    hash_table_dtor(this->variable_ht);
 }
+
+/**
+ * Walks an exec_list of ir_instruction and sends it through this visitor.
+ */
+void
+backend_visitor_common::visit_instructions(const exec_list *list)
+{
+   foreach_list(node, list) {
+      ir_instruction *ir = (ir_instruction *)node;
+
+      base_ir = ir;
+      ir->accept(this);
+   }
+}

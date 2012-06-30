@@ -51,17 +51,6 @@ extern "C" {
 #include "glsl/ir_print_visitor.h"
 
 void
-fs_visitor::visit_instructions(const exec_list *list)
-{
-   foreach_list(node, list) {
-      ir_instruction *ir = (ir_instruction *)node;
-
-      base_ir = ir;
-      ir->accept(this);
-   }
-}
-
-void
 fs_visitor::visit(ir_variable *ir)
 {
    fs_reg *reg = NULL;
