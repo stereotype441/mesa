@@ -51,6 +51,17 @@ extern "C" {
 #include "glsl/ir_print_visitor.h"
 
 void
+fs_visitor::visit_instructions(const exec_list *list)
+{
+   foreach_list(node, list) {
+      ir_instruction *ir = (ir_instruction *)node;
+
+      base_ir = ir;
+      ir->accept(this);
+   }
+}
+
+void
 fs_visitor::visit(ir_variable *ir)
 {
    fs_reg *reg = NULL;
@@ -1711,22 +1722,12 @@ fs_visitor::visit(ir_if *ir)
       inst->predicated = true;
    }
 
-   foreach_list(node, &ir->then_instructions) {
-      ir_instruction *ir = (ir_instruction *)node;
-      this->base_ir = ir;
-
-      ir->accept(this);
-   }
+   visit_instructions(&ir->then_instructions);
 
    if (!ir->else_instructions.is_empty()) {
       emit(BRW_OPCODE_ELSE);
 
-      foreach_list(node, &ir->else_instructions) {
-	 ir_instruction *ir = (ir_instruction *)node;
-	 this->base_ir = ir;
-
-	 ir->accept(this);
-      }
+      visit_instructions(&ir->else_instructions);
    }
 
    emit(BRW_OPCODE_ENDIF);
@@ -1768,12 +1769,7 @@ fs_visitor::visit(ir_loop *ir)
       inst->predicated = true;
    }
 
-   foreach_list(node, &ir->body_instructions) {
-      ir_instruction *ir = (ir_instruction *)node;
-
-      this->base_ir = ir;
-      ir->accept(this);
-   }
+   visit_instructions(&ir->body_instructions);
 
    if (ir->increment) {
       this->base_ir = ir->increment;
@@ -1824,12 +1820,7 @@ fs_visitor::visit(ir_function *ir)
 
       assert(sig);
 
-      foreach_list(node, &sig->body) {
-	 ir_instruction *ir = (ir_instruction *)node;
-	 this->base_ir = ir;
-
-	 ir->accept(this);
-      }
+      visit_instructions(&sig->body);
    }
 }
 

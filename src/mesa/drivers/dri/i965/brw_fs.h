@@ -511,6 +511,7 @@ protected:
    void emit_interpolation_setup_gen6();
    void emit_color_write(int target, int index, int first_color_mrf);
    void emit_fb_writes();
+   void visit_instructions(const exec_list *list);
 
 public:
    void *mem_ctx;
