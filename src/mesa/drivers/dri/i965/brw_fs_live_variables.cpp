@@ -132,7 +132,7 @@ fs_live_variables::compute_live_variables()
    }
 }
 
-fs_live_variables::fs_live_variables(fs_visitor *v, fs_cfg *cfg)
+fs_live_variables::fs_live_variables(fs_compilation *v, fs_cfg *cfg)
    : v(v), cfg(cfg)
 {
    mem_ctx = ralloc_context(cfg->mem_ctx);
@@ -160,7 +160,7 @@ fs_live_variables::~fs_live_variables()
 #define MAX_INSTRUCTION (1 << 30)
 
 void
-fs_visitor::calculate_live_intervals()
+fs_compilation::calculate_live_intervals()
 {
    int num_vars = this->virtual_grf_next;
 
@@ -224,7 +224,7 @@ fs_visitor::calculate_live_intervals()
 }
 
 bool
-fs_visitor::virtual_grf_interferes(int a, int b)
+fs_compilation::virtual_grf_interferes(int a, int b)
 {
    int a_def = this->virtual_grf_def[a], a_use = this->virtual_grf_use[a];
    int b_def = this->virtual_grf_def[b], b_use = this->virtual_grf_use[b];

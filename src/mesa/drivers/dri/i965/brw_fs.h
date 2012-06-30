@@ -356,24 +356,28 @@ public:
 class fs_visitor : public ir_visitor
 {
 public:
-
-   fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
-	      struct brw_shader *shader)
+   fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog)
    {
-      this->c = c;
-      this->p = &c->func;
-      this->brw = p->brw;
-      this->fp = (struct gl_fragment_program *)
-	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
-      this->prog = prog;
-      this->intel = &brw->intel;
-      this->ctx = &intel->ctx;
       this->mem_ctx = ralloc_context(NULL);
-      this->shader = shader;
-      this->failed = false;
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
 					  hash_table_pointer_compare);
+      this->c = c;
+      memset(this->outputs, 0, sizeof(this->outputs));
+      this->frag_depth = NULL;
+      this->p = &c->func;
+      this->brw = p->brw;
+      this->intel = &brw->intel;
+      this->failed = false;
+      this->ctx = &intel->ctx;
+      this->prog = prog;
+      this->fp = (struct gl_fragment_program *)
+	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
+      this->virtual_grf_array_size = 0;
+      this->virtual_grf_next = 0;
+      this->virtual_grf_sizes = NULL;
+      this->kill_emitted = false;
+      this->base_ir = NULL;
 
       /* There's a question that appears to be left open in the spec:
        * How do implicit dst conversions interact with the CMP
@@ -392,24 +396,9 @@ public:
       else
 	 this->reg_null_cmp = reg_null_f;
 
-      this->frag_depth = NULL;
-      memset(this->outputs, 0, sizeof(this->outputs));
-      this->first_non_payload_grf = 0;
-      this->max_grf = intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
-
-      this->current_annotation = NULL;
-      this->base_ir = NULL;
-
-      this->virtual_grf_sizes = NULL;
-      this->virtual_grf_next = 0;
-      this->virtual_grf_array_size = 0;
-      this->virtual_grf_def = NULL;
-      this->virtual_grf_use = NULL;
-      this->live_intervals_valid = false;
-
-      this->kill_emitted = false;
       this->force_uncompressed_stack = 0;
       this->force_sechalf_stack = 0;
+      this->current_annotation = NULL;
    }
 
    ~fs_visitor()
@@ -417,10 +406,6 @@ public:
       ralloc_free(this->mem_ctx);
       hash_table_dtor(this->variable_ht);
    }
-
-   fs_reg *variable_storage(ir_variable *var);
-   int virtual_grf_alloc(int size);
-   void import_uniforms(fs_visitor *v);
 
    void visit(ir_variable *ir);
    void visit(ir_assignment *ir);
@@ -439,9 +424,16 @@ public:
    void visit(ir_call *ir);
    void visit(ir_function *ir);
    void visit(ir_function_signature *ir);
-
-   void swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler);
-
+   fs_reg *variable_storage(ir_variable *var);
+   fs_reg *emit_fragcoord_interpolation(ir_variable *ir);
+   fs_reg *emit_frontfacing_interpolation(ir_variable *ir);
+   fs_reg *emit_general_interpolation(ir_variable *ir);
+   void fail(const char *msg, ...);
+   void setup_builtin_uniform_values(ir_variable *ir);
+   int setup_uniform_values(int loc, const glsl_type *type);
+   int type_size(const struct glsl_type *type);
+   bool try_emit_saturate(ir_expression *ir);
+   bool try_emit_mad(ir_expression *ir, int mul_arg);
    fs_inst *emit(fs_inst inst);
 
    fs_inst *emit(enum opcode opcode)
@@ -470,10 +462,103 @@ public:
       return emit(fs_inst(opcode, dst, src0, src1, src2));
    }
 
-   int type_size(const struct glsl_type *type);
+   fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0);
+   fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0, fs_reg src1);
+   int virtual_grf_alloc(int size);
+   struct brw_reg interp_reg(int location, int channel);
+   fs_inst *emit_linterp(const fs_reg &attr, const fs_reg &interp,
+                         glsl_interp_qualifier interpolation_mode,
+                         bool is_centroid);
+   void resolve_ud_negate(fs_reg *reg);
+   void resolve_bool_comparison(ir_rvalue *rvalue, fs_reg *reg);
+   bool try_rewrite_rhs_to_dst(ir_assignment *ir,
+			       fs_reg dst,
+			       fs_reg src,
+			       fs_inst *pre_rhs_inst,
+			       fs_inst *last_rhs_inst);
+   void emit_bool_to_cond_code(ir_rvalue *condition);
+   void emit_assignment_writes(fs_reg &l, fs_reg &r,
+			       const glsl_type *type, bool predicated);
+   void swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler);
+   fs_inst *emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
+			      int sampler);
+   fs_inst *emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
+			      int sampler);
+   fs_inst *emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
+			      int sampler);
+   void emit_if_gen6(ir_if *ir);
    fs_inst *get_instruction_generating_reg(fs_inst *start,
 					   fs_inst *end,
 					   fs_reg reg);
+
+   void *mem_ctx;
+   exec_list instructions;
+   struct hash_table *variable_ht;
+   fs_reg dual_src_output;
+   struct brw_wm_compile *c;
+   fs_reg outputs[BRW_MAX_DRAW_BUFFERS];
+   unsigned output_components[BRW_MAX_DRAW_BUFFERS];
+   ir_variable *frag_depth;
+
+   /* Result of last visit() method. */
+   fs_reg result;
+
+   struct brw_compile *p;
+   struct brw_context *brw;
+   struct intel_context *intel;
+   bool failed;
+   char *fail_msg;
+   struct gl_context *ctx;
+
+   /* Delayed setup of c->prog_data.params[] due to realloc of
+    * ParamValues[] during compile.
+    */
+   int param_index[MAX_UNIFORMS * 4];
+   int param_offset[MAX_UNIFORMS * 4];
+
+   const struct gl_fragment_program *fp;
+   fs_reg pixel_x;
+   fs_reg pixel_y;
+   fs_reg delta_x[BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT];
+   fs_reg delta_y[BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT];
+   fs_reg wpos_w;
+   int urb_setup[FRAG_ATTRIB_MAX];
+   fs_reg pixel_w;
+   int virtual_grf_array_size;
+   int virtual_grf_next;
+   int *virtual_grf_sizes;
+   struct gl_shader_program *prog;
+   bool kill_emitted;
+
+   /** @{ debug annotation info */
+   const char *current_annotation;
+   ir_instruction *base_ir;
+   /** @} */
+
+   fs_reg reg_null_cmp;
+   int force_uncompressed_stack;
+   int force_sechalf_stack;
+};
+
+class fs_compilation : public fs_visitor
+{
+public:
+
+   fs_compilation(struct brw_wm_compile *c, struct gl_shader_program *prog,
+                  struct brw_shader *shader)
+      : fs_visitor(c, prog)
+   {
+      this->shader = shader;
+
+      this->first_non_payload_grf = 0;
+      this->max_grf = intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
+
+      this->virtual_grf_def = NULL;
+      this->virtual_grf_use = NULL;
+      this->live_intervals_valid = false;
+   }
+
+   void import_uniforms(fs_compilation *v);
 
    bool run();
    void setup_paramvalues_refs();
@@ -502,7 +587,6 @@ public:
    bool remove_duplicate_mrf_writes();
    bool virtual_grf_interferes(int a, int b);
    void schedule_instructions();
-   void fail(const char *msg, ...);
 
    void push_force_uncompressed();
    void pop_force_uncompressed();
@@ -541,65 +625,17 @@ public:
    void generate_pull_constant_load(fs_inst *inst, struct brw_reg dst);
 
    void emit_dummy_fs();
-   fs_reg *emit_fragcoord_interpolation(ir_variable *ir);
-   fs_inst *emit_linterp(const fs_reg &attr, const fs_reg &interp,
-                         glsl_interp_qualifier interpolation_mode,
-                         bool is_centroid);
-   fs_reg *emit_frontfacing_interpolation(ir_variable *ir);
-   fs_reg *emit_general_interpolation(ir_variable *ir);
    void emit_interpolation_setup_gen4();
    void emit_interpolation_setup_gen6();
-   fs_inst *emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler);
-   fs_inst *emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler);
-   fs_inst *emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler);
-   fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0);
-   fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0, fs_reg src1);
-   bool try_emit_saturate(ir_expression *ir);
-   bool try_emit_mad(ir_expression *ir, int mul_arg);
-   void emit_bool_to_cond_code(ir_rvalue *condition);
-   void emit_if_gen6(ir_if *ir);
    void emit_unspill(fs_inst *inst, fs_reg reg, uint32_t spill_offset);
 
    void emit_color_write(int target, int index, int first_color_mrf);
    void emit_fb_writes();
-   bool try_rewrite_rhs_to_dst(ir_assignment *ir,
-			       fs_reg dst,
-			       fs_reg src,
-			       fs_inst *pre_rhs_inst,
-			       fs_inst *last_rhs_inst);
-   void emit_assignment_writes(fs_reg &l, fs_reg &r,
-			       const glsl_type *type, bool predicated);
-   void resolve_ud_negate(fs_reg *reg);
-   void resolve_bool_comparison(ir_rvalue *rvalue, fs_reg *reg);
 
-   struct brw_reg interp_reg(int location, int channel);
-   int setup_uniform_values(int loc, const glsl_type *type);
-   void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
-   struct brw_context *brw;
-   const struct gl_fragment_program *fp;
-   struct intel_context *intel;
-   struct gl_context *ctx;
-   struct brw_wm_compile *c;
-   struct brw_compile *p;
    struct brw_shader *shader;
-   struct gl_shader_program *prog;
-   void *mem_ctx;
-   exec_list instructions;
 
-   /* Delayed setup of c->prog_data.params[] due to realloc of
-    * ParamValues[] during compile.
-    */
-   int param_index[MAX_UNIFORMS * 4];
-   int param_offset[MAX_UNIFORMS * 4];
-
-   int *virtual_grf_sizes;
-   int virtual_grf_next;
-   int virtual_grf_array_size;
    int *virtual_grf_def;
    int *virtual_grf_use;
    bool live_intervals_valid;
@@ -611,39 +647,10 @@ public:
     */
    int *params_remap;
 
-   struct hash_table *variable_ht;
-   ir_variable *frag_depth;
-   fs_reg outputs[BRW_MAX_DRAW_BUFFERS];
-   unsigned output_components[BRW_MAX_DRAW_BUFFERS];
-   fs_reg dual_src_output;
    int first_non_payload_grf;
    int max_grf;
-   int urb_setup[FRAG_ATTRIB_MAX];
-   bool kill_emitted;
-
-   /** @{ debug annotation info */
-   const char *current_annotation;
-   ir_instruction *base_ir;
-   /** @} */
-
-   bool failed;
-   char *fail_msg;
-
-   /* Result of last visit() method. */
-   fs_reg result;
-
-   fs_reg pixel_x;
-   fs_reg pixel_y;
-   fs_reg wpos_w;
-   fs_reg pixel_w;
-   fs_reg delta_x[BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT];
-   fs_reg delta_y[BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT];
-   fs_reg reg_null_cmp;
 
    int grf_used;
-
-   int force_uncompressed_stack;
-   int force_sechalf_stack;
 
    class fs_bblock *bblock;
 };

@@ -81,7 +81,7 @@ operands_match(fs_reg *xs, fs_reg *ys)
 }
 
 bool
-fs_visitor::opt_cse_local(fs_bblock *block, exec_list *aeb)
+fs_compilation::opt_cse_local(fs_bblock *block, exec_list *aeb)
 {
    bool progress = false;
 
@@ -178,7 +178,7 @@ fs_visitor::opt_cse_local(fs_bblock *block, exec_list *aeb)
 }
 
 bool
-fs_visitor::opt_cse()
+fs_compilation::opt_cse()
 {
    bool progress = false;
 

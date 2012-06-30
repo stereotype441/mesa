@@ -112,7 +112,7 @@ public:
 
 class instruction_scheduler {
 public:
-   instruction_scheduler(fs_visitor *v, void *mem_ctx, int virtual_grf_count)
+   instruction_scheduler(fs_compilation *v, void *mem_ctx, int virtual_grf_count)
    {
       this->v = v;
       this->mem_ctx = ralloc_context(mem_ctx);
@@ -140,7 +140,7 @@ public:
    int instructions_to_schedule;
    int virtual_grf_count;
    exec_list instructions;
-   fs_visitor *v;
+   fs_compilation *v;
 };
 
 void
@@ -491,7 +491,7 @@ instruction_scheduler::schedule_instructions(fs_inst *next_block_header)
 }
 
 void
-fs_visitor::schedule_instructions()
+fs_compilation::schedule_instructions()
 {
    fs_inst *next_block_header = (fs_inst *)instructions.head;
    instruction_scheduler sched(this, mem_ctx, this->virtual_grf_next);

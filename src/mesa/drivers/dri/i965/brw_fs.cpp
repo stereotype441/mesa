@@ -104,26 +104,26 @@ fs_visitor::fail(const char *format, ...)
 }
 
 void
-fs_visitor::push_force_uncompressed()
+fs_compilation::push_force_uncompressed()
 {
    force_uncompressed_stack++;
 }
 
 void
-fs_visitor::pop_force_uncompressed()
+fs_compilation::pop_force_uncompressed()
 {
    force_uncompressed_stack--;
    assert(force_uncompressed_stack >= 0);
 }
 
 void
-fs_visitor::push_force_sechalf()
+fs_compilation::push_force_sechalf()
 {
    force_sechalf_stack++;
 }
 
 void
-fs_visitor::pop_force_sechalf()
+fs_compilation::pop_force_sechalf()
 {
    force_sechalf_stack--;
    assert(force_sechalf_stack >= 0);
@@ -136,7 +136,7 @@ fs_visitor::pop_force_sechalf()
  * instruction -- the FS opcodes often generate MOVs in addition.
  */
 int
-fs_visitor::implied_mrf_writes(fs_inst *inst)
+fs_compilation::implied_mrf_writes(fs_inst *inst)
 {
    if (inst->mlen == 0)
       return 0;
@@ -242,7 +242,7 @@ import_uniforms_callback(const void *key,
  * This brings in those uniform definitions
  */
 void
-fs_visitor::import_uniforms(fs_visitor *v)
+fs_compilation::import_uniforms(fs_compilation *v)
 {
    hash_table_call_foreach(v->variable_ht,
 			   import_uniforms_callback,
@@ -659,7 +659,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
  * setup_pull_constants().
  */
 void
-fs_visitor::setup_paramvalues_refs()
+fs_compilation::setup_paramvalues_refs()
 {
    if (c->dispatch_width != 8)
       return;
@@ -673,7 +673,7 @@ fs_visitor::setup_paramvalues_refs()
 }
 
 void
-fs_visitor::assign_curb_setup()
+fs_compilation::assign_curb_setup()
 {
    c->prog_data.curb_read_length = ALIGN(c->prog_data.nr_params, 8) / 8;
    if (c->dispatch_width == 8) {
@@ -701,7 +701,7 @@ fs_visitor::assign_curb_setup()
 }
 
 void
-fs_visitor::calculate_urb_setup()
+fs_compilation::calculate_urb_setup()
 {
    for (unsigned int i = 0; i < FRAG_ATTRIB_MAX; i++) {
       urb_setup[i] = -1;
@@ -741,7 +741,7 @@ fs_visitor::calculate_urb_setup()
 }
 
 void
-fs_visitor::assign_urb_setup()
+fs_compilation::assign_urb_setup()
 {
    int urb_start = c->nr_payload_regs + c->prog_data.curb_read_length;
 
@@ -784,7 +784,7 @@ fs_visitor::assign_urb_setup()
  * live intervals and better dead code elimination and coalescing.
  */
 void
-fs_visitor::split_virtual_grfs()
+fs_compilation::split_virtual_grfs()
 {
    int num_vars = this->virtual_grf_next;
    bool split_grf[num_vars];
@@ -857,7 +857,7 @@ fs_visitor::split_virtual_grfs()
 }
 
 bool
-fs_visitor::remove_dead_constants()
+fs_compilation::remove_dead_constants()
 {
    if (c->dispatch_width == 8) {
       this->params_remap = ralloc_array(mem_ctx, int, c->prog_data.nr_params);
@@ -947,7 +947,7 @@ fs_visitor::remove_dead_constants()
  * update the program to load them.
  */
 void
-fs_visitor::setup_pull_constants()
+fs_compilation::setup_pull_constants()
 {
    /* Only allow 16 registers (128 uniform components) as push constants. */
    unsigned int max_uniform_components = 16 * 8;
@@ -1012,7 +1012,7 @@ fs_visitor::setup_pull_constants()
  */
 
 bool
-fs_visitor::propagate_constants()
+fs_compilation::propagate_constants()
 {
    bool progress = false;
 
@@ -1171,7 +1171,7 @@ fs_visitor::propagate_constants()
  */
 
 bool
-fs_visitor::opt_algebraic()
+fs_compilation::opt_algebraic()
 {
    bool progress = false;
 
@@ -1210,7 +1210,7 @@ fs_visitor::opt_algebraic()
  * interfere with other regs.
  */
 bool
-fs_visitor::dead_code_eliminate()
+fs_compilation::dead_code_eliminate()
 {
    bool progress = false;
    int pc = 0;
@@ -1240,7 +1240,7 @@ fs_visitor::dead_code_eliminate()
  * they can both by stored in the same place and the MOV removed.
  */
 bool
-fs_visitor::register_coalesce_2()
+fs_compilation::register_coalesce_2()
 {
    bool progress = false;
 
@@ -1295,7 +1295,7 @@ fs_visitor::register_coalesce_2()
 }
 
 bool
-fs_visitor::register_coalesce()
+fs_compilation::register_coalesce()
 {
    bool progress = false;
    int if_depth = 0;
@@ -1425,7 +1425,7 @@ fs_visitor::register_coalesce()
 
 
 bool
-fs_visitor::compute_to_mrf()
+fs_compilation::compute_to_mrf()
 {
    bool progress = false;
    int next_ip = 0;
@@ -1601,7 +1601,7 @@ fs_visitor::compute_to_mrf()
  * removing the later ones.
  */
 bool
-fs_visitor::remove_duplicate_mrf_writes()
+fs_compilation::remove_duplicate_mrf_writes()
 {
    fs_inst *last_mrf_move[16];
    bool progress = false;
@@ -1687,8 +1687,8 @@ fs_visitor::remove_duplicate_mrf_writes()
  */
 fs_inst *
 fs_visitor::get_instruction_generating_reg(fs_inst *start,
-					   fs_inst *end,
-					   fs_reg reg)
+                                           fs_inst *end,
+                                           fs_reg reg)
 {
    if (end == start ||
        end->predicated ||
@@ -1702,7 +1702,7 @@ fs_visitor::get_instruction_generating_reg(fs_inst *start,
 }
 
 bool
-fs_visitor::run()
+fs_compilation::run()
 {
    uint32_t prog_offset_16 = 0;
    uint32_t orig_nr_params = c->prog_data.nr_params;
@@ -1835,7 +1835,7 @@ brw_wm_fs_emit(struct brw_context *brw, struct brw_wm_compile *c,
     */
    c->dispatch_width = 8;
 
-   fs_visitor v(c, prog, shader);
+   fs_compilation v(c, prog, shader);
    if (!v.run()) {
       prog->LinkStatus = false;
       ralloc_strcat(&prog->InfoLog, v.fail_msg);
@@ -1848,7 +1848,7 @@ brw_wm_fs_emit(struct brw_context *brw, struct brw_wm_compile *c,
 
    if (intel->gen >= 5 && c->prog_data.nr_pull_params == 0) {
       c->dispatch_width = 16;
-      fs_visitor v2(c, prog, shader);
+      fs_compilation v2(c, prog, shader);
       v2.import_uniforms(&v);
       v2.run();
    }

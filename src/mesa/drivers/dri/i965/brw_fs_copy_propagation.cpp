@@ -44,8 +44,8 @@ struct acp_entry : public exec_node {
  * list.
  */
 bool
-fs_visitor::opt_copy_propagate_local(void *mem_ctx,
-				     fs_bblock *block, exec_list *acp)
+fs_compilation::opt_copy_propagate_local(void *mem_ctx,
+                                         fs_bblock *block, exec_list *acp)
 {
    bool progress = false;
 
@@ -117,7 +117,7 @@ fs_visitor::opt_copy_propagate_local(void *mem_ctx,
 }
 
 bool
-fs_visitor::opt_copy_propagate()
+fs_compilation::opt_copy_propagate()
 {
    bool progress = false;
    void *mem_ctx = ralloc_context(this->mem_ctx);

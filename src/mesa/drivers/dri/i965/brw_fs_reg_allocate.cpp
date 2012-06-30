@@ -41,7 +41,7 @@ assign_reg(int *reg_hw_locations, fs_reg *reg, int reg_width)
 }
 
 void
-fs_visitor::assign_regs_trivial()
+fs_compilation::assign_regs_trivial()
 {
    int hw_reg_mapping[this->virtual_grf_next + 1];
    int i;
@@ -146,7 +146,7 @@ brw_alloc_reg_set_for_classes(struct brw_context *brw,
 }
 
 bool
-fs_visitor::assign_regs()
+fs_compilation::assign_regs()
 {
    /* Most of this allocation was written for a reg_width of 1
     * (dispatch_width == 8).  In extending to 16-wide, the code was
@@ -279,7 +279,7 @@ fs_visitor::assign_regs()
 }
 
 void
-fs_visitor::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset)
+fs_compilation::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset)
 {
    int size = virtual_grf_sizes[dst.reg];
    dst.reg_offset = 0;
@@ -302,7 +302,7 @@ fs_visitor::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset)
 }
 
 int
-fs_visitor::choose_spill_reg(struct ra_graph *g)
+fs_compilation::choose_spill_reg(struct ra_graph *g)
 {
    float loop_scale = 1.0;
    float spill_costs[this->virtual_grf_next];
@@ -366,7 +366,7 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
 }
 
 void
-fs_visitor::spill_reg(int spill_reg)
+fs_compilation::spill_reg(int spill_reg)
 {
    int size = virtual_grf_sizes[spill_reg];
    unsigned int spill_offset = c->last_scratch;

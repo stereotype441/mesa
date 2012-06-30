@@ -576,7 +576,7 @@ fs_visitor::visit(ir_expression *ir)
 
 void
 fs_visitor::emit_assignment_writes(fs_reg &l, fs_reg &r,
-				   const glsl_type *type, bool predicated)
+                                   const glsl_type *type, bool predicated)
 {
    switch (type->base_type) {
    case GLSL_TYPE_FLOAT:
@@ -702,7 +702,7 @@ fs_visitor::visit(ir_assignment *ir)
 
 fs_inst *
 fs_visitor::emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler)
+                              int sampler)
 {
    int mlen;
    int base_mrf = 1;
@@ -889,7 +889,7 @@ fs_visitor::emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
  */
 fs_inst *
 fs_visitor::emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler)
+                              int sampler)
 {
    int mlen = 0;
    int base_mrf = 2;
@@ -1021,7 +1021,7 @@ fs_visitor::emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
 
 fs_inst *
 fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
-			      int sampler)
+                              int sampler)
 {
    int mlen = 0;
    int base_mrf = 2;
@@ -1861,7 +1861,7 @@ fs_visitor::emit(fs_inst inst)
 
 /** Emits a dummy fragment shader consisting of magenta for bringup purposes. */
 void
-fs_visitor::emit_dummy_fs()
+fs_compilation::emit_dummy_fs()
 {
    int reg_width = c->dispatch_width / 8;
 
@@ -1895,7 +1895,7 @@ fs_visitor::interp_reg(int location, int channel)
 
 /** Emits the interpolation for the varying inputs. */
 void
-fs_visitor::emit_interpolation_setup_gen4()
+fs_compilation::emit_interpolation_setup_gen4()
 {
    this->current_annotation = "compute pixel centers";
    this->pixel_x = fs_reg(this, glsl_type::uint_type);
@@ -1941,7 +1941,7 @@ fs_visitor::emit_interpolation_setup_gen4()
 
 /** Emits the interpolation for the varying inputs. */
 void
-fs_visitor::emit_interpolation_setup_gen6()
+fs_compilation::emit_interpolation_setup_gen6()
 {
    struct brw_reg g1_uw = retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UW);
 
@@ -1984,7 +1984,7 @@ fs_visitor::emit_interpolation_setup_gen6()
 }
 
 void
-fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
+fs_compilation::emit_color_write(int target, int index, int first_color_mrf)
 {
    int reg_width = c->dispatch_width / 8;
    fs_inst *inst;
@@ -2061,7 +2061,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 }
 
 void
-fs_visitor::emit_fb_writes()
+fs_compilation::emit_fb_writes()
 {
    this->current_annotation = "FB write header";
    bool header_present = true;

@@ -38,7 +38,7 @@ extern "C" {
 #include "glsl/ir_print_visitor.h"
 
 void
-fs_visitor::generate_fb_write(fs_inst *inst)
+fs_compilation::generate_fb_write(fs_inst *inst)
 {
    bool eot = inst->eot;
    struct brw_reg implied_header;
@@ -107,7 +107,7 @@ fs_visitor::generate_fb_write(fs_inst *inst)
  * interpolation.
  */
 void
-fs_visitor::generate_pixel_xy(struct brw_reg dst, bool is_x)
+fs_compilation::generate_pixel_xy(struct brw_reg dst, bool is_x)
 {
    struct brw_reg g1_uw = retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UW);
    struct brw_reg src;
@@ -135,8 +135,8 @@ fs_visitor::generate_pixel_xy(struct brw_reg dst, bool is_x)
 }
 
 void
-fs_visitor::generate_linterp(fs_inst *inst,
-			     struct brw_reg dst, struct brw_reg *src)
+fs_compilation::generate_linterp(fs_inst *inst,
+                                 struct brw_reg dst, struct brw_reg *src)
 {
    struct brw_reg delta_x = src[0];
    struct brw_reg delta_y = src[1];
@@ -153,9 +153,9 @@ fs_visitor::generate_linterp(fs_inst *inst,
 }
 
 void
-fs_visitor::generate_math1_gen7(fs_inst *inst,
-			        struct brw_reg dst,
-			        struct brw_reg src0)
+fs_compilation::generate_math1_gen7(fs_inst *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0)
 {
    assert(inst->mlen == 0);
    brw_math(p, dst,
@@ -168,19 +168,19 @@ fs_visitor::generate_math1_gen7(fs_inst *inst,
 }
 
 void
-fs_visitor::generate_math2_gen7(fs_inst *inst,
-			        struct brw_reg dst,
-			        struct brw_reg src0,
-			        struct brw_reg src1)
+fs_compilation::generate_math2_gen7(fs_inst *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0,
+                                    struct brw_reg src1)
 {
    assert(inst->mlen == 0);
    brw_math2(p, dst, brw_math_function(inst->opcode), src0, src1);
 }
 
 void
-fs_visitor::generate_math1_gen6(fs_inst *inst,
-			        struct brw_reg dst,
-			        struct brw_reg src0)
+fs_compilation::generate_math1_gen6(fs_inst *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0)
 {
    int op = brw_math_function(inst->opcode);
 
@@ -209,10 +209,10 @@ fs_visitor::generate_math1_gen6(fs_inst *inst,
 }
 
 void
-fs_visitor::generate_math2_gen6(fs_inst *inst,
-			        struct brw_reg dst,
-			        struct brw_reg src0,
-			        struct brw_reg src1)
+fs_compilation::generate_math2_gen6(fs_inst *inst,
+                                    struct brw_reg dst,
+                                    struct brw_reg src0,
+                                    struct brw_reg src1)
 {
    int op = brw_math_function(inst->opcode);
 
@@ -229,9 +229,9 @@ fs_visitor::generate_math2_gen6(fs_inst *inst,
 }
 
 void
-fs_visitor::generate_math_gen4(fs_inst *inst,
-			       struct brw_reg dst,
-			       struct brw_reg src)
+fs_compilation::generate_math_gen4(fs_inst *inst,
+                                   struct brw_reg dst,
+                                   struct brw_reg src)
 {
    int op = brw_math_function(inst->opcode);
 
@@ -261,7 +261,7 @@ fs_visitor::generate_math_gen4(fs_inst *inst,
 }
 
 void
-fs_visitor::generate_tex(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
+fs_compilation::generate_tex(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
 {
    int msg_type = -1;
    int rlen = 4;
@@ -424,7 +424,7 @@ fs_visitor::generate_tex(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
  * ((ss0.tl - ss0.bl)x4 (ss1.tl - ss1.bl)x4)
  */
 void
-fs_visitor::generate_ddx(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
+fs_compilation::generate_ddx(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
 {
    struct brw_reg src0 = brw_reg(src.file, src.nr, 1,
 				 BRW_REGISTER_TYPE_F,
@@ -446,8 +446,8 @@ fs_visitor::generate_ddx(fs_inst *inst, struct brw_reg dst, struct brw_reg src)
  * left.
  */
 void
-fs_visitor::generate_ddy(fs_inst *inst, struct brw_reg dst, struct brw_reg src,
-                         bool negate_value)
+fs_compilation::generate_ddy(fs_inst *inst, struct brw_reg dst, struct brw_reg src,
+                             bool negate_value)
 {
    struct brw_reg src0 = brw_reg(src.file, src.nr, 0,
 				 BRW_REGISTER_TYPE_F,
@@ -468,7 +468,7 @@ fs_visitor::generate_ddy(fs_inst *inst, struct brw_reg dst, struct brw_reg src,
 }
 
 void
-fs_visitor::generate_discard(fs_inst *inst)
+fs_compilation::generate_discard(fs_inst *inst)
 {
    struct brw_reg f0 = brw_flag_reg();
 
@@ -520,7 +520,7 @@ fs_visitor::generate_discard(fs_inst *inst)
 }
 
 void
-fs_visitor::generate_spill(fs_inst *inst, struct brw_reg src)
+fs_compilation::generate_spill(fs_inst *inst, struct brw_reg src)
 {
    assert(inst->mlen != 0);
 
@@ -532,7 +532,7 @@ fs_visitor::generate_spill(fs_inst *inst, struct brw_reg src)
 }
 
 void
-fs_visitor::generate_unspill(fs_inst *inst, struct brw_reg dst)
+fs_compilation::generate_unspill(fs_inst *inst, struct brw_reg dst)
 {
    assert(inst->mlen != 0);
 
@@ -562,7 +562,7 @@ fs_visitor::generate_unspill(fs_inst *inst, struct brw_reg dst)
 }
 
 void
-fs_visitor::generate_pull_constant_load(fs_inst *inst, struct brw_reg dst)
+fs_compilation::generate_pull_constant_load(fs_inst *inst, struct brw_reg dst)
 {
    assert(inst->mlen != 0);
 
@@ -668,7 +668,7 @@ brw_reg_from_fs_reg(fs_reg *reg)
 }
 
 void
-fs_visitor::generate_code()
+fs_compilation::generate_code()
 {
    int last_native_inst = p->nr_insn;
    const char *last_annotation_string = NULL;
