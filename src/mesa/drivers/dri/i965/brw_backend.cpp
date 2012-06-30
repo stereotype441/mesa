@@ -42,7 +42,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      max_grf(intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF),
      current_annotation(NULL),
      base_ir(NULL),
-     virtual_grf_sizes(NULL)
+     virtual_grf_sizes(NULL),
+     virtual_grf_array_size(0)
 {
 }
 

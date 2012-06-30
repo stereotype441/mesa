@@ -2630,7 +2630,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->virtual_grf_count = 0;
    this->virtual_grf_reg_map = NULL;
    this->virtual_grf_reg_count = 0;
-   this->virtual_grf_array_size = 0;
    this->live_intervals_valid = false;
 
    this->uniforms = 0;

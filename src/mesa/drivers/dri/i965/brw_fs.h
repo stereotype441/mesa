@@ -391,7 +391,6 @@ public:
       this->first_non_payload_grf = 0;
 
       this->virtual_grf_next = 0;
-      this->virtual_grf_array_size = 0;
       this->virtual_grf_def = NULL;
       this->virtual_grf_use = NULL;
       this->live_intervals_valid = false;
@@ -572,7 +571,6 @@ public:
    int param_offset[MAX_UNIFORMS * 4];
 
    int virtual_grf_next;
-   int virtual_grf_array_size;
    int *virtual_grf_def;
    int *virtual_grf_use;
    bool live_intervals_valid;
