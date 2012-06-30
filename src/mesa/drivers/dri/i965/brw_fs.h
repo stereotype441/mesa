@@ -568,9 +568,7 @@ private:
 
    /** @{ debug annotation info */
    const char *current_annotation;
-protected:
    ir_instruction *base_ir;
-private:
    /** @} */
 
    fs_reg reg_null_cmp;
