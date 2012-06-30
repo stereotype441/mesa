@@ -38,7 +38,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      failed(false),
      variable_ht(hash_table_ctor(0,
                                  hash_table_pointer_hash,
-                                 hash_table_pointer_compare))
+                                 hash_table_pointer_compare)),
+     max_grf(intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF)
 {
 }
 

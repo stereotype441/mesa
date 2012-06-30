@@ -42,6 +42,7 @@ public:
    struct brw_shader * const shader;
    bool failed;
    struct hash_table * const variable_ht;
+   const unsigned max_grf;
 };
 
 template<class policy>

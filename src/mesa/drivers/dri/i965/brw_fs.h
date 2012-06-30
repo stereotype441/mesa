@@ -389,7 +389,6 @@ public:
       this->frag_depth = NULL;
       memset(this->outputs, 0, sizeof(this->outputs));
       this->first_non_payload_grf = 0;
-      this->max_grf = intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
 
       this->current_annotation = NULL;
       this->base_ir = NULL;
@@ -595,7 +594,6 @@ public:
    unsigned output_components[BRW_MAX_DRAW_BUFFERS];
    fs_reg dual_src_output;
    int first_non_payload_grf;
-   unsigned max_grf;
    int urb_setup[FRAG_ATTRIB_MAX];
    bool kill_emitted;
 
