@@ -368,7 +368,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c)
    {
-      this->p = &c->func;
       this->brw = p->brw;
       this->fp = (struct gl_fragment_program *)
 	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
@@ -591,7 +590,6 @@ public:
    const struct gl_fragment_program *fp;
    struct intel_context *intel;
    struct gl_context *ctx;
-   struct brw_compile *p;
    struct brw_shader *shader;
    struct gl_shader_program *prog;
    void *mem_ctx;

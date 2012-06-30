@@ -35,7 +35,6 @@ extern "C" {
 #include "brw_eu.h"
 };
 
-#include "glsl/ir.h"
 #include "brw_backend.h"
 
 namespace brw {
@@ -320,7 +319,6 @@ public:
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_vs_prog_data *prog_data;
-   struct brw_compile *p;
    struct brw_shader *shader;
    struct gl_shader_program *prog;
    void *mem_ctx;
