@@ -355,6 +355,8 @@ public:
 
 class fs_visitor : protected ir_visitor
 {
+   friend class fs_reg;
+
 protected:
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog)
    {
