@@ -1737,7 +1737,7 @@ fs_visitor::run()
    if (failed)
       return false;
 
-   emit_fb_writes();
+   epilogue();
 
    split_virtual_grfs();
 

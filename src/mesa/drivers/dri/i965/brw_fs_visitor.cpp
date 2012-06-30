@@ -2022,7 +2022,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 }
 
 void
-fs_visitor::emit_fb_writes()
+fs_visitor::epilogue()
 {
    this->current_annotation = "FB write header";
    bool header_present = true;

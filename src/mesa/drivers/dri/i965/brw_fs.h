@@ -544,7 +544,7 @@ public:
    void emit_unspill(fs_inst *inst, fs_reg reg, uint32_t spill_offset);
 
    void emit_color_write(int target, int index, int first_color_mrf);
-   void emit_fb_writes();
+   void epilogue();
    bool try_rewrite_rhs_to_dst(ir_assignment *ir,
 			       fs_reg dst,
 			       fs_reg src,
