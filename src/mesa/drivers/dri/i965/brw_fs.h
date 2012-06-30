@@ -370,7 +370,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c, prog)
    {
-      this->intel = &brw->intel;
       this->ctx = &intel->ctx;
       this->mem_ctx = ralloc_context(NULL);
       this->shader = shader;
@@ -584,7 +583,6 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
-   struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_shader *shader;
    void *mem_ctx;
