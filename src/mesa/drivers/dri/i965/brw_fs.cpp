@@ -1737,6 +1737,26 @@ fs_visitor::pre_optimize()
    setup_pull_constants();
 }
 
+void
+fs_visitor::optimize()
+{
+   bool progress;
+   do {
+      progress = false;
+
+      progress = remove_duplicate_mrf_writes() || progress;
+
+      progress = propagate_constants() || progress;
+      progress = opt_algebraic() || progress;
+      progress = opt_cse() || progress;
+      progress = opt_copy_propagate() || progress;
+      progress = register_coalesce() || progress;
+      progress = register_coalesce_2() || progress;
+      progress = compute_to_mrf() || progress;
+      progress = dead_code_eliminate() || progress;
+   } while (progress);
+}
+
 bool
 fs_visitor::run()
 {
@@ -1753,21 +1773,7 @@ fs_visitor::run()
 
    pre_optimize();
 
-   bool progress;
-   do {
-      progress = false;
-
-      progress = remove_duplicate_mrf_writes() || progress;
-
-      progress = propagate_constants() || progress;
-      progress = opt_algebraic() || progress;
-      progress = opt_cse() || progress;
-      progress = opt_copy_propagate() || progress;
-      progress = register_coalesce() || progress;
-      progress = register_coalesce_2() || progress;
-      progress = compute_to_mrf() || progress;
-      progress = dead_code_eliminate() || progress;
-   } while (progress);
+   optimize();
 
    remove_dead_constants();
 
