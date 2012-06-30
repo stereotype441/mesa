@@ -788,6 +788,19 @@ vec4_visitor::pre_optimize()
    move_push_constants_to_pull_constants();
 }
 
+void
+vec4_visitor::optimize()
+{
+   bool progress;
+   do {
+      progress = false;
+      progress = dead_code_eliminate() || progress;
+      progress = opt_copy_propagation() || progress;
+      progress = opt_algebraic() || progress;
+      progress = opt_compute_to_mrf() || progress;
+   } while (progress);
+}
+
 bool
 vec4_visitor::run()
 {
@@ -802,15 +815,7 @@ vec4_visitor::run()
 
    pre_optimize();
 
-   bool progress;
-   do {
-      progress = false;
-      progress = dead_code_eliminate() || progress;
-      progress = opt_copy_propagation() || progress;
-      progress = opt_algebraic() || progress;
-      progress = opt_compute_to_mrf() || progress;
-   } while (progress);
-
+   optimize();
 
    if (failed)
       return false;
