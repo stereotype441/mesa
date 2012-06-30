@@ -41,7 +41,6 @@ extern "C" {
 #include "program/prog_optimize.h"
 #include "program/register_allocate.h"
 #include "program/sampler.h"
-#include "program/hash_table.h"
 #include "brw_context.h"
 #include "brw_eu.h"
 #include "brw_wm.h"
@@ -370,10 +369,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c, prog, shader)
    {
-      this->variable_ht = hash_table_ctor(0,
-					  hash_table_pointer_hash,
-					  hash_table_pointer_compare);
-
       /* There's a question that appears to be left open in the spec:
        * How do implicit dst conversions interact with the CMP
        * instruction or conditional mods?  On gen6, the instruction:
@@ -409,11 +404,6 @@ public:
       this->kill_emitted = false;
       this->force_uncompressed_stack = 0;
       this->force_sechalf_stack = 0;
-   }
-
-   ~fs_visitor()
-   {
-      hash_table_dtor(this->variable_ht);
    }
 
    fs_reg *variable_storage(ir_variable *var);
@@ -600,7 +590,6 @@ public:
     */
    int *params_remap;
 
-   struct hash_table *variable_ht;
    ir_variable *frag_depth;
    fs_reg outputs[BRW_MAX_DRAW_BUFFERS];
    unsigned output_components[BRW_MAX_DRAW_BUFFERS];

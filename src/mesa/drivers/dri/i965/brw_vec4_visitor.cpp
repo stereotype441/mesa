@@ -2628,10 +2628,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 
    this->prog_data = &c->prog_data;
 
-   this->variable_ht = hash_table_ctor(0,
-				       hash_table_pointer_hash,
-				       hash_table_pointer_compare);
-
    this->virtual_grf_def = NULL;
    this->virtual_grf_use = NULL;
    this->virtual_grf_sizes = NULL;
@@ -2644,11 +2640,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->max_grf = intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
 
    this->uniforms = 0;
-}
-
-vec4_visitor::~vec4_visitor()
-{
-   hash_table_dtor(this->variable_ht);
 }
 
 

@@ -27,7 +27,6 @@
 #include <stdint.h>
 #include "brw_shader.h"
 #include "main/compiler.h"
-#include "program/hash_table.h"
 
 extern "C" {
 #include "brw_vs.h"
@@ -304,7 +303,6 @@ class vec4_visitor : public backend_visitor<vec4_policy>
 public:
    vec4_visitor(struct brw_vs_compile *c,
 		struct gl_shader_program *prog, struct brw_shader *shader);
-   ~vec4_visitor();
 
    dst_reg dst_null_f()
    {
@@ -390,8 +388,6 @@ public:
    int uniform_size[MAX_UNIFORMS];
    int uniform_vector_size[MAX_UNIFORMS];
    int uniforms;
-
-   struct hash_table *variable_ht;
 
    bool run(void);
    void fail(const char *msg, ...);

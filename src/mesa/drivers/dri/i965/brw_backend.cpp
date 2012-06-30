@@ -35,11 +35,15 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      ctx(&intel->ctx),
      mem_ctx(ralloc_context(NULL)),
      shader(shader),
-     failed(false)
+     failed(false),
+     variable_ht(hash_table_ctor(0,
+                                 hash_table_pointer_hash,
+                                 hash_table_pointer_compare))
 {
 }
 
 backend_visitor_common::~backend_visitor_common()
 {
    ralloc_free(this->mem_ctx);
+   hash_table_dtor(this->variable_ht);
 }

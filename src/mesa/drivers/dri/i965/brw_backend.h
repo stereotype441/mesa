@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include "program/hash_table.h"
 #include "glsl/ir.h"
 
 class backend_visitor_common : public ir_visitor
@@ -40,6 +41,7 @@ public:
    void * const mem_ctx;
    struct brw_shader * const shader;
    bool failed;
+   struct hash_table * const variable_ht;
 };
 
 template<class policy>
