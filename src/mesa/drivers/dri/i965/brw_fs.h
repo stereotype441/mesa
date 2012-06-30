@@ -562,6 +562,7 @@ public:
 
 private:
    void prologue();
+   void visit_instructions(const exec_list *list);
 
 public:
    exec_list instructions;

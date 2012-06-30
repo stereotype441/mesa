@@ -1733,12 +1733,7 @@ fs_visitor::run()
    /* Generate FS IR for main().  (the visitor only descends into
     * functions called "main").
     */
-   foreach_list(node, &*shader->ir) {
-      ir_instruction *ir = (ir_instruction *)node;
-      base_ir = ir;
-      this->result = reg_undef;
-      ir->accept(this);
-   }
+   visit_instructions(&*shader->ir);
    if (failed)
       return false;
 
