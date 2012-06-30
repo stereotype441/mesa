@@ -562,6 +562,7 @@ public:
 
 private:
    void prologue();
+   void pre_optimize();
 
 public:
    exec_list instructions;

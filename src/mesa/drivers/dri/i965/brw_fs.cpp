@@ -1725,6 +1725,18 @@ fs_visitor::prologue()
       emit_interpolation_setup_gen6();
 }
 
+void
+fs_visitor::pre_optimize()
+{
+   assert(force_uncompressed_stack == 0);
+   assert(force_sechalf_stack == 0);
+
+   split_virtual_grfs();
+
+   setup_paramvalues_refs();
+   setup_pull_constants();
+}
+
 bool
 fs_visitor::run()
 {
@@ -1739,10 +1751,7 @@ fs_visitor::run()
 
    epilogue();
 
-   split_virtual_grfs();
-
-   setup_paramvalues_refs();
-   setup_pull_constants();
+   pre_optimize();
 
    bool progress;
    do {
@@ -1783,8 +1792,6 @@ fs_visitor::run()
             break;
       }
    }
-   assert(force_uncompressed_stack == 0);
-   assert(force_sechalf_stack == 0);
 
    if (failed)
       return false;
