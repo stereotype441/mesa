@@ -766,11 +766,17 @@ vec4_visitor::generate_vs_instruction(vec4_instruction *instruction,
    }
 }
 
-bool
-vec4_visitor::run()
+void
+vec4_visitor::prologue()
 {
    if (c->key.userclip_active && !c->key.uses_clip_distance)
       setup_uniform_clipplane_values();
+}
+
+bool
+vec4_visitor::run()
+{
+   prologue();
 
    /* Generate VS IR for main().  (the visitor only descends into
     * functions called "main").
