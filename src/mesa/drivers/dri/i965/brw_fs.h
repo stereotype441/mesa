@@ -560,6 +560,10 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
+private:
+   void prologue();
+
+public:
    exec_list instructions;
 
    /* Delayed setup of c->prog_data.params[] due to realloc of

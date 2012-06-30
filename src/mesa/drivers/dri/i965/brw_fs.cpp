@@ -1701,8 +1701,8 @@ fs_visitor::get_instruction_generating_reg(fs_inst *start,
    }
 }
 
-bool
-fs_visitor::run()
+void
+fs_visitor::prologue()
 {
    brw_wm_payload_setup(brw, c);
 
@@ -1723,6 +1723,12 @@ fs_visitor::run()
       emit_interpolation_setup_gen4();
    else
       emit_interpolation_setup_gen6();
+}
+
+bool
+fs_visitor::run()
+{
+   prologue();
 
    /* Generate FS IR for main().  (the visitor only descends into
     * functions called "main").
