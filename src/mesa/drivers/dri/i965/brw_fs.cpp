@@ -104,26 +104,26 @@ fs_visitor::fail(const char *format, ...)
 }
 
 void
-fs_compilation::push_force_uncompressed()
+fs_visitor::push_force_uncompressed()
 {
    force_uncompressed_stack++;
 }
 
 void
-fs_compilation::pop_force_uncompressed()
+fs_visitor::pop_force_uncompressed()
 {
    force_uncompressed_stack--;
    assert(force_uncompressed_stack >= 0);
 }
 
 void
-fs_compilation::push_force_sechalf()
+fs_visitor::push_force_sechalf()
 {
    force_sechalf_stack++;
 }
 
 void
-fs_compilation::pop_force_sechalf()
+fs_visitor::pop_force_sechalf()
 {
    force_sechalf_stack--;
    assert(force_sechalf_stack >= 0);
@@ -242,7 +242,7 @@ import_uniforms_callback(const void *key,
  * This brings in those uniform definitions
  */
 void
-fs_compilation::import_uniforms(fs_compilation *v)
+fs_visitor::import_uniforms(fs_visitor *v)
 {
    hash_table_call_foreach(v->variable_ht,
 			   import_uniforms_callback,
@@ -659,7 +659,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
  * setup_pull_constants().
  */
 void
-fs_compilation::setup_paramvalues_refs()
+fs_visitor::setup_paramvalues_refs()
 {
    if (c->dispatch_width != 8)
       return;
@@ -701,7 +701,7 @@ fs_compilation::assign_curb_setup()
 }
 
 void
-fs_compilation::calculate_urb_setup()
+fs_visitor::calculate_urb_setup()
 {
    for (unsigned int i = 0; i < FRAG_ATTRIB_MAX; i++) {
       urb_setup[i] = -1;
