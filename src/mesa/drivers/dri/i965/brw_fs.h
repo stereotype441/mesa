@@ -517,7 +517,7 @@ public:
    exec_list instructions;
 private:
    struct hash_table *variable_ht;
-protected:
+private:
    fs_reg dual_src_output;
 public:
    struct brw_wm_compile *c;
