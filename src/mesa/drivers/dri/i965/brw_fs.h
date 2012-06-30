@@ -367,7 +367,9 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
-      : backend_visitor(c, prog, shader)
+      : backend_visitor(c, prog, shader),
+        prog_offset_16(0),
+        orig_nr_params(c->prog_data.nr_params)
    {
       /* There's a question that appears to be left open in the spec:
        * How do implicit dst conversions interact with the CMP
@@ -602,6 +604,19 @@ public:
    int force_sechalf_stack;
 
    class fs_bblock *bblock;
+
+   /**
+    * Provisional value of c->prog_data.prog_offset_16.  This is transferred
+    * to prog_data if the 16-wide compilation is successful.
+    */
+   uint32_t prog_offset_16;
+
+   /**
+    * Value of c->prog_data.nr_params when the visitor was constructed.  This
+    * is used to verify that the 16-wide program didn't try to use a different
+    * number of uniforms from the 8-wide program.
+    */
+   const uint32_t orig_nr_params;
 };
 
 bool brw_do_channel_expressions(struct exec_list *instructions);

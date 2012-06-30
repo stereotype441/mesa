@@ -1704,9 +1704,6 @@ fs_visitor::get_instruction_generating_reg(fs_inst *start,
 bool
 fs_visitor::run()
 {
-   uint32_t prog_offset_16 = 0;
-   uint32_t orig_nr_params = c->prog_data.nr_params;
-
    brw_wm_payload_setup(brw, c);
 
    if (c->dispatch_width == 16) {
