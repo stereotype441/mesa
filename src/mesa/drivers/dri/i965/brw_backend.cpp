@@ -45,7 +45,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      virtual_grf_sizes(NULL),
      virtual_grf_array_size(0),
      virtual_grf_def(NULL),
-     virtual_grf_use(NULL)
+     virtual_grf_use(NULL),
+     live_intervals_valid(false)
 {
 }
 

@@ -331,8 +331,6 @@ public:
    /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
    int *virtual_grf_reg_map;
 
-   bool live_intervals_valid;
-
    dst_reg *variable_storage(ir_variable *var);
 
    void reladdr_to_temp(ir_instruction *ir, src_reg *reg, int *num_reladdr);

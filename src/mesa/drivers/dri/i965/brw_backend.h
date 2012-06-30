@@ -60,6 +60,7 @@ public:
    int virtual_grf_array_size;
    int *virtual_grf_def;
    int *virtual_grf_use;
+   bool live_intervals_valid;
 };
 
 template<class policy>
