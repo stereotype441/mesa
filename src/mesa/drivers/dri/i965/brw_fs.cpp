@@ -1701,6 +1701,25 @@ fs_visitor::get_instruction_generating_reg(fs_inst *start,
    }
 }
 
+void
+fs_visitor::emit_instructions(const exec_list *list)
+{
+   calculate_urb_setup();
+   if (intel->gen < 6)
+      emit_interpolation_setup_gen4();
+   else
+      emit_interpolation_setup_gen6();
+
+   /* Generate FS IR for main().  (the visitor only descends into
+    * functions called "main").
+    */
+   visit_instructions(list);
+   if (failed)
+      return;
+
+   emit_fb_writes();
+}
+
 bool
 fs_compilation::run()
 {
@@ -1724,20 +1743,10 @@ fs_compilation::run()
    if (0) {
       emit_dummy_fs();
    } else {
-      calculate_urb_setup();
-      if (intel->gen < 6)
-	 emit_interpolation_setup_gen4();
-      else
-	 emit_interpolation_setup_gen6();
+      emit_instructions(&*shader->ir);
 
-      /* Generate FS IR for main().  (the visitor only descends into
-       * functions called "main").
-       */
-      visit_instructions(&*shader->ir);
       if (failed)
-	 return false;
-
-      emit_fb_writes();
+         return false;
 
       split_virtual_grfs();
 

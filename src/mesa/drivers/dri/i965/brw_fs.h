@@ -512,6 +512,7 @@ protected:
    void emit_color_write(int target, int index, int first_color_mrf);
    void emit_fb_writes();
    void visit_instructions(const exec_list *list);
+   void emit_instructions(const exec_list *list);
 
 public:
    void *mem_ctx;
