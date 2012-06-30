@@ -294,6 +294,8 @@ public:
 
 class vec4_policy
 {
+public:
+   typedef struct brw_vs_compile brw_gen_compile;
 };
 
 class vec4_visitor : public backend_visitor<vec4_policy>
@@ -317,7 +319,6 @@ public:
    const struct gl_vertex_program *vp;
    struct intel_context *intel;
    struct gl_context *ctx;
-   struct brw_vs_compile *c;
    struct brw_vs_prog_data *prog_data;
    struct brw_compile *p;
    struct brw_shader *shader;

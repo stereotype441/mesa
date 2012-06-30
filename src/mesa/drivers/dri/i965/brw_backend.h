@@ -30,4 +30,16 @@ class backend_visitor_common : public ir_visitor
 template<class policy>
 class backend_visitor : public backend_visitor_common
 {
+public:
+   typedef typename policy::brw_gen_compile brw_gen_compile;
+
+   explicit backend_visitor(brw_gen_compile *c);
+
+   brw_gen_compile * const c;
 };
+
+template<class policy>
+backend_visitor<policy>::backend_visitor(brw_gen_compile *c)
+   : c(c)
+{
+}

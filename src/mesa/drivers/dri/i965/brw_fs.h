@@ -356,6 +356,8 @@ public:
 
 class fs_policy
 {
+public:
+   typedef struct brw_wm_compile brw_gen_compile;
 };
 
 class fs_visitor : public backend_visitor<fs_policy>
@@ -364,8 +366,8 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
+      : backend_visitor(c)
    {
-      this->c = c;
       this->p = &c->func;
       this->brw = p->brw;
       this->fp = (struct gl_fragment_program *)
@@ -589,7 +591,6 @@ public:
    const struct gl_fragment_program *fp;
    struct intel_context *intel;
    struct gl_context *ctx;
-   struct brw_wm_compile *c;
    struct brw_compile *p;
    struct brw_shader *shader;
    struct gl_shader_program *prog;
