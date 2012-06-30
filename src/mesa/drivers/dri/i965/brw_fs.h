@@ -370,7 +370,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c, prog, shader)
    {
-      this->failed = false;
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
 					  hash_table_pointer_compare);
@@ -616,7 +615,6 @@ public:
    ir_instruction *base_ir;
    /** @} */
 
-   bool failed;
    char *fail_msg;
 
    /* Result of last visit() method. */

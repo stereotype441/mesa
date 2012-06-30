@@ -320,7 +320,6 @@ public:
    exec_list instructions;
 
    char *fail_msg;
-   bool failed;
 
    /**
     * GLSL IR currently being processed, which is associated with our

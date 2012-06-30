@@ -34,7 +34,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      intel(&brw->intel),
      ctx(&intel->ctx),
      mem_ctx(ralloc_context(NULL)),
-     shader(shader)
+     shader(shader),
+     failed(false)
 {
 }
 

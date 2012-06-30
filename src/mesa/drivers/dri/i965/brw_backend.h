@@ -39,6 +39,7 @@ public:
    struct gl_context * const ctx;
    void * const mem_ctx;
    struct brw_shader * const shader;
+   bool failed;
 };
 
 template<class policy>
