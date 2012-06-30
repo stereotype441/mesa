@@ -783,7 +783,7 @@ vec4_visitor::run()
     */
    visit_instructions(shader->ir);
 
-   emit_urb_writes();
+   epilogue();
 
    /* Before any optimization, push array accesses out to scratch
     * space where we need them to be.  This pass may allocate new

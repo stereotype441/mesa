@@ -484,7 +484,7 @@ public:
    void emit_clip_distances(struct brw_reg reg, int offset);
    void emit_generic_urb_slot(dst_reg reg, int vert_result);
    void emit_urb_slot(int mrf, int vert_result);
-   void emit_urb_writes(void);
+   void epilogue(void);
 
    src_reg get_scratch_offset(vec4_instruction *inst,
 			      src_reg *reladdr, int reg_offset);

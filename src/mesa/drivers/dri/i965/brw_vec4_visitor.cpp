@@ -2262,7 +2262,7 @@ align_interleaved_urb_mlen(struct brw_context *brw, int mlen)
  * The VUE layout is documented in Volume 2a.
  */
 void
-vec4_visitor::emit_urb_writes()
+vec4_visitor::epilogue()
 {
    /* MRF 0 is reserved for the debugger, so start with message header
     * in MRF 1.
