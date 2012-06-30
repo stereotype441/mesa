@@ -368,7 +368,7 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c)
    {
-      this->fp = (struct gl_fragment_program *)
+      this->gp = (struct gl_fragment_program *)
 	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
       this->prog = prog;
       this->intel = &brw->intel;
@@ -585,7 +585,7 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
-   const struct gl_fragment_program *fp;
+   const struct gl_fragment_program *gp;
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_shader *shader;

@@ -1160,8 +1160,8 @@ fs_visitor::visit(ir_texture *ir)
 {
    fs_inst *inst = NULL;
 
-   int sampler = _mesa_get_sampler_uniform_value(ir->sampler, prog, &fp->Base);
-   sampler = fp->Base.SamplerUnits[sampler];
+   int sampler = _mesa_get_sampler_uniform_value(ir->sampler, prog, &gp->Base);
+   sampler = gp->Base.SamplerUnits[sampler];
 
    /* Our hardware doesn't have a sample_d_c message, so shadow compares
     * for textureGrad/TXD need to be emulated with instructions.

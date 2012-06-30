@@ -347,7 +347,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
       /* This state reference has already been setup by ir_to_mesa, but we'll
        * get the same index back here.
        */
-      int index = _mesa_add_state_reference(this->fp->Base.Parameters,
+      int index = _mesa_add_state_reference(this->gp->Base.Parameters,
 					    (gl_state_index *)slots[i].tokens);
 
       /* Add each of the unique swizzles of the element as a parameter.
@@ -667,7 +667,7 @@ fs_visitor::setup_paramvalues_refs()
    /* Set up the pointers to ParamValues now that that array is finalized. */
    for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
       c->prog_data.param[i] =
-	 (const float *)fp->Base.Parameters->ParameterValues[this->param_index[i]] +
+	 (const float *)gp->Base.Parameters->ParameterValues[this->param_index[i]] +
 	 this->param_offset[i];
    }
 }
@@ -711,7 +711,7 @@ fs_visitor::calculate_urb_setup()
    /* Figure out where each of the incoming setup attributes lands. */
    if (intel->gen >= 6) {
       for (unsigned int i = 0; i < FRAG_ATTRIB_MAX; i++) {
-	 if (fp->Base.InputsRead & BITFIELD64_BIT(i)) {
+	 if (gp->Base.InputsRead & BITFIELD64_BIT(i)) {
 	    urb_setup[i] = urb_next++;
 	 }
       }
