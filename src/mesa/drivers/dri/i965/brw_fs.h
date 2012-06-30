@@ -48,6 +48,7 @@ extern "C" {
 }
 #include "glsl/glsl_types.h"
 #include "glsl/ir.h"
+#include "brw_backend.h"
 
 class fs_bblock;
 
@@ -353,7 +354,7 @@ public:
    /** @} */
 };
 
-class fs_visitor : public ir_visitor
+class fs_visitor : public backend_visitor_common
 {
 public:
 

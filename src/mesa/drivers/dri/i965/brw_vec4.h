@@ -36,6 +36,7 @@ extern "C" {
 };
 
 #include "glsl/ir.h"
+#include "brw_backend.h"
 
 namespace brw {
 
@@ -291,7 +292,7 @@ public:
    bool is_math();
 };
 
-class vec4_visitor : public ir_visitor
+class vec4_visitor : public backend_visitor_common
 {
 public:
    vec4_visitor(struct brw_vs_compile *c,
