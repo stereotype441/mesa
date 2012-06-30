@@ -370,7 +370,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c, prog)
    {
-      this->prog = prog;
       this->intel = &brw->intel;
       this->ctx = &intel->ctx;
       this->mem_ctx = ralloc_context(NULL);
@@ -588,7 +587,6 @@ public:
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_shader *shader;
-   struct gl_shader_program *prog;
    void *mem_ctx;
    exec_list instructions;
 

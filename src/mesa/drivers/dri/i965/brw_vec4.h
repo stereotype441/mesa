@@ -320,7 +320,6 @@ public:
    struct gl_context *ctx;
    struct brw_vs_prog_data *prog_data;
    struct brw_shader *shader;
-   struct gl_shader_program *prog;
    void *mem_ctx;
    exec_list instructions;
 

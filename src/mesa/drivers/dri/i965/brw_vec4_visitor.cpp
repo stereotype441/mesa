@@ -2625,7 +2625,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 {
    this->intel = &brw->intel;
    this->ctx = &intel->ctx;
-   this->prog = prog;
    this->shader = shader;
 
    this->mem_ctx = ralloc_context(NULL);

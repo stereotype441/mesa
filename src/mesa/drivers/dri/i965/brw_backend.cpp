@@ -24,8 +24,10 @@
 #include "brw_backend.h"
 #include "brw_eu.h"
 
-backend_visitor_common::backend_visitor_common(struct brw_compile *p)
+backend_visitor_common::backend_visitor_common(struct brw_compile *p,
+                                               struct gl_shader_program *prog)
    : p(p),
-     brw(p->brw)
+     brw(p->brw),
+     prog(prog)
 {
 }
