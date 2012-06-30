@@ -360,6 +360,9 @@ protected:
    {
       this->mem_ctx = ralloc_context(NULL);
       this->failed = false;
+      this->virtual_grf_array_size = 0;
+      this->virtual_grf_next = 0;
+      this->virtual_grf_sizes = NULL;
    }
 
    ~fs_assembly()
@@ -368,11 +371,17 @@ protected:
    }
 
    void fail(const char *msg, ...);
+   int virtual_grf_alloc(int size);
 
    bool failed;
 public:
    void *mem_ctx;
    char *fail_msg;
+private:
+   int virtual_grf_array_size;
+public:
+   int virtual_grf_next;
+   int *virtual_grf_sizes;
 };
 
 class fs_visitor : public fs_assembly, protected ir_visitor
@@ -395,9 +404,6 @@ protected:
       this->prog = prog;
       this->fp = (struct gl_fragment_program *)
 	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
-      this->virtual_grf_array_size = 0;
-      this->virtual_grf_next = 0;
-      this->virtual_grf_sizes = NULL;
       this->kill_emitted = false;
       this->base_ir = NULL;
 
@@ -485,9 +491,6 @@ private:
 
    fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0);
    fs_inst *emit_math(enum opcode op, fs_reg dst, fs_reg src0, fs_reg src1);
-protected:
-   int virtual_grf_alloc(int size);
-private:
    struct brw_reg interp_reg(int location, int channel);
    fs_inst *emit_linterp(const fs_reg &attr, const fs_reg &interp,
                          glsl_interp_qualifier interpolation_mode,
@@ -573,10 +576,6 @@ private:
    fs_reg wpos_w;
    int urb_setup[FRAG_ATTRIB_MAX];
    fs_reg pixel_w;
-   int virtual_grf_array_size;
-public:
-   int virtual_grf_next;
-   int *virtual_grf_sizes;
 protected:
    struct gl_shader_program *prog;
 private:

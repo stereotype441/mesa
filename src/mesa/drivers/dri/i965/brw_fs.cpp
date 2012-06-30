@@ -175,7 +175,7 @@ fs_compilation::implied_mrf_writes(fs_inst *inst)
 }
 
 int
-fs_visitor::virtual_grf_alloc(int size)
+fs_assembly::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_next) {
       if (virtual_grf_array_size == 0)
