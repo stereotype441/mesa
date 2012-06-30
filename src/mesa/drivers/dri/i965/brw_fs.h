@@ -450,7 +450,6 @@ private:
    fs_reg *emit_fragcoord_interpolation(ir_variable *ir);
    fs_reg *emit_frontfacing_interpolation(ir_variable *ir);
    fs_reg *emit_general_interpolation(ir_variable *ir);
-private:
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_uniform_values(int loc, const glsl_type *type);
    int type_size(const struct glsl_type *type);
