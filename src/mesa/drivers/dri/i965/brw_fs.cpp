@@ -1785,6 +1785,21 @@ fs_visitor::reg_allocate()
    }
 }
 
+void
+fs_visitor::post_generate_code()
+{
+   if (c->dispatch_width == 8) {
+      c->prog_data.reg_blocks = brw_register_blocks(grf_used);
+   } else {
+      c->prog_data.reg_blocks_16 = brw_register_blocks(grf_used);
+      c->prog_data.prog_offset_16 = prog_offset_16;
+
+      /* Make sure we didn't try to sneak in an extra uniform */
+      assert(orig_nr_params == c->prog_data.nr_params);
+      (void) orig_nr_params;
+   }
+}
+
 bool
 fs_visitor::run()
 {
@@ -1815,16 +1830,7 @@ fs_visitor::run()
 
    generate_code();
 
-   if (c->dispatch_width == 8) {
-      c->prog_data.reg_blocks = brw_register_blocks(grf_used);
-   } else {
-      c->prog_data.reg_blocks_16 = brw_register_blocks(grf_used);
-      c->prog_data.prog_offset_16 = prog_offset_16;
-
-      /* Make sure we didn't try to sneak in an extra uniform */
-      assert(orig_nr_params == c->prog_data.nr_params);
-      (void) orig_nr_params;
-   }
+   post_generate_code();
 
    return !failed;
 }

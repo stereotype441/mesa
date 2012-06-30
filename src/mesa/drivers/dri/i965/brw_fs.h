@@ -566,6 +566,7 @@ private:
    void optimize();
    void setup_payload();
    void reg_allocate();
+   void post_generate_code();
 
 public:
    exec_list instructions;
