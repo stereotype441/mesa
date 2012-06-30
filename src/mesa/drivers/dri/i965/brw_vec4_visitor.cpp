@@ -2625,7 +2625,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 {
    this->prog_data = &c->prog_data;
 
-   this->virtual_grf_def = NULL;
    this->virtual_grf_use = NULL;
    this->virtual_grf_count = 0;
    this->virtual_grf_reg_map = NULL;

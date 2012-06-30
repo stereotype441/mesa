@@ -58,6 +58,7 @@ public:
 
    int *virtual_grf_sizes;
    int virtual_grf_array_size;
+   int *virtual_grf_def;
 };
 
 template<class policy>

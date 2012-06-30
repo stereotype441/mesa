@@ -43,7 +43,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      current_annotation(NULL),
      base_ir(NULL),
      virtual_grf_sizes(NULL),
-     virtual_grf_array_size(0)
+     virtual_grf_array_size(0),
+     virtual_grf_def(NULL)
 {
 }
 
