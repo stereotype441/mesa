@@ -2623,8 +2623,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 			   struct brw_shader *shader)
    : backend_visitor(c, prog, shader)
 {
-   this->base_ir = NULL;
-
    this->prog_data = &c->prog_data;
 
    this->virtual_grf_def = NULL;

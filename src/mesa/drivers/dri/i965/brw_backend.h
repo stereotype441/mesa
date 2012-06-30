@@ -45,7 +45,15 @@ public:
    const unsigned max_grf;
 
    /** @{ debug annotation info */
+
    const char *current_annotation;
+
+   /**
+    * GLSL IR currently being processed, which is associated with our
+    * driver IR instructions for debugging purposes.
+    */
+   ir_instruction *base_ir;
+
    /** @} */
 };
 

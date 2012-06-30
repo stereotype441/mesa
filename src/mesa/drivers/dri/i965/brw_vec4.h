@@ -319,12 +319,6 @@ public:
 
    char *fail_msg;
 
-   /**
-    * GLSL IR currently being processed, which is associated with our
-    * driver IR instructions for debugging purposes.
-    */
-   ir_instruction *base_ir;
-
    int *virtual_grf_sizes;
    int virtual_grf_count;
    int virtual_grf_array_size;

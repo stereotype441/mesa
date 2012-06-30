@@ -390,8 +390,6 @@ public:
       memset(this->outputs, 0, sizeof(this->outputs));
       this->first_non_payload_grf = 0;
 
-      this->base_ir = NULL;
-
       this->virtual_grf_sizes = NULL;
       this->virtual_grf_next = 0;
       this->virtual_grf_array_size = 0;
@@ -595,10 +593,6 @@ public:
    int first_non_payload_grf;
    int urb_setup[FRAG_ATTRIB_MAX];
    bool kill_emitted;
-
-   /** @{ debug annotation info */
-   ir_instruction *base_ir;
-   /** @} */
 
    char *fail_msg;
 
