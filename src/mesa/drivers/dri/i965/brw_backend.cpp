@@ -31,6 +31,12 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
      brw(p->brw),
      prog(prog),
      intel(&brw->intel),
-     ctx(&intel->ctx)
+     ctx(&intel->ctx),
+     mem_ctx(ralloc_context(NULL))
 {
+}
+
+backend_visitor_common::~backend_visitor_common()
+{
+   ralloc_free(this->mem_ctx);
 }

@@ -370,7 +370,6 @@ public:
 	      struct brw_shader *shader)
       : backend_visitor(c, prog)
    {
-      this->mem_ctx = ralloc_context(NULL);
       this->shader = shader;
       this->failed = false;
       this->variable_ht = hash_table_ctor(0,
@@ -416,7 +415,6 @@ public:
 
    ~fs_visitor()
    {
-      ralloc_free(this->mem_ctx);
       hash_table_dtor(this->variable_ht);
    }
 
@@ -583,7 +581,6 @@ public:
    int implied_mrf_writes(fs_inst *inst);
 
    struct brw_shader *shader;
-   void *mem_ctx;
    exec_list instructions;
 
    /* Delayed setup of c->prog_data.params[] due to realloc of

@@ -318,7 +318,6 @@ public:
 
    struct brw_vs_prog_data *prog_data;
    struct brw_shader *shader;
-   void *mem_ctx;
    exec_list instructions;
 
    char *fail_msg;

@@ -29,12 +29,14 @@ class backend_visitor_common : public ir_visitor
 {
 public:
    backend_visitor_common(struct brw_compile *p, struct gl_shader_program *prog);
+   ~backend_visitor_common();
 
    struct brw_compile * const p;
    struct brw_context * const brw;
    struct gl_shader_program * const prog;
    struct intel_context * const intel;
    struct gl_context * const ctx;
+   void * const mem_ctx;
 };
 
 template<class policy>
