@@ -26,13 +26,15 @@
 #include "brw_context.h"
 
 backend_visitor_common::backend_visitor_common(struct brw_compile *p,
-                                               struct gl_shader_program *prog)
+                                               struct gl_shader_program *prog,
+                                               struct brw_shader *shader)
    : p(p),
      brw(p->brw),
      prog(prog),
      intel(&brw->intel),
      ctx(&intel->ctx),
-     mem_ctx(ralloc_context(NULL))
+     mem_ctx(ralloc_context(NULL)),
+     shader(shader)
 {
 }
 

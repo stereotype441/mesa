@@ -28,7 +28,8 @@
 class backend_visitor_common : public ir_visitor
 {
 public:
-   backend_visitor_common(struct brw_compile *p, struct gl_shader_program *prog);
+   backend_visitor_common(struct brw_compile *p, struct gl_shader_program *prog,
+                          struct brw_shader *shader);
    ~backend_visitor_common();
 
    struct brw_compile * const p;
@@ -37,6 +38,7 @@ public:
    struct intel_context * const intel;
    struct gl_context * const ctx;
    void * const mem_ctx;
+   struct brw_shader * const shader;
 };
 
 template<class policy>
@@ -47,7 +49,8 @@ public:
    typedef typename policy::gl_gen_program gl_gen_program;
    static const gl_shader_type MESA_SHADER_GEN = policy::MESA_SHADER_GEN;
 
-   explicit backend_visitor(brw_gen_compile *c, struct gl_shader_program *prog);
+   explicit backend_visitor(brw_gen_compile *c, struct gl_shader_program *prog,
+                            struct brw_shader *shader);
 
    brw_gen_compile * const c;
    const gl_gen_program * const gp;
@@ -55,8 +58,9 @@ public:
 
 template<class policy>
 backend_visitor<policy>::backend_visitor(brw_gen_compile *c,
-                                         struct gl_shader_program *prog)
-   : backend_visitor_common(&c->func, prog),
+                                         struct gl_shader_program *prog,
+                                         struct brw_shader *shader)
+   : backend_visitor_common(&c->func, prog, shader),
      c(c),
      gp((gl_gen_program *) prog->_LinkedShaders[MESA_SHADER_GEN]->Program)
 {

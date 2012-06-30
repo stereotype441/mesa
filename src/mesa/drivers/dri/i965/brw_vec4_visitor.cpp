@@ -2621,10 +2621,8 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
 vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 			   struct gl_shader_program *prog,
 			   struct brw_shader *shader)
-   : backend_visitor(c, prog)
+   : backend_visitor(c, prog, shader)
 {
-   this->shader = shader;
-
    this->failed = false;
 
    this->base_ir = NULL;

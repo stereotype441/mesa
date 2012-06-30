@@ -368,9 +368,8 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
-      : backend_visitor(c, prog)
+      : backend_visitor(c, prog, shader)
    {
-      this->shader = shader;
       this->failed = false;
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
@@ -580,7 +579,6 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
-   struct brw_shader *shader;
    exec_list instructions;
 
    /* Delayed setup of c->prog_data.params[] due to realloc of
