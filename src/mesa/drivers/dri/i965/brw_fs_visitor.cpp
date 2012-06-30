@@ -81,7 +81,7 @@ fs_visitor::visit(ir_variable *ir)
       hash_table_insert(this->variable_ht, reg, ir);
       return;
    } else if (ir->mode == ir_var_out) {
-      reg = new(this->mem_ctx) fs_reg(this, ir->type);
+      reg = new(this->assy->mem_ctx) fs_reg(this, ir->type);
 
       if (ir->index > 0) {
 	 assert(ir->location == FRAG_RESULT_DATA0);
@@ -117,7 +117,7 @@ fs_visitor::visit(ir_variable *ir)
 
       if (c->dispatch_width == 16) {
 	 if (!variable_storage(ir)) {
-	    fail("Failed to find uniform '%s' in 16-wide\n", ir->name);
+	    assy->fail("Failed to find uniform '%s' in 16-wide\n", ir->name);
 	 }
 	 return;
       }
@@ -128,12 +128,12 @@ fs_visitor::visit(ir_variable *ir)
 	 setup_uniform_values(ir->location, ir->type);
       }
 
-      reg = new(this->mem_ctx) fs_reg(UNIFORM, param_index);
+      reg = new(assy->mem_ctx) fs_reg(UNIFORM, param_index);
       reg->type = brw_type_for_base_type(ir->type);
    }
 
    if (!reg)
-      reg = new(this->mem_ctx) fs_reg(this, ir->type);
+      reg = new(assy->mem_ctx) fs_reg(this, ir->type);
 
    hash_table_insert(this->variable_ht, reg, ir);
 }
@@ -273,7 +273,7 @@ fs_visitor::visit(ir_expression *ir)
       ir->operands[operand]->accept(this);
       if (this->result.file == BAD_FILE) {
 	 ir_print_visitor v;
-	 fail("Failed to get tree for expression operand:\n");
+	 assy->fail("Failed to get tree for expression operand:\n");
 	 ir->operands[operand]->accept(&v);
       }
       op[operand] = this->result;
@@ -372,7 +372,7 @@ fs_visitor::visit(ir_expression *ir)
 	  * enough.
 	  */
 	 if (intel->gen >= 7 && c->dispatch_width == 16)
-	    fail("16-wide explicit accumulator operands unsupported\n");
+	    assy->fail("16-wide explicit accumulator operands unsupported\n");
 
 	 struct brw_reg acc = retype(brw_acc_reg(), BRW_REGISTER_TYPE_D);
 
@@ -385,7 +385,7 @@ fs_visitor::visit(ir_expression *ir)
       break;
    case ir_binop_div:
       if (intel->gen >= 7 && c->dispatch_width == 16)
-	 fail("16-wide INTDIV unsupported\n");
+	 assy->fail("16-wide INTDIV unsupported\n");
 
       /* Floating point should be lowered by DIV_TO_MUL_RCP in the compiler. */
       assert(ir->type->is_integer());
@@ -393,7 +393,7 @@ fs_visitor::visit(ir_expression *ir)
       break;
    case ir_binop_mod:
       if (intel->gen >= 7 && c->dispatch_width == 16)
-	 fail("16-wide INTDIV unsupported\n");
+	 assy->fail("16-wide INTDIV unsupported\n");
 
       /* Floating point should be lowered by MOD_TO_FRACT in the compiler. */
       assert(ir->type->is_integer());
@@ -1024,7 +1024,7 @@ fs_visitor::emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
    inst->header_present = header_present;
 
    if (mlen > 11) {
-      fail("Message length >11 disallowed by hardware\n");
+      assy->fail("Message length >11 disallowed by hardware\n");
    }
 
    return inst;
@@ -1071,7 +1071,7 @@ fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
       break;
    case ir_txd: {
       if (c->dispatch_width == 16)
-	 fail("Gen7 does not support sample_d/sample_d_c in SIMD16 mode.");
+	 assy->fail("Gen7 does not support sample_d/sample_d_c in SIMD16 mode.");
 
       ir->lod_info.grad.dPdx->accept(this);
       fs_reg dPdx = this->result;
@@ -1160,7 +1160,7 @@ fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
    inst->header_present = header_present;
 
    if (mlen > 11) {
-      fail("Message length >11 disallowed by hardware\n");
+      assy->fail("Message length >11 disallowed by hardware\n");
    }
 
    return inst;
@@ -1230,7 +1230,7 @@ fs_visitor::visit(ir_texture *ir)
       };
 
       if (c->dispatch_width == 16) {
-	 fail("rectangle scale uniform setup not supported on 16-wide\n");
+	 assy->fail("rectangle scale uniform setup not supported on 16-wide\n");
 	 this->result = fs_reg(this, ir->type);
 	 return;
       }
@@ -1601,7 +1601,7 @@ fs_visitor::emit_bool_to_cond_code(ir_rvalue *ir)
 
       default:
 	 assert(!"not reached");
-	 fail("bad cond code\n");
+	 assy->fail("bad cond code\n");
 	 break;
       }
       return;
@@ -1687,7 +1687,7 @@ fs_visitor::emit_if_gen6(ir_if *ir)
 	 assert(!"not reached");
 	 inst = emit(BRW_OPCODE_IF, reg_null_d, op[0], fs_reg(0));
 	 inst->conditional_mod = BRW_CONDITIONAL_NZ;
-	 fail("bad condition\n");
+	 assy->fail("bad condition\n");
 	 return;
       }
       return;
@@ -1705,7 +1705,7 @@ fs_visitor::visit(ir_if *ir)
    fs_inst *inst;
 
    if (intel->gen < 6 && c->dispatch_width == 16) {
-      fail("Can't support (non-uniform) control flow on 16-wide\n");
+      assy->fail("Can't support (non-uniform) control flow on 16-wide\n");
    }
 
    /* Don't point the annotation at the if statement, because then it plus
@@ -1739,7 +1739,7 @@ fs_visitor::visit(ir_loop *ir)
    fs_reg counter = reg_undef;
 
    if (intel->gen < 6 && c->dispatch_width == 16) {
-      fail("Can't support (non-uniform) control flow on 16-wide\n");
+      assy->fail("Can't support (non-uniform) control flow on 16-wide\n");
    }
 
    if (ir->counter) {
@@ -1834,7 +1834,7 @@ fs_visitor::visit(ir_function_signature *ir)
 fs_inst *
 fs_visitor::emit(fs_inst inst)
 {
-   fs_inst *list_inst = new(mem_ctx) fs_inst;
+   fs_inst *list_inst = new(assy->mem_ctx) fs_inst;
    *list_inst = inst;
 
    if (force_uncompressed_stack > 0)
@@ -2065,7 +2065,7 @@ fs_visitor::emit_fb_writes()
    bool do_dual_src = this->dual_src_output.file != BAD_FILE;
 
    if (c->dispatch_width == 16 && do_dual_src) {
-      fail("GL_ARB_blend_func_extended not yet supported in 16-wide.");
+      assy->fail("GL_ARB_blend_func_extended not yet supported in 16-wide.");
       do_dual_src = false;
    }
 
@@ -2108,7 +2108,7 @@ fs_visitor::emit_fb_writes()
 	  * message regs, kind of like pre-gen5 SIMD16 FB writes.
 	  * Just bail on doing so for now.
 	  */
-	 fail("Missing support for simd16 depth writes on gen6\n");
+	 assy->fail("Missing support for simd16 depth writes on gen6\n");
       }
 
       if (c->computes_depth) {
@@ -2135,7 +2135,7 @@ fs_visitor::emit_fb_writes()
       fs_reg src0 = this->outputs[0];
       fs_reg src1 = this->dual_src_output;
 
-      this->current_annotation = ralloc_asprintf(this->mem_ctx,
+      this->current_annotation = ralloc_asprintf(assy->mem_ctx,
 						 "FB write src0");
       for (int i = 0; i < 4; i++) {
 	 fs_inst *inst = emit(BRW_OPCODE_MOV,
@@ -2145,7 +2145,7 @@ fs_visitor::emit_fb_writes()
 	 inst->saturate = c->key.clamp_fragment_color;
       }
 
-      this->current_annotation = ralloc_asprintf(this->mem_ctx,
+      this->current_annotation = ralloc_asprintf(assy->mem_ctx,
 						 "FB write src1");
       for (int i = 0; i < 4; i++) {
 	 fs_inst *inst = emit(BRW_OPCODE_MOV,
@@ -2168,7 +2168,7 @@ fs_visitor::emit_fb_writes()
    }
 
    for (int target = 0; target < c->key.nr_color_regions; target++) {
-      this->current_annotation = ralloc_asprintf(this->mem_ctx,
+      this->current_annotation = ralloc_asprintf(assy->mem_ctx,
 						 "FB write target %d",
 						 target);
       for (unsigned i = 0; i < this->output_components[target]; i++)

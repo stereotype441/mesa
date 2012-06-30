@@ -370,11 +370,11 @@ protected:
       ralloc_free(this->mem_ctx);
    }
 
+public:
    void fail(const char *msg, ...);
    int virtual_grf_alloc(int size);
 
    bool failed;
-public:
    void *mem_ctx;
    char *fail_msg;
 private:
@@ -384,12 +384,14 @@ public:
    int *virtual_grf_sizes;
 };
 
-class fs_visitor : public fs_assembly, protected ir_visitor
+class fs_visitor : protected ir_visitor
 {
    friend class fs_reg;
 
 protected:
-   fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog)
+   fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
+              fs_assembly *assy)
+      : assy(assy)
    {
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
@@ -597,15 +599,17 @@ protected:
     * uniform index.
     */
    int *params_remap;
+public:
+   fs_assembly * const assy;
 };
 
-class fs_compilation : public fs_visitor
+class fs_compilation : public fs_assembly, public fs_visitor
 {
 public:
 
    fs_compilation(struct brw_wm_compile *c, struct gl_shader_program *prog,
                   struct brw_shader *shader)
-      : fs_visitor(c, prog)
+      : fs_visitor(c, prog, this)
    {
       this->shader = shader;
 

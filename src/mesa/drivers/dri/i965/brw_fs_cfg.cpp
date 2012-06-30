@@ -68,7 +68,7 @@ fs_bblock::make_list(void *mem_ctx)
 
 fs_cfg::fs_cfg(fs_visitor *v)
 {
-   mem_ctx = ralloc_context(v->mem_ctx);
+   mem_ctx = ralloc_context(v->assy->mem_ctx);
    block_list.make_empty();
    num_blocks = 0;
    ip = 0;

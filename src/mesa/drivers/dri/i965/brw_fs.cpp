@@ -213,7 +213,7 @@ fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type)
    init();
 
    this->file = GRF;
-   this->reg = v->virtual_grf_alloc(v->type_size(type));
+   this->reg = v->assy->virtual_grf_alloc(v->type_size(type));
    this->reg_offset = 0;
    this->type = brw_type_for_base_type(type);
 }
@@ -373,7 +373,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(assy->mem_ctx) fs_reg(this, ir->type);
    fs_reg wpos = *reg;
    bool flip = !ir->origin_upper_left ^ c->key.render_to_fbo;
 
@@ -444,7 +444,7 @@ fs_visitor::emit_linterp(const fs_reg &attr, const fs_reg &interp,
 fs_reg *
 fs_visitor::emit_general_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(assy->mem_ctx) fs_reg(this, ir->type);
    reg->type = brw_type_for_base_type(ir->type->get_scalar_type());
    fs_reg attr = *reg;
 
@@ -454,7 +454,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
    if (ir->type->is_array()) {
       array_elements = ir->type->length;
       if (array_elements == 0) {
-	 fail("dereferenced array '%s' has length 0\n", ir->name);
+	 assy->fail("dereferenced array '%s' has length 0\n", ir->name);
       }
       type = ir->type->fields.array;
    } else {
@@ -524,7 +524,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_frontfacing_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(assy->mem_ctx) fs_reg(this, ir->type);
 
    /* The frontfacing comes in as a bit in the thread payload. */
    if (intel->gen >= 6) {
@@ -1714,7 +1714,7 @@ fs_visitor::emit_instructions(const exec_list *list)
     * functions called "main").
     */
    visit_instructions(list);
-   if (failed)
+   if (assy->failed)
       return;
 
    emit_fb_writes();
