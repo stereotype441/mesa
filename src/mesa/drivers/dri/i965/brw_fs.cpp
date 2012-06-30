@@ -1718,6 +1718,9 @@ fs_visitor::emit_instructions(const exec_list *list)
       return;
 
    emit_fb_writes();
+
+   assert(force_uncompressed_stack == 0);
+   assert(force_sechalf_stack == 0);
 }
 
 bool
@@ -1793,8 +1796,6 @@ fs_compilation::run()
 	 }
       }
    }
-   assert(force_uncompressed_stack == 0);
-   assert(force_sechalf_stack == 0);
 
    if (failed)
       return false;
