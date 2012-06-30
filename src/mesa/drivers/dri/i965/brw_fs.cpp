@@ -1764,6 +1764,27 @@ fs_visitor::setup_payload()
    assign_urb_setup();
 }
 
+void
+fs_visitor::reg_allocate()
+{
+   if (0) {
+      /* Debug of register spilling: Go spill everything. */
+      int virtual_grf_count = virtual_grf_next;
+      for (int i = 0; i < virtual_grf_count; i++) {
+         spill_reg(i);
+      }
+   }
+
+   if (0)
+      assign_regs_trivial();
+   else {
+      while (!assign_regs()) {
+         if (failed)
+            break;
+      }
+   }
+}
+
 bool
 fs_visitor::run()
 {
@@ -1787,23 +1808,7 @@ fs_visitor::run()
    schedule_instructions();
 
    setup_payload();
-
-   if (0) {
-      /* Debug of register spilling: Go spill everything. */
-      int virtual_grf_count = virtual_grf_next;
-      for (int i = 0; i < virtual_grf_count; i++) {
-         spill_reg(i);
-      }
-   }
-
-   if (0)
-      assign_regs_trivial();
-   else {
-      while (!assign_regs()) {
-         if (failed)
-            break;
-      }
-   }
+   reg_allocate();
 
    if (failed)
       return false;

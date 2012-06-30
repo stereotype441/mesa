@@ -565,6 +565,7 @@ private:
    void pre_optimize();
    void optimize();
    void setup_payload();
+   void reg_allocate();
 
 public:
    exec_list instructions;
