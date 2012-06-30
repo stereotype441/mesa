@@ -34,6 +34,7 @@ public:
    struct brw_context * const brw;
    struct gl_shader_program * const prog;
    struct intel_context * const intel;
+   struct gl_context * const ctx;
 };
 
 template<class policy>

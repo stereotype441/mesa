@@ -2623,7 +2623,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 			   struct brw_shader *shader)
    : backend_visitor(c, prog)
 {
-   this->ctx = &intel->ctx;
    this->shader = shader;
 
    this->mem_ctx = ralloc_context(NULL);

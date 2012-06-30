@@ -30,6 +30,7 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
    : p(p),
      brw(p->brw),
      prog(prog),
-     intel(&brw->intel)
+     intel(&brw->intel),
+     ctx(&intel->ctx)
 {
 }
