@@ -41,7 +41,8 @@ backend_visitor_common::backend_visitor_common(struct brw_compile *p,
                                  hash_table_pointer_compare)),
      max_grf(intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF),
      current_annotation(NULL),
-     base_ir(NULL)
+     base_ir(NULL),
+     virtual_grf_sizes(NULL)
 {
 }
 

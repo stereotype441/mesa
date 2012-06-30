@@ -319,7 +319,6 @@ public:
 
    char *fail_msg;
 
-   int *virtual_grf_sizes;
    int virtual_grf_count;
    int virtual_grf_array_size;
    int first_non_payload_grf;

@@ -390,7 +390,6 @@ public:
       memset(this->outputs, 0, sizeof(this->outputs));
       this->first_non_payload_grf = 0;
 
-      this->virtual_grf_sizes = NULL;
       this->virtual_grf_next = 0;
       this->virtual_grf_array_size = 0;
       this->virtual_grf_def = NULL;
@@ -572,7 +571,6 @@ public:
    int param_index[MAX_UNIFORMS * 4];
    int param_offset[MAX_UNIFORMS * 4];
 
-   int *virtual_grf_sizes;
    int virtual_grf_next;
    int virtual_grf_array_size;
    int *virtual_grf_def;

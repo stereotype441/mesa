@@ -55,6 +55,8 @@ public:
    ir_instruction *base_ir;
 
    /** @} */
+
+   int *virtual_grf_sizes;
 };
 
 template<class policy>
