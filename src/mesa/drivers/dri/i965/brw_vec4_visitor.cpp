@@ -2621,7 +2621,7 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
 vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 			   struct gl_shader_program *prog,
 			   struct brw_shader *shader)
-   : backend_visitor(c)
+   : backend_visitor(c, prog)
 {
    this->intel = &brw->intel;
    this->ctx = &intel->ctx;
@@ -2634,8 +2634,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
    this->base_ir = NULL;
    this->current_annotation = NULL;
 
-   this->gp = (struct gl_vertex_program *)
-     prog->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
    this->prog_data = &c->prog_data;
 
    this->variable_ht = hash_table_ctor(0,

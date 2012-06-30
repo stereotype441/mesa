@@ -295,6 +295,8 @@ class vec4_policy
 {
 public:
    typedef struct brw_vs_compile brw_gen_compile;
+   typedef struct gl_vertex_program gl_gen_program;
+   static const gl_shader_type MESA_SHADER_GEN = MESA_SHADER_VERTEX;
 };
 
 class vec4_visitor : public backend_visitor<vec4_policy>
@@ -314,7 +316,6 @@ public:
       return dst_reg(retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
    }
 
-   const struct gl_vertex_program *gp;
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_vs_prog_data *prog_data;

@@ -358,6 +358,8 @@ class fs_policy
 {
 public:
    typedef struct brw_wm_compile brw_gen_compile;
+   typedef struct gl_fragment_program gl_gen_program;
+   static const gl_shader_type MESA_SHADER_GEN = MESA_SHADER_FRAGMENT;
 };
 
 class fs_visitor : public backend_visitor<fs_policy>
@@ -366,10 +368,8 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
-      : backend_visitor(c)
+      : backend_visitor(c, prog)
    {
-      this->gp = (struct gl_fragment_program *)
-	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
       this->prog = prog;
       this->intel = &brw->intel;
       this->ctx = &intel->ctx;
@@ -585,7 +585,6 @@ public:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
 
-   const struct gl_fragment_program *gp;
    struct intel_context *intel;
    struct gl_context *ctx;
    struct brw_shader *shader;

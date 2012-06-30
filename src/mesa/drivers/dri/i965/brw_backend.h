@@ -39,15 +39,20 @@ class backend_visitor : public backend_visitor_common
 {
 public:
    typedef typename policy::brw_gen_compile brw_gen_compile;
+   typedef typename policy::gl_gen_program gl_gen_program;
+   static const gl_shader_type MESA_SHADER_GEN = policy::MESA_SHADER_GEN;
 
-   explicit backend_visitor(brw_gen_compile *c);
+   explicit backend_visitor(brw_gen_compile *c, struct gl_shader_program *prog);
 
    brw_gen_compile * const c;
+   const gl_gen_program * const gp;
 };
 
 template<class policy>
-backend_visitor<policy>::backend_visitor(brw_gen_compile *c)
+backend_visitor<policy>::backend_visitor(brw_gen_compile *c,
+                                         struct gl_shader_program *prog)
    : backend_visitor_common(&c->func),
-     c(c)
+     c(c),
+     gp((gl_gen_program *) prog->_LinkedShaders[MESA_SHADER_GEN]->Program)
 {
 }
