@@ -31,6 +31,7 @@ public:
    explicit backend_visitor_common(struct brw_compile *p);
 
    struct brw_compile * const p;
+   struct brw_context * const brw;
 };
 
 template<class policy>

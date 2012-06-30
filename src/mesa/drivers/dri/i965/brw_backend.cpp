@@ -22,8 +22,10 @@
  */
 
 #include "brw_backend.h"
+#include "brw_eu.h"
 
 backend_visitor_common::backend_visitor_common(struct brw_compile *p)
-   : p(p)
+   : p(p),
+     brw(p->brw)
 {
 }
