@@ -41,26 +41,6 @@ namespace brw {
 
 class dst_reg;
 
-/**
- * Common helper for constructing swizzles.  When only a subset of
- * channels of a vec4 are used, we don't want to reference the other
- * channels, as that will tell optimization passes that those other
- * channels are used.
- */
-static unsigned
-swizzle_for_size(int size)
-{
-   static const unsigned size_swizzles[4] = {
-      BRW_SWIZZLE4(SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_X),
-      BRW_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y),
-      BRW_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_Z),
-      BRW_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W),
-   };
-
-   assert((size >= 1) && (size <= 4));
-   return size_swizzles[size - 1];
-}
-
 enum register_file {
    ARF = BRW_ARCHITECTURE_REGISTER_FILE,
    GRF = BRW_GENERAL_REGISTER_FILE,
