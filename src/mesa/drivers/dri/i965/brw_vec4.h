@@ -194,14 +194,14 @@ public:
       this->fixed_hw_reg = reg;
    }
 
-   dst_reg(class vec4_visitor *v, const struct glsl_type *type);
-
    explicit dst_reg(src_reg reg);
 
    int writemask; /**< Bitfield of WRITEMASK_[XYZW] */
 
    src_reg *reladdr;
 };
+
+class vec4_visitor;
 
 class vec4_instruction : public exec_node {
 public:
@@ -537,6 +537,7 @@ public:
 				    struct brw_reg dst,
 				    struct brw_reg index);
    src_reg new_src_reg(const struct glsl_type *type);
+   dst_reg new_dst_reg(const struct glsl_type *type);
 };
 
 } /* namespace brw */

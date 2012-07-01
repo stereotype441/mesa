@@ -278,7 +278,7 @@ vec4_visitor::emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src)
       /* The gen6 math instruction must be align1, so we can't do
        * writemasks.
        */
-      dst_reg temp_dst = dst_reg(this, glsl_type::vec4_type);
+      dst_reg temp_dst = new_dst_reg(glsl_type::vec4_type);
 
       emit(opcode, temp_dst, temp_src);
 
@@ -348,7 +348,7 @@ vec4_visitor::emit_math2_gen6(enum opcode opcode,
       /* The gen6 math instruction must be align1, so we can't do
        * writemasks.
        */
-      dst_reg temp_dst = dst_reg(this, glsl_type::vec4_type);
+      dst_reg temp_dst = new_dst_reg(glsl_type::vec4_type);
       temp_dst.type = dst.type;
 
       emit(opcode, temp_dst, src0, src1);
@@ -502,20 +502,23 @@ vec4_visitor::new_src_reg(const struct glsl_type *type)
    return r;
 }
 
-dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
+dst_reg
+vec4_visitor::new_dst_reg(const struct glsl_type *type)
 {
-   init();
+   dst_reg r;
 
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(type_size(type));
+   r.file = GRF;
+   r.reg = virtual_grf_alloc(type_size(type));
 
    if (type->is_array() || type->is_record()) {
-      this->writemask = WRITEMASK_XYZW;
+      r.writemask = WRITEMASK_XYZW;
    } else {
-      this->writemask = (1 << type->vector_elements) - 1;
+      r.writemask = (1 << type->vector_elements) - 1;
    }
 
-   this->type = brw_type_for_base_type(type);
+   r.type = brw_type_for_base_type(type);
+
+   return r;
 }
 
 /* Our support for uniforms is piggy-backed on the struct
@@ -793,13 +796,13 @@ vec4_visitor::emit_if_gen6(ir_if *ir)
 	 return;
 
       case ir_binop_logic_or:
-	 temp = dst_reg(this, glsl_type::bool_type);
+	 temp = new_dst_reg(glsl_type::bool_type);
 	 emit(OR(temp, op[0], op[1]));
 	 emit(IF(src_reg(temp), src_reg(0), BRW_CONDITIONAL_NZ));
 	 return;
 
       case ir_binop_logic_and:
-	 temp = dst_reg(this, glsl_type::bool_type);
+	 temp = new_dst_reg(glsl_type::bool_type);
 	 emit(AND(temp, op[0], op[1]));
 	 emit(IF(src_reg(temp), src_reg(0), BRW_CONDITIONAL_NZ));
 	 return;
@@ -877,7 +880,7 @@ vec4_visitor::visit(ir_variable *ir)
       break;
 
    case ir_var_out:
-      reg = new(mem_ctx) dst_reg(this, ir->type);
+      reg = new(mem_ctx) dst_reg(new_dst_reg(ir->type));
 
       for (int i = 0; i < type_size(ir->type); i++) {
 	 output_reg[ir->location + i] = *reg;
@@ -890,7 +893,7 @@ vec4_visitor::visit(ir_variable *ir)
 
    case ir_var_auto:
    case ir_var_temporary:
-      reg = new(mem_ctx) dst_reg(this, ir->type);
+      reg = new(mem_ctx) dst_reg(new_dst_reg(ir->type));
       break;
 
    case ir_var_uniform:
@@ -1831,7 +1834,7 @@ vec4_visitor::emit_constant_values(dst_reg *dst, ir_constant *ir)
 void
 vec4_visitor::visit(ir_constant *ir)
 {
-   dst_reg dst = dst_reg(this, ir->type);
+   dst_reg dst = new_dst_reg(ir->type);
    this->result = src_reg(dst);
 
    emit_constant_values(&dst, ir);
@@ -1876,7 +1879,7 @@ vec4_visitor::visit(ir_texture *ir)
    inst->base_mrf = 2;
    inst->mlen = inst->header_present + 1; /* always at least one */
    inst->sampler = sampler;
-   inst->dst = dst_reg(this, ir->type);
+   inst->dst = new_dst_reg(ir->type);
    inst->shadow_compare = ir->shadow_comparitor != NULL;
 
    if (ir->offset != NULL && ir->op != ir_txf)
@@ -2088,7 +2091,7 @@ vec4_visitor::emit_ndc_computation()
    src_reg pos = src_reg(output_reg[VERT_RESULT_HPOS]);
 
    /* Build ndc coords, which are (x/w, y/w, z/w, 1/w) */
-   dst_reg ndc = dst_reg(this, glsl_type::vec4_type);
+   dst_reg ndc = new_dst_reg(glsl_type::vec4_type);
    output_reg[BRW_VERT_RESULT_NDC] = ndc;
 
    current_annotation = "NDC";
@@ -2110,7 +2113,7 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
    if (intel->gen < 6 &&
        ((c->prog_data.outputs_written & BITFIELD64_BIT(VERT_RESULT_PSIZ)) ||
         c->key.userclip_active || brw->has_negative_rhw_bug)) {
-      dst_reg header1 = dst_reg(this, glsl_type::uvec4_type);
+      dst_reg header1 = new_dst_reg(glsl_type::uvec4_type);
       dst_reg header1_w = header1;
       header1_w.writemask = WRITEMASK_W;
       GLuint i;
@@ -2523,7 +2526,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
 	 if (inst->src[i].file != GRF || scratch_loc[inst->src[i].reg] == -1)
 	    continue;
 
-	 dst_reg temp = dst_reg(this, glsl_type::vec4_type);
+	 dst_reg temp = new_dst_reg(glsl_type::vec4_type);
 
 	 emit_scratch_read(inst, temp, inst->src[i],
 			   scratch_loc[inst->src[i].reg]);
@@ -2609,7 +2612,7 @@ vec4_visitor::move_uniform_array_access_to_pull_constants()
 	 base_ir = inst->ir;
 	 current_annotation = inst->annotation;
 
-	 dst_reg temp = dst_reg(this, glsl_type::vec4_type);
+	 dst_reg temp = new_dst_reg(glsl_type::vec4_type);
 
 	 emit_pull_constant_load(inst, temp, inst->src[i],
 				 pull_constant_loc[uniform]);
