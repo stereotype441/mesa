@@ -2481,7 +2481,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
       if (inst->dst.file == GRF && inst->dst.reladdr &&
 	  scratch_loc[inst->dst.reg] == -1) {
 	 scratch_loc[inst->dst.reg] = c->last_scratch;
-	 c->last_scratch += this->virtual_grf_sizes[inst->dst.reg] * 8 * 4;
+	 c->last_scratch += this->get_virtual_grf_size(inst->dst.reg) * 8 * 4;
       }
 
       for (int i = 0 ; i < 3; i++) {
@@ -2490,7 +2490,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
 	 if (src->file == GRF && src->reladdr &&
 	     scratch_loc[src->reg] == -1) {
 	    scratch_loc[src->reg] = c->last_scratch;
-	    c->last_scratch += this->virtual_grf_sizes[src->reg] * 8 * 4;
+	    c->last_scratch += this->get_virtual_grf_size(src->reg) * 8 * 4;
 	 }
       }
    }

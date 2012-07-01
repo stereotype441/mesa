@@ -540,6 +540,7 @@ private:
                                      src_reg src1 = src_reg(),
                                      src_reg src2 = src_reg()) const;
    dst_reg get_assignment_lhs(ir_dereference *ir);
+   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
 };
 
 } /* namespace brw */

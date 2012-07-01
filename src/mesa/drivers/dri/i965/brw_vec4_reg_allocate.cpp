@@ -67,11 +67,11 @@ vec4_visitor::reg_allocate_trivial()
    }
 
    hw_reg_mapping[0] = this->first_non_payload_grf;
-   next = hw_reg_mapping[0] + this->virtual_grf_sizes[0];
+   next = hw_reg_mapping[0] + this->get_virtual_grf_size(0);
    for (i = 1; i < this->virtual_grf_count; i++) {
       if (virtual_grf_used[i]) {
 	 hw_reg_mapping[i] = next;
-	 next += this->virtual_grf_sizes[i];
+	 next += this->get_virtual_grf_size(i);
       }
    }
    prog_data->total_grf = next;
@@ -168,15 +168,15 @@ vec4_visitor::reg_allocate()
       int i;
 
       for (i = 0; i < class_count; i++) {
-	 if (class_sizes[i] == this->virtual_grf_sizes[r])
+	 if (class_sizes[i] == this->get_virtual_grf_size(r))
 	    break;
       }
       if (i == class_count) {
-	 if (this->virtual_grf_sizes[r] >= base_reg_count) {
+	 if (this->get_virtual_grf_size(r) >= base_reg_count) {
 	    fail("Object too large to register allocate.\n");
 	 }
 
-	 class_sizes[class_count++] = this->virtual_grf_sizes[r];
+	 class_sizes[class_count++] = this->get_virtual_grf_size(r);
       }
    }
 
@@ -187,7 +187,7 @@ vec4_visitor::reg_allocate()
 
    for (int i = 0; i < virtual_grf_count; i++) {
       for (int c = 0; c < class_count; c++) {
-	 if (class_sizes[c] == this->virtual_grf_sizes[i]) {
+	 if (class_sizes[c] == this->get_virtual_grf_size(i)) {
 	    ra_set_node_class(g, i, brw->vs.classes[c]);
 	    break;
 	 }
@@ -216,7 +216,7 @@ vec4_visitor::reg_allocate()
 
       hw_reg_mapping[i] = first_assigned_grf + brw->vs.ra_reg_to_grf[reg];
       prog_data->total_grf = MAX2(prog_data->total_grf,
-				  hw_reg_mapping[i] + virtual_grf_sizes[i]);
+				  hw_reg_mapping[i] + get_virtual_grf_size(i));
    }
 
    foreach_list(node, &this->instructions) {
