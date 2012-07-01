@@ -783,7 +783,7 @@ fs_visitor::split_virtual_grfs()
 
    /* Try to split anything > 0 sized. */
    for (int i = 0; i < num_vars; i++) {
-      if (this->virtual_grf_sizes[i] != 1)
+      if (this->get_virtual_grf_size(i) != 1)
 	 split_grf[i] = true;
       else
 	 split_grf[i] = false;
@@ -815,7 +815,7 @@ fs_visitor::split_virtual_grfs()
    for (int i = 0; i < num_vars; i++) {
       if (split_grf[i]) {
 	 new_virtual_grf[i] = virtual_grf_alloc(1);
-	 for (int j = 2; j < this->virtual_grf_sizes[i]; j++) {
+	 for (int j = 2; j < this->get_virtual_grf_size(i); j++) {
 	    int reg = virtual_grf_alloc(1);
 	    assert(reg == new_virtual_grf[i] + j - 1);
 	    (void) reg;
@@ -1249,7 +1249,7 @@ fs_visitor::register_coalesce_2()
 	  inst->src[0].smear != -1 ||
 	  inst->dst.file != GRF ||
 	  inst->dst.type != inst->src[0].type ||
-	  virtual_grf_sizes[inst->src[0].reg] != 1 ||
+	  get_virtual_grf_size(inst->src[0].reg) != 1 ||
 	  virtual_grf_interferes(inst->dst.reg, inst->src[0].reg)) {
 	 continue;
       }

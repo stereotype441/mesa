@@ -53,7 +53,7 @@ fs_visitor::assign_regs_trivial()
    hw_reg_mapping[0] = ALIGN(this->first_non_payload_grf, reg_width);
    for (i = 1; i <= this->virtual_grf_next; i++) {
       hw_reg_mapping[i] = (hw_reg_mapping[i - 1] +
-			   this->virtual_grf_sizes[i - 1] * reg_width);
+			   this->get_virtual_grf_size(i - 1) * reg_width);
    }
    this->grf_used = hw_reg_mapping[this->virtual_grf_next];
 
@@ -184,15 +184,15 @@ fs_visitor::assign_regs()
       int i;
 
       for (i = 0; i < class_count; i++) {
-	 if (class_sizes[i] == this->virtual_grf_sizes[r])
+	 if (class_sizes[i] == this->get_virtual_grf_size(r))
 	    break;
       }
       if (i == class_count) {
-	 if (this->virtual_grf_sizes[r] >= base_reg_count) {
+	 if (this->get_virtual_grf_size(r) >= base_reg_count) {
 	    fail("Object too large to register allocate.\n");
 	 }
 
-	 class_sizes[class_count++] = this->virtual_grf_sizes[r];
+	 class_sizes[class_count++] = this->get_virtual_grf_size(r);
       }
    }
 
@@ -204,7 +204,7 @@ fs_visitor::assign_regs()
 
    for (int i = 0; i < this->virtual_grf_next; i++) {
       for (int c = 0; c < class_count; c++) {
-	 if (class_sizes[c] == this->virtual_grf_sizes[i]) {
+	 if (class_sizes[c] == this->get_virtual_grf_size(i)) {
             /* Special case: on pre-GEN6 hardware that supports PLN, the
              * second operand of a PLN instruction needs to be an
              * even-numbered register, so we have a special register class
@@ -262,7 +262,7 @@ fs_visitor::assign_regs()
       hw_reg_mapping[i] = (first_assigned_grf +
 			   brw->wm.ra_reg_to_grf[reg] * reg_width);
       this->grf_used = MAX2(this->grf_used,
-			    hw_reg_mapping[i] + this->virtual_grf_sizes[i] *
+			    hw_reg_mapping[i] + this->get_virtual_grf_size(i) *
 			    reg_width);
    }
 
@@ -283,7 +283,7 @@ fs_visitor::assign_regs()
 void
 fs_visitor::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset)
 {
-   int size = virtual_grf_sizes[dst.reg];
+   int size = get_virtual_grf_size(dst.reg);
    dst.reg_offset = 0;
 
    for (int chan = 0; chan < size; chan++) {
@@ -324,13 +324,13 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
 
       for (unsigned int i = 0; i < 3; i++) {
 	 if (inst->src[i].file == GRF) {
-	    int size = virtual_grf_sizes[inst->src[i].reg];
+	    int size = get_virtual_grf_size(inst->src[i].reg);
 	    spill_costs[inst->src[i].reg] += size * loop_scale;
 	 }
       }
 
       if (inst->dst.file == GRF) {
-	 int size = virtual_grf_sizes[inst->dst.reg];
+	 int size = get_virtual_grf_size(inst->dst.reg);
 	 spill_costs[inst->dst.reg] += size * loop_scale;
       }
 
@@ -370,7 +370,7 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
 void
 fs_visitor::spill_reg(int spill_reg)
 {
-   int size = virtual_grf_sizes[spill_reg];
+   int size = get_virtual_grf_size(spill_reg);
    unsigned int spill_offset = c->last_scratch;
    assert(ALIGN(spill_offset, 16) == spill_offset); /* oword read/write req. */
    c->last_scratch += size * REG_SIZE;

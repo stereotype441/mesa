@@ -77,7 +77,7 @@ fs_live_variables::setup_def_use()
 	  * variable, and thus qualify for being in def[].
 	  */
 	 if (inst->dst.file == GRF &&
-	     inst->regs_written() == v->virtual_grf_sizes[inst->dst.reg] &&
+	     inst->regs_written() == v->get_virtual_grf_size(inst->dst.reg) &&
 	     !inst->predicated &&
 	     !inst->force_uncompressed &&
 	     !inst->force_sechalf) {

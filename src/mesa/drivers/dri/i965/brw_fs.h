@@ -593,6 +593,7 @@ private:
    int setup_uniform_values(int loc, const glsl_type *type);
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
+   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
 
    struct brw_context *brw;
    const struct gl_fragment_program *fp;
