@@ -354,8 +354,12 @@ public:
    /** @} */
 };
 
-class fs_visitor : public ir_visitor
+class fs_visitor : private ir_visitor
 {
+   friend class fs_cfg;
+   friend class fs_live_variables;
+   friend class instruction_scheduler;
+
 public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
@@ -419,9 +423,13 @@ public:
       hash_table_dtor(this->variable_ht);
    }
 
+   void import_uniforms(fs_visitor *v);
+   bool run();
+   const char *get_fail_msg() const { return fail_msg; }
+
+private:
    fs_reg *variable_storage(ir_variable *var);
    int virtual_grf_alloc(int size);
-   void import_uniforms(fs_visitor *v);
 
    void visit(ir_variable *ir);
    void visit(ir_assignment *ir);
@@ -482,7 +490,6 @@ public:
 					   fs_inst *end,
 					   fs_reg reg);
 
-   bool run();
    void setup_paramvalues_refs();
    void assign_curb_setup();
    void calculate_urb_setup();
@@ -586,8 +593,6 @@ public:
    int setup_uniform_values(int loc, const glsl_type *type);
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
-
-   const char *get_fail_msg() const { return fail_msg; }
 
    struct brw_context *brw;
    const struct gl_fragment_program *fp;
