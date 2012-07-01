@@ -757,6 +757,33 @@ fs_visitor::assign_urb_setup()
 }
 
 /**
+ * Allocate new space for split regs.  split_grf indicates which registers
+ * should be split.
+ *
+ * To split virtual register r (having size N), this function:
+ * - Shrinks register r to size 1.
+ * - Allocates N-1 new virtual registers (each having size 1).
+ * - Stores the first newly allocated register in new_virtual_grf[r].
+ */
+void
+fs_visitor::allocate_split_regs(const bool *split_grf, int *new_virtual_grf)
+{
+   int num_vars = this->get_num_virtual_grfs();
+
+   for (int i = 0; i < num_vars; i++) {
+      if (split_grf[i]) {
+	 new_virtual_grf[i] = virtual_grf_alloc(1);
+	 for (int j = 2; j < this->get_virtual_grf_size(i); j++) {
+	    int reg = virtual_grf_alloc(1);
+	    assert(reg == new_virtual_grf[i] + j - 1);
+	    (void) reg;
+	 }
+	 this->virtual_grf_sizes[i] = 1;
+      }
+   }
+}
+
+/**
  * Split large virtual GRFs into separate components if we can.
  *
  * This is mostly duplicated with what brw_fs_vector_splitting does,
@@ -809,20 +836,7 @@ fs_visitor::split_virtual_grfs()
       }
    }
 
-   /* Allocate new space for split regs.  Note that the virtual
-    * numbers will be contiguous.
-    */
-   for (int i = 0; i < num_vars; i++) {
-      if (split_grf[i]) {
-	 new_virtual_grf[i] = virtual_grf_alloc(1);
-	 for (int j = 2; j < this->get_virtual_grf_size(i); j++) {
-	    int reg = virtual_grf_alloc(1);
-	    assert(reg == new_virtual_grf[i] + j - 1);
-	    (void) reg;
-	 }
-	 this->virtual_grf_sizes[i] = 1;
-      }
-   }
+   allocate_split_regs(split_grf, new_virtual_grf);
 
    foreach_list(node, &this->instructions) {
       fs_inst *inst = (fs_inst *)node;

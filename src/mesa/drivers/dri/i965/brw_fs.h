@@ -499,6 +499,7 @@ private:
    int choose_spill_reg(struct ra_graph *g);
    void spill_reg(int spill_reg);
    void split_virtual_grfs();
+   void allocate_split_regs(const bool *split_grf, int *new_virtual_grf);
    void setup_pull_constants();
    void calculate_live_intervals();
    bool propagate_constants();
