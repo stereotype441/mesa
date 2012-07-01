@@ -538,6 +538,7 @@ public:
                                      src_reg src1 = src_reg(),
                                      src_reg src2 = src_reg()) const;
 
+   const char *get_fail_msg() const { return fail_msg; }
 };
 
 } /* namespace brw */

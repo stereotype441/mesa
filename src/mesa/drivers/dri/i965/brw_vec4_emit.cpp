@@ -1034,7 +1034,7 @@ brw_vs_emit(struct gl_shader_program *prog, struct brw_vs_compile *c)
    vec4_visitor v(c, prog, shader);
    if (!v.run()) {
       prog->LinkStatus = false;
-      ralloc_strcat(&prog->InfoLog, v.fail_msg);
+      ralloc_strcat(&prog->InfoLog, v.get_fail_msg());
       return false;
    }
 
