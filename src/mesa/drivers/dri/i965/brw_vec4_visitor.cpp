@@ -73,17 +73,19 @@ dst_reg::dst_reg(src_reg reg)
    this->fixed_hw_reg = reg.fixed_hw_reg;
 }
 
-vec4_instruction::vec4_instruction(vec4_visitor *v,
-				   enum opcode opcode, dst_reg dst,
-				   src_reg src0, src_reg src1, src_reg src2)
+vec4_instruction *
+vec4_visitor::new_instruction(enum opcode opcode, dst_reg dst,
+                              src_reg src0, src_reg src1, src_reg src2) const
 {
-   this->opcode = opcode;
-   this->dst = dst;
-   this->src[0] = src0;
-   this->src[1] = src1;
-   this->src[2] = src2;
-   this->ir = v->base_ir;
-   this->annotation = v->current_annotation;
+   vec4_instruction *inst = new(mem_ctx) vec4_instruction;
+   inst->opcode = opcode;
+   inst->dst = dst;
+   inst->src[0] = src0;
+   inst->src[1] = src1;
+   inst->src[2] = src2;
+   inst->ir = base_ir;
+   inst->annotation = current_annotation;
+   return inst;
 }
 
 vec4_instruction *
@@ -109,43 +111,40 @@ vec4_instruction *
 vec4_visitor::emit(enum opcode opcode, dst_reg dst,
 		   src_reg src0, src_reg src1, src_reg src2)
 {
-   return emit(new(mem_ctx) vec4_instruction(this, opcode, dst,
-					     src0, src1, src2));
+   return emit(new_instruction(opcode, dst, src0, src1, src2));
 }
 
 
 vec4_instruction *
 vec4_visitor::emit(enum opcode opcode, dst_reg dst, src_reg src0, src_reg src1)
 {
-   return emit(new(mem_ctx) vec4_instruction(this, opcode, dst, src0, src1));
+   return emit(new_instruction(opcode, dst, src0, src1));
 }
 
 vec4_instruction *
 vec4_visitor::emit(enum opcode opcode, dst_reg dst, src_reg src0)
 {
-   return emit(new(mem_ctx) vec4_instruction(this, opcode, dst, src0));
+   return emit(new_instruction(opcode, dst, src0));
 }
 
 vec4_instruction *
 vec4_visitor::emit(enum opcode opcode)
 {
-   return emit(new(mem_ctx) vec4_instruction(this, opcode, dst_reg()));
+   return emit(new_instruction(opcode, dst_reg()));
 }
 
 #define ALU1(op)							\
    vec4_instruction *							\
    vec4_visitor::op(dst_reg dst, src_reg src0)				\
    {									\
-      return new(mem_ctx) vec4_instruction(this, BRW_OPCODE_##op, dst,	\
-					   src0);			\
+      return new_instruction(BRW_OPCODE_##op, dst, src0);		\
    }
 
 #define ALU2(op)							\
    vec4_instruction *							\
    vec4_visitor::op(dst_reg dst, src_reg src0, src_reg src1)		\
    {									\
-      return new(mem_ctx) vec4_instruction(this, BRW_OPCODE_##op, dst,	\
-					   src0, src1);			\
+      return new_instruction(BRW_OPCODE_##op, dst, src0, src1);		\
    }
 
 ALU1(NOT)
@@ -169,7 +168,7 @@ vec4_visitor::IF(uint32_t predicate)
 {
    vec4_instruction *inst;
 
-   inst = new(mem_ctx) vec4_instruction(this, BRW_OPCODE_IF);
+   inst = new_instruction(BRW_OPCODE_IF);
    inst->predicate = predicate;
 
    return inst;
@@ -186,8 +185,7 @@ vec4_visitor::IF(src_reg src0, src_reg src1, uint32_t condition)
    resolve_ud_negate(&src0);
    resolve_ud_negate(&src1);
 
-   inst = new(mem_ctx) vec4_instruction(this, BRW_OPCODE_IF, dst_null_d(),
-					src0, src1);
+   inst = new_instruction(BRW_OPCODE_IF, dst_null_d(), src0, src1);
    inst->conditional_mod = condition;
 
    return inst;
@@ -216,7 +214,7 @@ vec4_visitor::CMP(dst_reg dst, src_reg src0, src_reg src1, uint32_t condition)
    resolve_ud_negate(&src0);
    resolve_ud_negate(&src1);
 
-   inst = new(mem_ctx) vec4_instruction(this, BRW_OPCODE_CMP, dst, src0, src1);
+   inst = new_instruction(BRW_OPCODE_CMP, dst, src0, src1);
    inst->conditional_mod = condition;
 
    return inst;
@@ -227,8 +225,7 @@ vec4_visitor::SCRATCH_READ(dst_reg dst, src_reg index)
 {
    vec4_instruction *inst;
 
-   inst = new(mem_ctx) vec4_instruction(this, VS_OPCODE_SCRATCH_READ,
-					dst, index);
+   inst = new_instruction(VS_OPCODE_SCRATCH_READ, dst, index);
    inst->base_mrf = 14;
    inst->mlen = 1;
 
@@ -240,8 +237,7 @@ vec4_visitor::SCRATCH_WRITE(dst_reg dst, src_reg src, src_reg index)
 {
    vec4_instruction *inst;
 
-   inst = new(mem_ctx) vec4_instruction(this, VS_OPCODE_SCRATCH_WRITE,
-					dst, src, index);
+   inst = new_instruction(VS_OPCODE_SCRATCH_WRITE, dst, src, index);
    inst->base_mrf = 13;
    inst->mlen = 2;
 
@@ -1859,16 +1855,16 @@ vec4_visitor::visit(ir_texture *ir)
    switch (ir->op) {
    case ir_tex:
    case ir_txl:
-      inst = new(mem_ctx) vec4_instruction(this, SHADER_OPCODE_TXL);
+      inst = new_instruction(SHADER_OPCODE_TXL);
       break;
    case ir_txd:
-      inst = new(mem_ctx) vec4_instruction(this, SHADER_OPCODE_TXD);
+      inst = new_instruction(SHADER_OPCODE_TXD);
       break;
    case ir_txf:
-      inst = new(mem_ctx) vec4_instruction(this, SHADER_OPCODE_TXF);
+      inst = new_instruction(SHADER_OPCODE_TXF);
       break;
    case ir_txs:
-      inst = new(mem_ctx) vec4_instruction(this, SHADER_OPCODE_TXS);
+      inst = new_instruction(SHADER_OPCODE_TXS);
       break;
    case ir_txb:
       assert(!"TXB is not valid for vertex shaders.");
@@ -2552,8 +2548,7 @@ vec4_visitor::emit_pull_constant_load(vec4_instruction *inst,
    src_reg index = get_pull_constant_offset(inst, orig_src.reladdr, reg_offset);
    vec4_instruction *load;
 
-   load = new(mem_ctx) vec4_instruction(this, VS_OPCODE_PULL_CONSTANT_LOAD,
-					temp, index);
+   load = new_instruction(VS_OPCODE_PULL_CONSTANT_LOAD, temp, index);
    load->base_mrf = 14;
    load->mlen = 1;
    emit_before(inst, load);

@@ -217,12 +217,6 @@ public:
       return node;
    }
 
-   vec4_instruction(vec4_visitor *v, enum opcode opcode,
-		    dst_reg dst = dst_reg(),
-		    src_reg src0 = src_reg(),
-		    src_reg src1 = src_reg(),
-		    src_reg src2 = src_reg());
-
    struct brw_reg get_dst(void);
    struct brw_reg get_src(int i);
 
@@ -538,6 +532,12 @@ public:
 				    struct brw_reg index);
    src_reg new_src_reg(const struct glsl_type *type);
    dst_reg new_dst_reg(const struct glsl_type *type);
+   vec4_instruction *new_instruction(enum opcode opcode,
+                                     dst_reg dst = dst_reg(),
+                                     src_reg src0 = src_reg(),
+                                     src_reg src1 = src_reg(),
+                                     src_reg src2 = src_reg()) const;
+
 };
 
 } /* namespace brw */
