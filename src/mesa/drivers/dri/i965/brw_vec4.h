@@ -251,13 +251,16 @@ public:
    bool is_math();
 };
 
-class vec4_visitor : public ir_visitor
+class vec4_visitor : private ir_visitor
 {
 public:
    vec4_visitor(struct brw_vs_compile *c,
 		struct gl_shader_program *prog, struct brw_shader *shader);
    ~vec4_visitor();
+   bool run(void);
+   const char *get_fail_msg() const { return fail_msg; }
 
+private:
    dst_reg dst_null_f()
    {
       return dst_reg(brw_null_reg());
@@ -355,7 +358,6 @@ public:
 
    struct hash_table *variable_ht;
 
-   bool run(void);
    void fail(const char *msg, ...);
 
    int virtual_grf_alloc(int size);
@@ -537,8 +539,6 @@ public:
                                      src_reg src0 = src_reg(),
                                      src_reg src1 = src_reg(),
                                      src_reg src2 = src_reg()) const;
-
-   const char *get_fail_msg() const { return fail_msg; }
    dst_reg get_assignment_lhs(ir_dereference *ir);
 };
 
