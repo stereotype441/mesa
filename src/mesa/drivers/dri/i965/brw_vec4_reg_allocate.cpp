@@ -42,15 +42,15 @@ assign(unsigned int *reg_hw_locations, reg *reg)
 void
 vec4_visitor::reg_allocate_trivial()
 {
-   unsigned int hw_reg_mapping[this->virtual_grf_count];
-   bool virtual_grf_used[this->virtual_grf_count];
+   unsigned int hw_reg_mapping[this->get_num_virtual_grfs()];
+   bool virtual_grf_used[this->get_num_virtual_grfs()];
    int i;
    int next;
 
    /* Calculate which virtual GRFs are actually in use after whatever
     * optimization passes have occurred.
     */
-   for (int i = 0; i < this->virtual_grf_count; i++) {
+   for (int i = 0; i < this->get_num_virtual_grfs(); i++) {
       virtual_grf_used[i] = false;
    }
 
@@ -68,7 +68,7 @@ vec4_visitor::reg_allocate_trivial()
 
    hw_reg_mapping[0] = this->first_non_payload_grf;
    next = hw_reg_mapping[0] + this->get_virtual_grf_size(0);
-   for (i = 1; i < this->virtual_grf_count; i++) {
+   for (i = 1; i < this->get_num_virtual_grfs(); i++) {
       if (virtual_grf_used[i]) {
 	 hw_reg_mapping[i] = next;
 	 next += this->get_virtual_grf_size(i);
@@ -140,7 +140,7 @@ brw_alloc_reg_set_for_classes(struct brw_context *brw,
 void
 vec4_visitor::reg_allocate()
 {
-   unsigned int hw_reg_mapping[virtual_grf_count];
+   unsigned int hw_reg_mapping[get_num_virtual_grfs()];
    int first_assigned_grf = this->first_non_payload_grf;
    int base_reg_count = max_grf - first_assigned_grf;
    int class_sizes[base_reg_count];
@@ -164,7 +164,7 @@ vec4_visitor::reg_allocate()
     */
    class_sizes[class_count++] = 1;
 
-   for (int r = 0; r < virtual_grf_count; r++) {
+   for (int r = 0; r < get_num_virtual_grfs(); r++) {
       int i;
 
       for (i = 0; i < class_count; i++) {
@@ -183,9 +183,9 @@ vec4_visitor::reg_allocate()
    brw_alloc_reg_set_for_classes(brw, class_sizes, class_count, base_reg_count);
 
    struct ra_graph *g = ra_alloc_interference_graph(brw->vs.regs,
-						    virtual_grf_count);
+						    get_num_virtual_grfs());
 
-   for (int i = 0; i < virtual_grf_count; i++) {
+   for (int i = 0; i < get_num_virtual_grfs(); i++) {
       for (int c = 0; c < class_count; c++) {
 	 if (class_sizes[c] == this->get_virtual_grf_size(i)) {
 	    ra_set_node_class(g, i, brw->vs.classes[c]);
@@ -211,7 +211,7 @@ vec4_visitor::reg_allocate()
     * numbers.
     */
    prog_data->total_grf = first_assigned_grf;
-   for (int i = 0; i < virtual_grf_count; i++) {
+   for (int i = 0; i < get_num_virtual_grfs(); i++) {
       int reg = ra_get_node_reg(g, i);
 
       hw_reg_mapping[i] = first_assigned_grf + brw->vs.ra_reg_to_grf[reg];

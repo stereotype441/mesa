@@ -2465,9 +2465,9 @@ vec4_visitor::emit_scratch_write(vec4_instruction *inst,
 void
 vec4_visitor::move_grf_array_access_to_scratch()
 {
-   int scratch_loc[this->virtual_grf_count];
+   int scratch_loc[this->get_num_virtual_grfs()];
 
-   for (int i = 0; i < this->virtual_grf_count; i++) {
+   for (int i = 0; i < this->get_num_virtual_grfs(); i++) {
       scratch_loc[i] = -1;
    }
 

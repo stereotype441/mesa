@@ -541,6 +541,7 @@ private:
                                      src_reg src2 = src_reg()) const;
    dst_reg get_assignment_lhs(ir_dereference *ir);
    int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
+   int get_num_virtual_grfs() const { return virtual_grf_count; }
 };
 
 } /* namespace brw */

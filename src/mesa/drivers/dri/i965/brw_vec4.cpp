@@ -112,15 +112,15 @@ src_reg::equals(src_reg *r)
 void
 vec4_visitor::calculate_live_intervals()
 {
-   int *def = ralloc_array(mem_ctx, int, virtual_grf_count);
-   int *use = ralloc_array(mem_ctx, int, virtual_grf_count);
+   int *def = ralloc_array(mem_ctx, int, get_num_virtual_grfs());
+   int *use = ralloc_array(mem_ctx, int, get_num_virtual_grfs());
    int loop_depth = 0;
    int loop_start = 0;
 
    if (this->live_intervals_valid)
       return;
 
-   for (int i = 0; i < virtual_grf_count; i++) {
+   for (int i = 0; i < get_num_virtual_grfs(); i++) {
       def[i] = MAX_INSTRUCTION;
       use[i] = -1;
    }
@@ -139,7 +139,7 @@ vec4_visitor::calculate_live_intervals()
 	    /* Patches up the use of vars marked for being live across
 	     * the whole loop.
 	     */
-	    for (int i = 0; i < virtual_grf_count; i++) {
+	    for (int i = 0; i < get_num_virtual_grfs(); i++) {
 	       if (use[i] == loop_start) {
 		  use[i] = ip;
 	       }
