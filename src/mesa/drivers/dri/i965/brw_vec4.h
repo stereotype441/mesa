@@ -539,6 +539,7 @@ public:
                                      src_reg src2 = src_reg()) const;
 
    const char *get_fail_msg() const { return fail_msg; }
+   dst_reg get_assignment_lhs(ir_dereference *ir);
 };
 
 } /* namespace brw */
