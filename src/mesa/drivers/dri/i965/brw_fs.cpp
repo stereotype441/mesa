@@ -53,7 +53,7 @@ extern "C" {
 namespace brw {
 
 int
-fs_visitor::type_size(const struct glsl_type *type)
+fs_regs::type_size(const struct glsl_type *type)
 {
    unsigned int size, i;
 
@@ -177,7 +177,7 @@ fs_visitor::implied_mrf_writes(fs_inst *inst)
 }
 
 int
-fs_visitor::virtual_grf_alloc(int size)
+fs_regs::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_next) {
       if (virtual_grf_array_size == 0)
@@ -364,7 +364,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
+   fs_reg *reg = new(this->mem_ctx) fs_reg(regs.new_reg(ir->type));
    fs_reg wpos = *reg;
    bool flip = !ir->origin_upper_left ^ c->key.render_to_fbo;
 
@@ -435,7 +435,7 @@ fs_visitor::emit_linterp(const fs_reg &attr, const fs_reg &interp,
 fs_reg *
 fs_visitor::emit_general_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
+   fs_reg *reg = new(this->mem_ctx) fs_reg(regs.new_reg(ir->type));
    reg->type = brw_type_for_base_type(ir->type->get_scalar_type());
    fs_reg attr = *reg;
 
@@ -515,7 +515,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_frontfacing_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
+   fs_reg *reg = new(this->mem_ctx) fs_reg(regs.new_reg(ir->type));
 
    /* The frontfacing comes in as a bit in the thread payload. */
    if (intel->gen >= 6) {
@@ -567,7 +567,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src)
    if (intel->gen == 6 && (src.file == UNIFORM ||
 			   src.abs ||
 			   src.negate)) {
-      fs_reg expanded = new_reg(glsl_type::float_type);
+      fs_reg expanded = regs.new_reg(glsl_type::float_type);
       emit(BRW_OPCODE_MOV, expanded, src);
       src = expanded;
    }
@@ -607,14 +607,14 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
        * instructions, so we also move to a temp to set those up.
        */
       if (src0.file == UNIFORM || src0.abs || src0.negate) {
-	 fs_reg expanded = new_reg(glsl_type::float_type);
+	 fs_reg expanded = regs.new_reg(glsl_type::float_type);
 	 expanded.type = src0.type;
 	 emit(BRW_OPCODE_MOV, expanded, src0);
 	 src0 = expanded;
       }
 
       if (src1.file == UNIFORM || src1.abs || src1.negate) {
-	 fs_reg expanded = new_reg(glsl_type::float_type);
+	 fs_reg expanded = regs.new_reg(glsl_type::float_type);
 	 expanded.type = src1.type;
 	 emit(BRW_OPCODE_MOV, expanded, src1);
 	 src1 = expanded;
@@ -766,7 +766,7 @@ fs_visitor::assign_urb_setup()
  * - Stores the first newly allocated register in new_virtual_grf[r].
  */
 void
-fs_visitor::allocate_split_regs(const bool *split_grf, int *new_virtual_grf)
+fs_regs::allocate_split_regs(const bool *split_grf, int *new_virtual_grf)
 {
    int num_vars = this->get_num_virtual_grfs();
 
@@ -804,13 +804,13 @@ fs_visitor::allocate_split_regs(const bool *split_grf, int *new_virtual_grf)
 void
 fs_visitor::split_virtual_grfs()
 {
-   int num_vars = this->get_num_virtual_grfs();
+   int num_vars = this->regs.get_num_virtual_grfs();
    bool split_grf[num_vars];
    int new_virtual_grf[num_vars];
 
    /* Try to split anything > 0 sized. */
    for (int i = 0; i < num_vars; i++) {
-      if (this->get_virtual_grf_size(i) != 1)
+      if (this->regs.get_virtual_grf_size(i) != 1)
 	 split_grf[i] = true;
       else
 	 split_grf[i] = false;
@@ -836,7 +836,7 @@ fs_visitor::split_virtual_grfs()
       }
    }
 
-   allocate_split_regs(split_grf, new_virtual_grf);
+   regs.allocate_split_regs(split_grf, new_virtual_grf);
 
    foreach_list(node, &this->instructions) {
       fs_inst *inst = (fs_inst *)node;
@@ -981,7 +981,7 @@ fs_visitor::setup_pull_constants()
 	 if (uniform_nr < pull_uniform_base)
 	    continue;
 
-	 fs_reg dst = new_reg(glsl_type::float_type);
+	 fs_reg dst = regs.new_reg(glsl_type::float_type);
 	 fs_inst *pull = new(mem_ctx) fs_inst(FS_OPCODE_PULL_CONSTANT_LOAD,
 					      dst);
 	 pull->offset = ((uniform_nr - pull_uniform_base) * 4) & ~15;
@@ -1263,7 +1263,7 @@ fs_visitor::register_coalesce_2()
 	  inst->src[0].smear != -1 ||
 	  inst->dst.file != GRF ||
 	  inst->dst.type != inst->src[0].type ||
-	  get_virtual_grf_size(inst->src[0].reg) != 1 ||
+	  regs.get_virtual_grf_size(inst->src[0].reg) != 1 ||
 	  virtual_grf_interferes(inst->dst.reg, inst->src[0].reg)) {
 	 continue;
       }
@@ -1779,7 +1779,7 @@ fs_visitor::run()
 
       if (0) {
 	 /* Debug of register spilling: Go spill everything. */
-	 int virtual_grf_count = get_num_virtual_grfs();
+	 int virtual_grf_count = regs.get_num_virtual_grfs();
 	 for (int i = 0; i < virtual_grf_count; i++) {
 	    spill_reg(i);
 	 }

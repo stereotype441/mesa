@@ -354,6 +354,37 @@ public:
    /** @} */
 };
 
+class fs_regs
+{
+public:
+   explicit fs_regs(void *mem_ctx)
+      : mem_ctx(mem_ctx)
+   {
+      this->virtual_grf_sizes = NULL;
+      this->virtual_grf_next = 0;
+      this->virtual_grf_array_size = 0;
+   }
+
+   int virtual_grf_alloc(int size);
+
+   fs_reg new_reg(const struct glsl_type *type)
+   {
+      return fs_reg(GRF, virtual_grf_alloc(type_size(type)),
+                    brw_type_for_base_type(type));
+   }
+
+   int get_num_virtual_grfs() const { return virtual_grf_next; }
+   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
+   int type_size(const struct glsl_type *type);
+   void allocate_split_regs(const bool *split_grf, int *new_virtual_grf);
+
+private:
+   void *mem_ctx;
+   int *virtual_grf_sizes;
+   int virtual_grf_next;
+   int virtual_grf_array_size;
+};
+
 class fs_visitor : private ir_visitor
 {
    friend class fs_cfg;
@@ -364,7 +395,8 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
-      : mem_ctx(ralloc_context(NULL))
+      : mem_ctx(ralloc_context(NULL)),
+        regs(mem_ctx)
    {
       this->c = c;
       this->p = &c->func;
@@ -405,9 +437,6 @@ public:
       this->current_annotation = NULL;
       this->base_ir = NULL;
 
-      this->virtual_grf_sizes = NULL;
-      this->virtual_grf_next = 0;
-      this->virtual_grf_array_size = 0;
       this->virtual_grf_def = NULL;
       this->virtual_grf_use = NULL;
       this->live_intervals_valid = false;
@@ -429,7 +458,6 @@ public:
 
 private:
    fs_reg *variable_storage(ir_variable *var);
-   int virtual_grf_alloc(int size);
 
    void visit(ir_variable *ir);
    void visit(ir_assignment *ir);
@@ -479,13 +507,6 @@ private:
       return emit(fs_inst(opcode, dst, src0, src1, src2));
    }
 
-   fs_reg new_reg(const struct glsl_type *type)
-   {
-      return fs_reg(GRF, virtual_grf_alloc(type_size(type)),
-                    brw_type_for_base_type(type));
-   }
-
-   int type_size(const struct glsl_type *type);
    fs_inst *get_instruction_generating_reg(fs_inst *start,
 					   fs_inst *end,
 					   fs_reg reg);
@@ -499,7 +520,6 @@ private:
    int choose_spill_reg(struct ra_graph *g);
    void spill_reg(int spill_reg);
    void split_virtual_grfs();
-   void allocate_split_regs(const bool *split_grf, int *new_virtual_grf);
    void setup_pull_constants();
    void calculate_live_intervals();
    bool propagate_constants();
@@ -594,8 +614,6 @@ private:
    int setup_uniform_values(int loc, const glsl_type *type);
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
-   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
-   int get_num_virtual_grfs() const { return virtual_grf_next; }
 
    struct brw_context *brw;
    const struct gl_fragment_program *fp;
@@ -614,9 +632,7 @@ private:
    int param_index[MAX_UNIFORMS * 4];
    int param_offset[MAX_UNIFORMS * 4];
 
-   int *virtual_grf_sizes;
-   int virtual_grf_next;
-   int virtual_grf_array_size;
+   fs_regs regs;
    int *virtual_grf_def;
    int *virtual_grf_use;
    bool live_intervals_valid;

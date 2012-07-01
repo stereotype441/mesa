@@ -72,7 +72,7 @@ fs_visitor::visit(ir_variable *ir)
       hash_table_insert(this->variable_ht, reg, ir);
       return;
    } else if (ir->mode == ir_var_out) {
-      reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
+      reg = new(this->mem_ctx) fs_reg(regs.new_reg(ir->type));
 
       if (ir->index > 0) {
 	 assert(ir->location == FRAG_RESULT_DATA0);
@@ -124,7 +124,7 @@ fs_visitor::visit(ir_variable *ir)
    }
 
    if (!reg)
-      reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
+      reg = new(this->mem_ctx) fs_reg(regs.new_reg(ir->type));
 
    hash_table_insert(this->variable_ht, reg, ir);
 }
@@ -147,7 +147,7 @@ fs_visitor::visit(ir_dereference_record *ir)
    for (unsigned int i = 0; i < struct_type->length; i++) {
       if (strcmp(struct_type->fields.structure[i].name, ir->field) == 0)
 	 break;
-      offset += type_size(struct_type->fields.structure[i].type);
+      offset += regs.type_size(struct_type->fields.structure[i].type);
    }
    this->result.reg_offset += offset;
    this->result.type = brw_type_for_base_type(ir->type);
@@ -162,7 +162,7 @@ fs_visitor::visit(ir_dereference_array *ir)
    ir->array->accept(this);
    index = ir->array_index->as_constant();
 
-   element_size = type_size(ir->type);
+   element_size = regs.type_size(ir->type);
    this->result.type = brw_type_for_base_type(ir->type);
 
    if (index) {
@@ -238,7 +238,7 @@ fs_visitor::try_emit_mad(ir_expression *ir, int mul_arg)
    mul->operands[1]->accept(this);
    fs_reg src2 = this->result;
 
-   this->result = new_reg(ir->type);
+   this->result = regs.new_reg(ir->type);
    emit(BRW_OPCODE_MAD, this->result, src0, src1, src2);
 
    return true;
@@ -281,7 +281,7 @@ fs_visitor::visit(ir_expression *ir)
    /* Storage for our result.  If our result goes into an assignment, it will
     * just get copy-propagated out, so no worries.
     */
-   this->result = new_reg(ir->type);
+   this->result = regs.new_reg(ir->type);
 
    switch (ir->operation) {
    case ir_unop_logic_not:
@@ -300,7 +300,7 @@ fs_visitor::visit(ir_expression *ir)
       this->result = op[0];
       break;
    case ir_unop_sign:
-      temp = new_reg(ir->type);
+      temp = regs.new_reg(ir->type);
 
       emit(BRW_OPCODE_MOV, this->result, fs_reg(0.0f));
 
@@ -473,7 +473,7 @@ fs_visitor::visit(ir_expression *ir)
       inst = emit(BRW_OPCODE_AND, this->result, op[0], fs_reg(1));
       break;
    case ir_unop_b2f:
-      temp = new_reg(glsl_type::int_type);
+      temp = regs.new_reg(glsl_type::int_type);
       emit(BRW_OPCODE_AND, temp, op[0], fs_reg(1));
       emit(BRW_OPCODE_MOV, this->result, temp);
       break;
@@ -518,7 +518,7 @@ fs_visitor::visit(ir_expression *ir)
 	 inst->conditional_mod = BRW_CONDITIONAL_L;
       } else {
 	 /* Unalias the destination */
-	 this->result = new_reg(ir->type);
+	 this->result = regs.new_reg(ir->type);
 
 	 inst = emit(BRW_OPCODE_CMP, this->result, op[0], op[1]);
 	 inst->conditional_mod = BRW_CONDITIONAL_L;
@@ -536,7 +536,7 @@ fs_visitor::visit(ir_expression *ir)
 	 inst->conditional_mod = BRW_CONDITIONAL_GE;
       } else {
 	 /* Unalias the destination */
-	 this->result = new_reg(ir->type);
+	 this->result = regs.new_reg(ir->type);
 
 	 inst = emit(BRW_OPCODE_CMP, this->result, op[0], op[1]);
 	 inst->conditional_mod = BRW_CONDITIONAL_G;
@@ -840,7 +840,7 @@ fs_visitor::emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
       orig_dst = dst;
       const glsl_type *vec_type =
 	 glsl_type::get_instance(ir->type->base_type, 4, 1);
-      dst = new_reg(glsl_type::get_array_instance(vec_type, 2));
+      dst = regs.new_reg(glsl_type::get_array_instance(vec_type, 2));
       dst.type = intel->is_g4x ? brw_type_for_base_type(ir->type)
 			       : BRW_REGISTER_TYPE_F;
    }
@@ -1222,7 +1222,7 @@ fs_visitor::visit(ir_texture *ir)
 
       if (c->dispatch_width == 16) {
 	 fail("rectangle scale uniform setup not supported on 16-wide\n");
-	 this->result = new_reg(ir->type);
+	 this->result = regs.new_reg(ir->type);
 	 return;
       }
 
@@ -1251,7 +1251,7 @@ fs_visitor::visit(ir_texture *ir)
     */
    if (intel->gen < 6 &&
        ir->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_RECT) {
-      fs_reg dst = new_reg(ir->coordinate->type);
+      fs_reg dst = regs.new_reg(ir->coordinate->type);
       fs_reg src = coordinate;
       coordinate = dst;
 
@@ -1281,7 +1281,7 @@ fs_visitor::visit(ir_texture *ir)
 	     * for clamping, but we don't care enough to make a new
 	     * parameter type, so just invert back.
 	     */
-	    fs_reg limit = new_reg(glsl_type::float_type);
+	    fs_reg limit = regs.new_reg(glsl_type::float_type);
 	    emit(BRW_OPCODE_MOV, limit, i == 0 ? scale_x : scale_y);
 	    emit(SHADER_OPCODE_RCP, limit, limit);
 
@@ -1307,7 +1307,7 @@ fs_visitor::visit(ir_texture *ir)
    /* Writemasking doesn't eliminate channels on SIMD8 texture
     * samples, so don't worry about them.
     */
-   fs_reg dst = new_reg(glsl_type::get_instance(ir->type->base_type, 4, 1));
+   fs_reg dst = regs.new_reg(glsl_type::get_instance(ir->type->base_type, 4, 1));
 
    if (intel->gen >= 7) {
       inst = emit_texture_gen7(ir, dst, coordinate, sampler);
@@ -1335,7 +1335,7 @@ fs_visitor::visit(ir_texture *ir)
 	 fs_reg ref = this->result;
 
 	 fs_reg value = dst;
-	 dst = new_reg(glsl_type::vec4_type);
+	 dst = regs.new_reg(glsl_type::vec4_type);
 
 	 /* FINISHME: This needs to be done pre-filtering. */
 
@@ -1388,7 +1388,7 @@ fs_visitor::swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler)
       /* Ignore DEPTH_TEXTURE_MODE swizzling. */
       assert(ir->sampler->type->sampler_shadow);
    } else if (c->key.tex.swizzles[sampler] != SWIZZLE_NOOP) {
-      fs_reg swizzled_result = new_reg(glsl_type::vec4_type);
+      fs_reg swizzled_result = regs.new_reg(glsl_type::vec4_type);
 
       for (int i = 0; i < 4; i++) {
 	 int swiz = GET_SWZ(c->key.tex.swizzles[sampler], i);
@@ -1420,7 +1420,7 @@ fs_visitor::visit(ir_swizzle *ir)
       return;
    }
 
-   fs_reg result = new_reg(ir->type);
+   fs_reg result = regs.new_reg(ir->type);
    this->result = result;
 
    for (unsigned int i = 0; i < ir->type->vector_elements; i++) {
@@ -1467,11 +1467,11 @@ fs_visitor::visit(ir_constant *ir)
     * Make reg constant so that it doesn't get accidentally modified along the
     * way.  Yes, I actually had this problem. :(
     */
-   const fs_reg reg = new_reg(ir->type);
+   const fs_reg reg = regs.new_reg(ir->type);
    fs_reg dst_reg = reg;
 
    if (ir->type->is_array()) {
-      const unsigned size = type_size(ir->type->fields.array);
+      const unsigned size = regs.type_size(ir->type->fields.array);
 
       for (unsigned i = 0; i < ir->type->length; i++) {
 	 ir->array_elements[i]->accept(this);
@@ -1487,7 +1487,7 @@ fs_visitor::visit(ir_constant *ir)
    } else if (ir->type->is_record()) {
       foreach_list(node, &ir->components) {
 	 ir_constant *const field = (ir_constant *) node;
-	 const unsigned size = type_size(field->type);
+	 const unsigned size = regs.type_size(field->type);
 
 	 field->accept(this);
 	 fs_reg src_reg = this->result;
@@ -1500,7 +1500,7 @@ fs_visitor::visit(ir_constant *ir)
 	 }
       }
    } else {
-      const unsigned size = type_size(ir->type);
+      const unsigned size = regs.type_size(ir->type);
 
       for (unsigned i = 0; i < size; i++) {
 	 switch (ir->type->base_type) {
@@ -1639,14 +1639,14 @@ fs_visitor::emit_if_gen6(ir_if *ir)
 	 return;
 
       case ir_binop_logic_or:
-	 temp = new_reg(glsl_type::bool_type);
+	 temp = regs.new_reg(glsl_type::bool_type);
 	 emit(BRW_OPCODE_OR, temp, op[0], op[1]);
 	 inst = emit(BRW_OPCODE_IF, reg_null_d, temp, fs_reg(0));
 	 inst->conditional_mod = BRW_CONDITIONAL_NZ;
 	 return;
 
       case ir_binop_logic_and:
-	 temp = new_reg(glsl_type::bool_type);
+	 temp = regs.new_reg(glsl_type::bool_type);
 	 emit(BRW_OPCODE_AND, temp, op[0], op[1]);
 	 inst = emit(BRW_OPCODE_IF, reg_null_d, temp, fs_reg(0));
 	 inst->conditional_mod = BRW_CONDITIONAL_NZ;
@@ -1900,8 +1900,8 @@ void
 fs_visitor::emit_interpolation_setup_gen4()
 {
    this->current_annotation = "compute pixel centers";
-   this->pixel_x = new_reg(glsl_type::uint_type);
-   this->pixel_y = new_reg(glsl_type::uint_type);
+   this->pixel_x = regs.new_reg(glsl_type::uint_type);
+   this->pixel_y = regs.new_reg(glsl_type::uint_type);
    this->pixel_x.type = BRW_REGISTER_TYPE_UW;
    this->pixel_y.type = BRW_REGISTER_TYPE_UW;
 
@@ -1911,15 +1911,15 @@ fs_visitor::emit_interpolation_setup_gen4()
    this->current_annotation = "compute pixel deltas from v0";
    if (brw->has_pln) {
       this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
-         new_reg(glsl_type::vec2_type);
+         regs.new_reg(glsl_type::vec2_type);
       this->delta_y[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
          this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC];
       this->delta_y[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].reg_offset++;
    } else {
       this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
-         new_reg(glsl_type::float_type);
+         regs.new_reg(glsl_type::float_type);
       this->delta_y[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
-         new_reg(glsl_type::float_type);
+         regs.new_reg(glsl_type::float_type);
    }
    emit(BRW_OPCODE_ADD, this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC],
 	this->pixel_x, fs_reg(negate(brw_vec1_grf(1, 0))));
@@ -1930,13 +1930,13 @@ fs_visitor::emit_interpolation_setup_gen4()
    /* Compute wpos.w.  It's always in our setup, since it's needed to
     * interpolate the other attributes.
     */
-   this->wpos_w = new_reg(glsl_type::float_type);
+   this->wpos_w = regs.new_reg(glsl_type::float_type);
    emit(FS_OPCODE_LINTERP, wpos_w,
         this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC],
         this->delta_y[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC],
 	interp_reg(FRAG_ATTRIB_WPOS, 3));
    /* Compute the pixel 1/W value from wpos.w. */
-   this->pixel_w = new_reg(glsl_type::float_type);
+   this->pixel_w = regs.new_reg(glsl_type::float_type);
    emit_math(SHADER_OPCODE_RCP, this->pixel_w, wpos_w);
    this->current_annotation = NULL;
 }
@@ -1949,8 +1949,8 @@ fs_visitor::emit_interpolation_setup_gen6()
 
    /* If the pixel centers end up used, the setup is the same as for gen4. */
    this->current_annotation = "compute pixel centers";
-   fs_reg int_pixel_x = new_reg(glsl_type::uint_type);
-   fs_reg int_pixel_y = new_reg(glsl_type::uint_type);
+   fs_reg int_pixel_x = regs.new_reg(glsl_type::uint_type);
+   fs_reg int_pixel_y = regs.new_reg(glsl_type::uint_type);
    int_pixel_x.type = BRW_REGISTER_TYPE_UW;
    int_pixel_y.type = BRW_REGISTER_TYPE_UW;
    emit(BRW_OPCODE_ADD,
@@ -1966,14 +1966,14 @@ fs_visitor::emit_interpolation_setup_gen6()
     * to turn the integer pixel centers into floats for their actual
     * use.
     */
-   this->pixel_x = new_reg(glsl_type::float_type);
-   this->pixel_y = new_reg(glsl_type::float_type);
+   this->pixel_x = regs.new_reg(glsl_type::float_type);
+   this->pixel_y = regs.new_reg(glsl_type::float_type);
    emit(BRW_OPCODE_MOV, this->pixel_x, int_pixel_x);
    emit(BRW_OPCODE_MOV, this->pixel_y, int_pixel_y);
 
    this->current_annotation = "compute pos.w";
    this->pixel_w = fs_reg(brw_vec8_grf(c->source_w_reg, 0));
-   this->wpos_w = new_reg(glsl_type::float_type);
+   this->wpos_w = regs.new_reg(glsl_type::float_type);
    emit_math(SHADER_OPCODE_RCP, this->wpos_w, this->pixel_w);
 
    for (int i = 0; i < BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT; ++i) {
@@ -2220,7 +2220,7 @@ fs_visitor::resolve_ud_negate(fs_reg *reg)
        !reg->negate)
       return;
 
-   fs_reg temp = new_reg(glsl_type::uint_type);
+   fs_reg temp = regs.new_reg(glsl_type::uint_type);
    emit(BRW_OPCODE_MOV, temp, *reg);
    *reg = temp;
 }
@@ -2231,7 +2231,7 @@ fs_visitor::resolve_bool_comparison(ir_rvalue *rvalue, fs_reg *reg)
    if (rvalue->type != glsl_type::bool_type)
       return;
 
-   fs_reg temp = new_reg(glsl_type::bool_type);
+   fs_reg temp = regs.new_reg(glsl_type::bool_type);
    emit(BRW_OPCODE_AND, temp, *reg, fs_reg(1));
    *reg = temp;
 }

@@ -77,7 +77,7 @@ fs_live_variables::setup_def_use()
 	  * variable, and thus qualify for being in def[].
 	  */
 	 if (inst->dst.file == GRF &&
-	     inst->regs_written() == v->get_virtual_grf_size(inst->dst.reg) &&
+	     inst->regs_written() == v->regs.get_virtual_grf_size(inst->dst.reg) &&
 	     !inst->predicated &&
 	     !inst->force_uncompressed &&
 	     !inst->force_sechalf) {
@@ -137,7 +137,7 @@ fs_live_variables::fs_live_variables(fs_visitor *v, fs_cfg *cfg)
 {
    mem_ctx = ralloc_context(cfg->mem_ctx);
 
-   num_vars = v->get_num_virtual_grfs();
+   num_vars = v->regs.get_num_virtual_grfs();
    bd = rzalloc_array(mem_ctx, struct block_data, cfg->num_blocks);
    vars = rzalloc_array(mem_ctx, struct var, num_vars);
 
@@ -162,7 +162,7 @@ fs_live_variables::~fs_live_variables()
 void
 fs_visitor::calculate_live_intervals()
 {
-   int num_vars = this->get_num_virtual_grfs();
+   int num_vars = this->regs.get_num_virtual_grfs();
 
    if (this->live_intervals_valid)
       return;
