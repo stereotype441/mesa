@@ -89,7 +89,7 @@ fs_visitor::visit(ir_variable *ir)
 	 this->dual_src_output = *reg;
       } else if (ir->location == FRAG_RESULT_COLOR) {
 	 /* Writing gl_FragColor outputs to all color regions. */
-	 for (unsigned int i = 0; i < MAX2(c->key.nr_color_regions, 1); i++) {
+	 for (unsigned int i = 0; i < MAX2(assy->c->key.nr_color_regions, 1); i++) {
 	    this->outputs[i] = *reg;
 	    this->output_components[i] = 4;
 	 }
@@ -113,9 +113,9 @@ fs_visitor::visit(ir_variable *ir)
 	 }
       }
    } else if (ir->mode == ir_var_uniform) {
-      int param_index = c->prog_data.nr_params;
+      int param_index = assy->c->prog_data.nr_params;
 
-      if (c->dispatch_width == 16) {
+      if (assy->c->dispatch_width == 16) {
 	 if (!variable_storage(ir)) {
 	    assy->fail("Failed to find uniform '%s' in 16-wide\n", ir->name);
 	 }
@@ -220,7 +220,7 @@ bool
 fs_visitor::try_emit_mad(ir_expression *ir, int mul_arg)
 {
    /* 3-src instructions were introduced in gen6. */
-   if (intel->gen < 6)
+   if (assy->intel->gen < 6)
       return false;
 
    /* MAD can only handle floating-point data. */
@@ -371,7 +371,7 @@ fs_visitor::visit(ir_expression *ir)
 	  * FINISHME: Emit just the MUL if we know an operand is small
 	  * enough.
 	  */
-	 if (intel->gen >= 7 && c->dispatch_width == 16)
+	 if (assy->intel->gen >= 7 && assy->c->dispatch_width == 16)
 	    assy->fail("16-wide explicit accumulator operands unsupported\n");
 
 	 struct brw_reg acc = retype(brw_acc_reg(), BRW_REGISTER_TYPE_D);
@@ -384,7 +384,7 @@ fs_visitor::visit(ir_expression *ir)
       }
       break;
    case ir_binop_div:
-      if (intel->gen >= 7 && c->dispatch_width == 16)
+      if (assy->intel->gen >= 7 && assy->c->dispatch_width == 16)
 	 assy->fail("16-wide INTDIV unsupported\n");
 
       /* Floating point should be lowered by DIV_TO_MUL_RCP in the compiler. */
@@ -392,7 +392,7 @@ fs_visitor::visit(ir_expression *ir)
       emit_math(SHADER_OPCODE_INT_QUOTIENT, this->result, op[0], op[1]);
       break;
    case ir_binop_mod:
-      if (intel->gen >= 7 && c->dispatch_width == 16)
+      if (assy->intel->gen >= 7 && assy->c->dispatch_width == 16)
 	 assy->fail("16-wide INTDIV unsupported\n");
 
       /* Floating point should be lowered by MOD_TO_FRACT in the compiler. */
@@ -410,7 +410,7 @@ fs_visitor::visit(ir_expression *ir)
    case ir_binop_any_nequal:
       temp = this->result;
       /* original gen4 does implicit conversion before comparison. */
-      if (intel->gen < 5)
+      if (assy->intel->gen < 5)
 	 temp.type = op[0].type;
 
       resolve_ud_negate(&op[0]);
@@ -522,7 +522,7 @@ fs_visitor::visit(ir_expression *ir)
       resolve_ud_negate(&op[0]);
       resolve_ud_negate(&op[1]);
 
-      if (intel->gen >= 6) {
+      if (assy->intel->gen >= 6) {
 	 inst = emit(BRW_OPCODE_SEL, this->result, op[0], op[1]);
 	 inst->conditional_mod = BRW_CONDITIONAL_L;
       } else {
@@ -540,7 +540,7 @@ fs_visitor::visit(ir_expression *ir)
       resolve_ud_negate(&op[0]);
       resolve_ud_negate(&op[1]);
 
-      if (intel->gen >= 6) {
+      if (assy->intel->gen >= 6) {
 	 inst = emit(BRW_OPCODE_SEL, this->result, op[0], op[1]);
 	 inst->conditional_mod = BRW_CONDITIONAL_GE;
       } else {
@@ -850,8 +850,8 @@ fs_visitor::emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
       const glsl_type *vec_type =
 	 glsl_type::get_instance(ir->type->base_type, 4, 1);
       dst = fs_reg(this, glsl_type::get_array_instance(vec_type, 2));
-      dst.type = intel->is_g4x ? brw_type_for_base_type(ir->type)
-			       : BRW_REGISTER_TYPE_F;
+      dst.type = assy->intel->is_g4x ? brw_type_for_base_type(ir->type)
+			             : BRW_REGISTER_TYPE_F;
    }
 
    fs_inst *inst = NULL;
@@ -904,7 +904,7 @@ fs_visitor::emit_texture_gen5(ir_texture *ir, fs_reg dst, fs_reg coordinate,
 {
    int mlen = 0;
    int base_mrf = 2;
-   int reg_width = c->dispatch_width / 8;
+   int reg_width = assy->c->dispatch_width / 8;
    bool header_present = false;
    const int vector_elements =
       ir->coordinate ? ir->coordinate->type->vector_elements : 0;
@@ -1036,7 +1036,7 @@ fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
 {
    int mlen = 0;
    int base_mrf = 2;
-   int reg_width = c->dispatch_width / 8;
+   int reg_width = assy->c->dispatch_width / 8;
    bool header_present = false;
    int offsets[3];
 
@@ -1070,7 +1070,7 @@ fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
       mlen += reg_width;
       break;
    case ir_txd: {
-      if (c->dispatch_width == 16)
+      if (assy->c->dispatch_width == 16)
 	 assy->fail("Gen7 does not support sample_d/sample_d_c in SIMD16 mode.");
 
       ir->lod_info.grad.dPdx->accept(this);
@@ -1179,11 +1179,11 @@ fs_visitor::visit(ir_texture *ir)
     */
    bool hw_compare_supported = ir->op != ir_txd;
    if (ir->shadow_comparitor && !hw_compare_supported) {
-      assert(c->key.tex.compare_funcs[sampler] != GL_NONE);
+      assert(assy->c->key.tex.compare_funcs[sampler] != GL_NONE);
       /* No need to even sample for GL_ALWAYS or GL_NEVER...bail early */
-      if (c->key.tex.compare_funcs[sampler] == GL_ALWAYS)
+      if (assy->c->key.tex.compare_funcs[sampler] == GL_ALWAYS)
 	 return swizzle_result(ir, fs_reg(1.0f), sampler);
-      else if (c->key.tex.compare_funcs[sampler] == GL_NEVER)
+      else if (assy->c->key.tex.compare_funcs[sampler] == GL_NEVER)
 	 return swizzle_result(ir, fs_reg(0.0f), sampler);
    }
 
@@ -1191,7 +1191,7 @@ fs_visitor::visit(ir_texture *ir)
       ir->coordinate->accept(this);
    fs_reg coordinate = this->result;
 
-   if (ir->offset != NULL && !(intel->gen == 7 && ir->op == ir_txf)) {
+   if (ir->offset != NULL && !(assy->intel->gen == 7 && ir->op == ir_txf)) {
       uint32_t offset_bits = brw_texture_offset(ir->offset->as_constant());
 
       /* Explicitly set up the message header by copying g0 to msg reg m1. */
@@ -1217,10 +1217,10 @@ fs_visitor::visit(ir_texture *ir)
     * tracking to get the scaling factor.
     */
    if (ir->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_RECT &&
-       (intel->gen < 6 ||
-	(intel->gen >= 6 && (c->key.tex.gl_clamp_mask[0] & (1 << sampler) ||
-			     c->key.tex.gl_clamp_mask[1] & (1 << sampler))))) {
-      struct gl_program_parameter_list *params = c->fp->program.Base.Parameters;
+       (assy->intel->gen < 6 ||
+	(assy->intel->gen >= 6 && (assy->c->key.tex.gl_clamp_mask[0] & (1 << sampler) ||
+                                   assy->c->key.tex.gl_clamp_mask[1] & (1 << sampler))))) {
+      struct gl_program_parameter_list *params = assy->c->fp->program.Base.Parameters;
       int tokens[STATE_LENGTH] = {
 	 STATE_INTERNAL,
 	 STATE_TEXRECT_SCALE,
@@ -1229,36 +1229,36 @@ fs_visitor::visit(ir_texture *ir)
 	 0
       };
 
-      if (c->dispatch_width == 16) {
+      if (assy->c->dispatch_width == 16) {
 	 assy->fail("rectangle scale uniform setup not supported on 16-wide\n");
 	 this->result = fs_reg(this, ir->type);
 	 return;
       }
 
-      c->prog_data.param_convert[c->prog_data.nr_params] =
+      assy->c->prog_data.param_convert[assy->c->prog_data.nr_params] =
 	 PARAM_NO_CONVERT;
-      c->prog_data.param_convert[c->prog_data.nr_params + 1] =
+      assy->c->prog_data.param_convert[assy->c->prog_data.nr_params + 1] =
 	 PARAM_NO_CONVERT;
 
-      scale_x = fs_reg(UNIFORM, c->prog_data.nr_params);
-      scale_y = fs_reg(UNIFORM, c->prog_data.nr_params + 1);
+      scale_x = fs_reg(UNIFORM, assy->c->prog_data.nr_params);
+      scale_y = fs_reg(UNIFORM, assy->c->prog_data.nr_params + 1);
 
       GLuint index = _mesa_add_state_reference(params,
 					       (gl_state_index *)tokens);
 
-      this->param_index[c->prog_data.nr_params] = index;
-      this->param_offset[c->prog_data.nr_params] = 0;
-      c->prog_data.nr_params++;
-      this->param_index[c->prog_data.nr_params] = index;
-      this->param_offset[c->prog_data.nr_params] = 1;
-      c->prog_data.nr_params++;
+      this->param_index[assy->c->prog_data.nr_params] = index;
+      this->param_offset[assy->c->prog_data.nr_params] = 0;
+      assy->c->prog_data.nr_params++;
+      this->param_index[assy->c->prog_data.nr_params] = index;
+      this->param_offset[assy->c->prog_data.nr_params] = 1;
+      assy->c->prog_data.nr_params++;
    }
 
    /* The 965 requires the EU to do the normalization of GL rectangle
     * texture coordinates.  We use the program parameter state
     * tracking to get the scaling factor.
     */
-   if (intel->gen < 6 &&
+   if (assy->intel->gen < 6 &&
        ir->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_RECT) {
       fs_reg dst = fs_reg(this, ir->coordinate->type);
       fs_reg src = coordinate;
@@ -1277,7 +1277,7 @@ fs_visitor::visit(ir_texture *ir)
       needs_gl_clamp = false;
 
       for (int i = 0; i < 2; i++) {
-	 if (c->key.tex.gl_clamp_mask[i] & (1 << sampler)) {
+	 if (assy->c->key.tex.gl_clamp_mask[i] & (1 << sampler)) {
 	    fs_reg chan = coordinate;
 	    chan.reg_offset += i;
 
@@ -1303,7 +1303,7 @@ fs_visitor::visit(ir_texture *ir)
    if (ir->coordinate && needs_gl_clamp) {
       for (unsigned int i = 0;
 	   i < MIN2(ir->coordinate->type->vector_elements, 3); i++) {
-	 if (c->key.tex.gl_clamp_mask[i] & (1 << sampler)) {
+	 if (assy->c->key.tex.gl_clamp_mask[i] & (1 << sampler)) {
 	    fs_reg chan = coordinate;
 	    chan.reg_offset += i;
 
@@ -1318,9 +1318,9 @@ fs_visitor::visit(ir_texture *ir)
     */
    fs_reg dst = fs_reg(this, glsl_type::get_instance(ir->type->base_type, 4, 1));
 
-   if (intel->gen >= 7) {
+   if (assy->intel->gen >= 7) {
       inst = emit_texture_gen7(ir, dst, coordinate, sampler);
-   } else if (intel->gen >= 5) {
+   } else if (assy->intel->gen >= 5) {
       inst = emit_texture_gen5(ir, dst, coordinate, sampler);
    } else {
       inst = emit_texture_gen4(ir, dst, coordinate, sampler);
@@ -1349,7 +1349,7 @@ fs_visitor::visit(ir_texture *ir)
 	 /* FINISHME: This needs to be done pre-filtering. */
 
 	 uint32_t conditional = 0;
-	 switch (c->key.tex.compare_funcs[sampler]) {
+	 switch (assy->c->key.tex.compare_funcs[sampler]) {
 	 /* GL_ALWAYS and GL_NEVER were handled at the top of the function */
 	 case GL_LESS:     conditional = BRW_CONDITIONAL_L;   break;
 	 case GL_GREATER:  conditional = BRW_CONDITIONAL_G;   break;
@@ -1396,11 +1396,11 @@ fs_visitor::swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler)
    if (ir->type == glsl_type::float_type) {
       /* Ignore DEPTH_TEXTURE_MODE swizzling. */
       assert(ir->sampler->type->sampler_shadow);
-   } else if (c->key.tex.swizzles[sampler] != SWIZZLE_NOOP) {
+   } else if (assy->c->key.tex.swizzles[sampler] != SWIZZLE_NOOP) {
       fs_reg swizzled_result = fs_reg(this, glsl_type::vec4_type);
 
       for (int i = 0; i < 4; i++) {
-	 int swiz = GET_SWZ(c->key.tex.swizzles[sampler], i);
+	 int swiz = GET_SWZ(assy->c->key.tex.swizzles[sampler], i);
 	 fs_reg l = swizzled_result;
 	 l.reg_offset += i;
 
@@ -1410,7 +1410,7 @@ fs_visitor::swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler)
 	    emit(BRW_OPCODE_MOV, l, fs_reg(1.0f));
 	 } else {
 	    fs_reg r = orig_val;
-	    r.reg_offset += GET_SWZ(c->key.tex.swizzles[sampler], i);
+	    r.reg_offset += GET_SWZ(assy->c->key.tex.swizzles[sampler], i);
 	    emit(BRW_OPCODE_MOV, l, r);
 	 }
       }
@@ -1566,7 +1566,7 @@ fs_visitor::emit_bool_to_cond_code(ir_rvalue *ir)
 	 goto out;
 
       case ir_unop_f2b:
-	 if (intel->gen >= 6) {
+	 if (assy->intel->gen >= 6) {
 	    inst = emit(BRW_OPCODE_CMP, reg_null_d, op[0], fs_reg(0.0f));
 	 } else {
 	    inst = emit(BRW_OPCODE_MOV, reg_null_f, op[0]);
@@ -1575,7 +1575,7 @@ fs_visitor::emit_bool_to_cond_code(ir_rvalue *ir)
 	 break;
 
       case ir_unop_i2b:
-	 if (intel->gen >= 6) {
+	 if (assy->intel->gen >= 6) {
 	    inst = emit(BRW_OPCODE_CMP, reg_null_d, op[0], fs_reg(0));
 	 } else {
 	    inst = emit(BRW_OPCODE_MOV, reg_null_d, op[0]);
@@ -1704,7 +1704,7 @@ fs_visitor::visit(ir_if *ir)
 {
    fs_inst *inst;
 
-   if (intel->gen < 6 && c->dispatch_width == 16) {
+   if (assy->intel->gen < 6 && assy->c->dispatch_width == 16) {
       assy->fail("Can't support (non-uniform) control flow on 16-wide\n");
    }
 
@@ -1713,7 +1713,7 @@ fs_visitor::visit(ir_if *ir)
     */
    this->base_ir = ir->condition;
 
-   if (intel->gen == 6) {
+   if (assy->intel->gen == 6) {
       emit_if_gen6(ir);
    } else {
       emit_bool_to_cond_code(ir->condition);
@@ -1738,7 +1738,7 @@ fs_visitor::visit(ir_loop *ir)
 {
    fs_reg counter = reg_undef;
 
-   if (intel->gen < 6 && c->dispatch_width == 16) {
+   if (assy->intel->gen < 6 && assy->c->dispatch_width == 16) {
       assy->fail("Can't support (non-uniform) control flow on 16-wide\n");
    }
 
@@ -1854,7 +1854,7 @@ fs_visitor::emit(fs_inst inst)
 void
 fs_visitor::emit_dummy_fs()
 {
-   int reg_width = c->dispatch_width / 8;
+   int reg_width = assy->c->dispatch_width / 8;
 
    /* Everyone's favorite color. */
    emit(BRW_OPCODE_MOV, fs_reg(MRF, 2 + 0 * reg_width), fs_reg(1.0f));
@@ -1898,7 +1898,7 @@ fs_visitor::emit_interpolation_setup_gen4()
    emit(FS_OPCODE_PIXEL_Y, this->pixel_y);
 
    this->current_annotation = "compute pixel deltas from v0";
-   if (brw->has_pln) {
+   if (assy->brw->has_pln) {
       this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
          fs_reg(this, glsl_type::vec2_type);
       this->delta_y[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC] =
@@ -1961,12 +1961,12 @@ fs_visitor::emit_interpolation_setup_gen6()
    emit(BRW_OPCODE_MOV, this->pixel_y, int_pixel_y);
 
    this->current_annotation = "compute pos.w";
-   this->pixel_w = fs_reg(brw_vec8_grf(c->source_w_reg, 0));
+   this->pixel_w = fs_reg(brw_vec8_grf(assy->c->source_w_reg, 0));
    this->wpos_w = fs_reg(this, glsl_type::float_type);
    emit_math(SHADER_OPCODE_RCP, this->wpos_w, this->pixel_w);
 
    for (int i = 0; i < BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT; ++i) {
-      uint8_t reg = c->barycentric_coord_reg[i];
+      uint8_t reg = assy->c->barycentric_coord_reg[i];
       this->delta_x[i] = fs_reg(brw_vec8_grf(reg, 0));
       this->delta_y[i] = fs_reg(brw_vec8_grf(reg + 1, 0));
    }
@@ -1977,7 +1977,7 @@ fs_visitor::emit_interpolation_setup_gen6()
 void
 fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 {
-   int reg_width = c->dispatch_width / 8;
+   int reg_width = assy->c->dispatch_width / 8;
    fs_inst *inst;
    fs_reg color = outputs[target];
    fs_reg mrf;
@@ -1988,7 +1988,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 
    color.reg_offset += index;
 
-   if (c->dispatch_width == 8 || intel->gen >= 6) {
+   if (assy->c->dispatch_width == 8 || assy->intel->gen >= 6) {
       /* SIMD8 write looks like:
        * m + 0: r0
        * m + 1: r1
@@ -2008,7 +2008,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
       inst = emit(BRW_OPCODE_MOV,
 		  fs_reg(MRF, first_color_mrf + index * reg_width, color.type),
 		  color);
-      inst->saturate = c->key.clamp_fragment_color;
+      inst->saturate = assy->c->key.clamp_fragment_color;
    } else {
       /* pre-gen6 SIMD16 single source DP write looks like:
        * m + 0: r0
@@ -2020,7 +2020,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
        * m + 6: b1
        * m + 7: a1
        */
-      if (brw->has_compr4) {
+      if (assy->brw->has_compr4) {
 	 /* By setting the high bit of the MRF register number, we
 	  * indicate that we want COMPR4 mode - instead of doing the
 	  * usual destination + 1 for the second half we get
@@ -2030,13 +2030,13 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 		     fs_reg(MRF, BRW_MRF_COMPR4 + first_color_mrf + index,
 			    color.type),
 		     color);
-	 inst->saturate = c->key.clamp_fragment_color;
+	 inst->saturate = assy->c->key.clamp_fragment_color;
       } else {
 	 push_force_uncompressed();
 	 inst = emit(BRW_OPCODE_MOV, fs_reg(MRF, first_color_mrf + index,
 					    color.type),
 		     color);
-	 inst->saturate = c->key.clamp_fragment_color;
+	 inst->saturate = assy->c->key.clamp_fragment_color;
 	 pop_force_uncompressed();
 
 	 push_force_sechalf();
@@ -2044,7 +2044,7 @@ fs_visitor::emit_color_write(int target, int index, int first_color_mrf)
 	 inst = emit(BRW_OPCODE_MOV, fs_reg(MRF, first_color_mrf + index + 4,
 					    color.type),
 		     color);
-	 inst->saturate = c->key.clamp_fragment_color;
+	 inst->saturate = assy->c->key.clamp_fragment_color;
 	 pop_force_sechalf();
 	 color.sechalf = false;
       }
@@ -2061,10 +2061,10 @@ fs_visitor::emit_fb_writes()
     */
    int base_mrf = 1;
    int nr = base_mrf;
-   int reg_width = c->dispatch_width / 8;
+   int reg_width = assy->c->dispatch_width / 8;
    bool do_dual_src = this->dual_src_output.file != BAD_FILE;
 
-   if (c->dispatch_width == 16 && do_dual_src) {
+   if (assy->c->dispatch_width == 16 && do_dual_src) {
       assy->fail("GL_ARB_blend_func_extended not yet supported in 16-wide.");
       do_dual_src = false;
    }
@@ -2076,10 +2076,10 @@ fs_visitor::emit_fb_writes()
     *      dispatched. This field is only required for the end-of-
     *      thread message and on all dual-source messages."
     */
-   if (intel->gen >= 6 &&
+   if (assy->intel->gen >= 6 &&
        !this->kill_emitted &&
        !do_dual_src &&
-       c->key.nr_color_regions == 1) {
+       assy->c->key.nr_color_regions == 1) {
       header_present = false;
    }
 
@@ -2088,10 +2088,10 @@ fs_visitor::emit_fb_writes()
       nr += 2;
    }
 
-   if (c->aa_dest_stencil_reg) {
+   if (assy->c->aa_dest_stencil_reg) {
       push_force_uncompressed();
       emit(BRW_OPCODE_MOV, fs_reg(MRF, nr++),
-	   fs_reg(brw_vec8_grf(c->aa_dest_stencil_reg, 0)));
+	   fs_reg(brw_vec8_grf(assy->c->aa_dest_stencil_reg, 0)));
       pop_force_uncompressed();
    }
 
@@ -2101,8 +2101,8 @@ fs_visitor::emit_fb_writes()
    if (do_dual_src)
       nr += 4;
 
-   if (c->source_depth_to_render_target) {
-      if (intel->gen == 6 && c->dispatch_width == 16) {
+   if (assy->c->source_depth_to_render_target) {
+      if (assy->intel->gen == 6 && assy->c->dispatch_width == 16) {
 	 /* For outputting oDepth on gen6, SIMD8 writes have to be
 	  * used.  This would require 8-wide moves of each half to
 	  * message regs, kind of like pre-gen5 SIMD16 FB writes.
@@ -2111,7 +2111,7 @@ fs_visitor::emit_fb_writes()
 	 assy->fail("Missing support for simd16 depth writes on gen6\n");
       }
 
-      if (c->computes_depth) {
+      if (assy->c->computes_depth) {
 	 /* Hand over gl_FragDepth. */
 	 assert(this->frag_depth);
 	 fs_reg depth = *(variable_storage(this->frag_depth));
@@ -2120,14 +2120,14 @@ fs_visitor::emit_fb_writes()
       } else {
 	 /* Pass through the payload depth. */
 	 emit(BRW_OPCODE_MOV, fs_reg(MRF, nr),
-	      fs_reg(brw_vec8_grf(c->source_depth_reg, 0)));
+	      fs_reg(brw_vec8_grf(assy->c->source_depth_reg, 0)));
       }
       nr += reg_width;
    }
 
-   if (c->dest_depth_reg) {
+   if (assy->c->dest_depth_reg) {
       emit(BRW_OPCODE_MOV, fs_reg(MRF, nr),
-	   fs_reg(brw_vec8_grf(c->dest_depth_reg, 0)));
+	   fs_reg(brw_vec8_grf(assy->c->dest_depth_reg, 0)));
       nr += reg_width;
    }
 
@@ -2142,7 +2142,7 @@ fs_visitor::emit_fb_writes()
 			      fs_reg(MRF, color_mrf + i, src0.type),
 			      src0);
 	 src0.reg_offset++;
-	 inst->saturate = c->key.clamp_fragment_color;
+	 inst->saturate = assy->c->key.clamp_fragment_color;
       }
 
       this->current_annotation = ralloc_asprintf(assy->mem_ctx,
@@ -2152,7 +2152,7 @@ fs_visitor::emit_fb_writes()
 			      fs_reg(MRF, color_mrf + 4 + i, src1.type),
 			      src1);
 	 src1.reg_offset++;
-	 inst->saturate = c->key.clamp_fragment_color;
+	 inst->saturate = assy->c->key.clamp_fragment_color;
       }
 
       fs_inst *inst = emit(FS_OPCODE_FB_WRITE);
@@ -2162,12 +2162,12 @@ fs_visitor::emit_fb_writes()
       inst->eot = true;
       inst->header_present = header_present;
 
-      c->prog_data.dual_src_blend = true;
+      assy->c->prog_data.dual_src_blend = true;
       this->current_annotation = NULL;
       return;
    }
 
-   for (int target = 0; target < c->key.nr_color_regions; target++) {
+   for (int target = 0; target < assy->c->key.nr_color_regions; target++) {
       this->current_annotation = ralloc_asprintf(assy->mem_ctx,
 						 "FB write target %d",
 						 target);
@@ -2178,13 +2178,13 @@ fs_visitor::emit_fb_writes()
       inst->target = target;
       inst->base_mrf = base_mrf;
       inst->mlen = nr - base_mrf;
-      if (target == c->key.nr_color_regions - 1)
+      if (target == assy->c->key.nr_color_regions - 1)
 	 inst->eot = true;
       inst->header_present = header_present;
    }
 
-   if (c->key.nr_color_regions == 0) {
-      if (c->key.alpha_test) {
+   if (assy->c->key.nr_color_regions == 0) {
+      if (assy->c->key.alpha_test) {
 	 /* If the alpha test is enabled but there's no color buffer,
 	  * we still need to send alpha out the pipeline to our null
 	  * renderbuffer.

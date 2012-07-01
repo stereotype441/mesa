@@ -278,29 +278,29 @@ fs_visitor::setup_uniform_values(int loc, const glsl_type *type)
    case GLSL_TYPE_INT:
    case GLSL_TYPE_BOOL:
       for (unsigned int i = 0; i < type->vector_elements; i++) {
-	 unsigned int param = c->prog_data.nr_params++;
+	 unsigned int param = assy->c->prog_data.nr_params++;
 
-	 assert(param < ARRAY_SIZE(c->prog_data.param));
+	 assert(param < ARRAY_SIZE(assy->c->prog_data.param));
 
 	 if (ctx->Const.NativeIntegers) {
-	    c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
+	    assy->c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
 	 } else {
 	    switch (type->base_type) {
 	    case GLSL_TYPE_FLOAT:
-	       c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
+	       assy->c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
 	       break;
 	    case GLSL_TYPE_UINT:
-	       c->prog_data.param_convert[param] = PARAM_CONVERT_F2U;
+	       assy->c->prog_data.param_convert[param] = PARAM_CONVERT_F2U;
 	       break;
 	    case GLSL_TYPE_INT:
-	       c->prog_data.param_convert[param] = PARAM_CONVERT_F2I;
+	       assy->c->prog_data.param_convert[param] = PARAM_CONVERT_F2I;
 	       break;
 	    case GLSL_TYPE_BOOL:
-	       c->prog_data.param_convert[param] = PARAM_CONVERT_F2B;
+	       assy->c->prog_data.param_convert[param] = PARAM_CONVERT_F2B;
 	       break;
 	    default:
 	       assert(!"not reached");
-	       c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
+	       assy->c->prog_data.param_convert[param] = PARAM_NO_CONVERT;
 	       break;
 	    }
 	 }
@@ -361,11 +361,11 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 	    break;
 	 last_swiz = swiz;
 
-	 c->prog_data.param_convert[c->prog_data.nr_params] =
+	 assy->c->prog_data.param_convert[assy->c->prog_data.nr_params] =
 	    PARAM_NO_CONVERT;
-	 this->param_index[c->prog_data.nr_params] = index;
-	 this->param_offset[c->prog_data.nr_params] = swiz;
-	 c->prog_data.nr_params++;
+	 this->param_index[assy->c->prog_data.nr_params] = index;
+	 this->param_offset[assy->c->prog_data.nr_params] = swiz;
+	 assy->c->prog_data.nr_params++;
       }
    }
 }
@@ -375,7 +375,7 @@ fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 {
    fs_reg *reg = new(assy->mem_ctx) fs_reg(this, ir->type);
    fs_reg wpos = *reg;
-   bool flip = !ir->origin_upper_left ^ c->key.render_to_fbo;
+   bool flip = !ir->origin_upper_left ^ assy->c->key.render_to_fbo;
 
    /* gl_FragCoord.x */
    if (ir->pixel_center_integer) {
@@ -394,7 +394,7 @@ fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 
       if (flip) {
 	 pixel_y.negate = true;
-	 offset += c->key.drawable_height - 1.0;
+	 offset += assy->c->key.drawable_height - 1.0;
       }
 
       emit(BRW_OPCODE_ADD, wpos, pixel_y, fs_reg(offset));
@@ -402,9 +402,9 @@ fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
    wpos.reg_offset++;
 
    /* gl_FragCoord.z */
-   if (intel->gen >= 6) {
+   if (assy->intel->gen >= 6) {
       emit(BRW_OPCODE_MOV, wpos,
-	   fs_reg(brw_vec8_grf(c->source_depth_reg, 0)));
+	   fs_reg(brw_vec8_grf(assy->c->source_depth_reg, 0)));
    } else {
       emit(FS_OPCODE_LINTERP, wpos,
            this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC],
@@ -463,7 +463,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
    }
 
    glsl_interp_qualifier interpolation_mode =
-      ir->determine_interpolation_mode(c->key.flat_shade);
+      ir->determine_interpolation_mode(assy->c->key.flat_shade);
 
    int location = ir->location;
    for (unsigned int i = 0; i < array_elements; i++) {
@@ -500,13 +500,13 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
 		*/
 	       if (location >= FRAG_ATTRIB_TEX0 &&
 		   location <= FRAG_ATTRIB_TEX7 &&
-		   k == 3 && !(c->key.proj_attrib_mask & (1 << location))) {
+		   k == 3 && !(assy->c->key.proj_attrib_mask & (1 << location))) {
 		  emit(BRW_OPCODE_MOV, attr, fs_reg(1.0f));
 	       } else {
 		  struct brw_reg interp = interp_reg(location, k);
                   emit_linterp(attr, fs_reg(interp), interpolation_mode,
                                ir->centroid);
-		  if (intel->gen < 6) {
+		  if (assy->intel->gen < 6) {
 		     emit(BRW_OPCODE_MUL, attr, attr, this->pixel_w);
 		  }
 	       }
@@ -527,7 +527,7 @@ fs_visitor::emit_frontfacing_interpolation(ir_variable *ir)
    fs_reg *reg = new(assy->mem_ctx) fs_reg(this, ir->type);
 
    /* The frontfacing comes in as a bit in the thread payload. */
-   if (intel->gen >= 6) {
+   if (assy->intel->gen >= 6) {
       emit(BRW_OPCODE_ASR, *reg,
 	   fs_reg(retype(brw_vec1_grf(0, 0), BRW_REGISTER_TYPE_D)),
 	   fs_reg(15));
@@ -573,9 +573,9 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src)
     * Gen 6 hardware ignores source modifiers (negate and abs) on math
     * instructions, so we also move to a temp to set those up.
     */
-   if (intel->gen == 6 && (src.file == UNIFORM ||
-			   src.abs ||
-			   src.negate)) {
+   if (assy->intel->gen == 6 && (src.file == UNIFORM ||
+                                 src.abs ||
+                                 src.negate)) {
       fs_reg expanded = fs_reg(this, glsl_type::float_type);
       emit(BRW_OPCODE_MOV, expanded, src);
       src = expanded;
@@ -583,9 +583,9 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src)
 
    fs_inst *inst = emit(opcode, dst, src);
 
-   if (intel->gen < 6) {
+   if (assy->intel->gen < 6) {
       inst->base_mrf = 2;
-      inst->mlen = c->dispatch_width / 8;
+      inst->mlen = assy->c->dispatch_width / 8;
    }
 
    return inst;
@@ -607,9 +607,9 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
       return NULL;
    }
 
-   if (intel->gen >= 7) {
+   if (assy->intel->gen >= 7) {
       inst = emit(opcode, dst, src0, src1);
-   } else if (intel->gen == 6) {
+   } else if (assy->intel->gen == 6) {
       /* Can't do hstride == 0 args to gen6 math, so expand it out.
        *
        * The hardware ignores source modifiers (negate and abs) on math
@@ -648,7 +648,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
       inst = emit(opcode, dst, op0, reg_null_f);
 
       inst->base_mrf = base_mrf;
-      inst->mlen = 2 * c->dispatch_width / 8;
+      inst->mlen = 2 * assy->c->dispatch_width / 8;
    }
    return inst;
 }
@@ -661,12 +661,12 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
 void
 fs_visitor::setup_paramvalues_refs()
 {
-   if (c->dispatch_width != 8)
+   if (assy->c->dispatch_width != 8)
       return;
 
    /* Set up the pointers to ParamValues now that that array is finalized. */
-   for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
-      c->prog_data.param[i] =
+   for (unsigned int i = 0; i < assy->c->prog_data.nr_params; i++) {
+      assy->c->prog_data.param[i] =
 	 (const float *)fp->Base.Parameters->ParameterValues[this->param_index[i]] +
 	 this->param_offset[i];
    }
@@ -709,7 +709,7 @@ fs_visitor::calculate_urb_setup()
 
    int urb_next = 0;
    /* Figure out where each of the incoming setup attributes lands. */
-   if (intel->gen >= 6) {
+   if (assy->intel->gen >= 6) {
       for (unsigned int i = 0; i < FRAG_ATTRIB_MAX; i++) {
 	 if (fp->Base.InputsRead & BITFIELD64_BIT(i)) {
 	    urb_setup[i] = urb_next++;
@@ -718,7 +718,7 @@ fs_visitor::calculate_urb_setup()
    } else {
       /* FINISHME: The sf doesn't map VS->FS inputs for us very well. */
       for (unsigned int i = 0; i < VERT_RESULT_MAX; i++) {
-	 if (c->key.vp_outputs_written & BITFIELD64_BIT(i)) {
+	 if (assy->c->key.vp_outputs_written & BITFIELD64_BIT(i)) {
 	    int fp_index = _mesa_vert_result_to_frag_attrib((gl_vert_result) i);
 
 	    if (fp_index >= 0)
@@ -732,12 +732,12 @@ fs_visitor::calculate_urb_setup()
        *
        * See compile_sf_prog() for more info.
        */
-      if (brw->fragment_program->Base.InputsRead & BITFIELD64_BIT(FRAG_ATTRIB_PNTC))
+      if (assy->brw->fragment_program->Base.InputsRead & BITFIELD64_BIT(FRAG_ATTRIB_PNTC))
          urb_setup[FRAG_ATTRIB_PNTC] = urb_next++;
    }
 
    /* Each attribute is 4 setup channels, each of which is half a reg. */
-   c->prog_data.urb_read_length = urb_next * 2;
+   assy->c->prog_data.urb_read_length = urb_next * 2;
 }
 
 void
@@ -1705,7 +1705,7 @@ void
 fs_visitor::emit_instructions(const exec_list *list)
 {
    calculate_urb_setup();
-   if (intel->gen < 6)
+   if (assy->intel->gen < 6)
       emit_interpolation_setup_gen4();
    else
       emit_interpolation_setup_gen6();

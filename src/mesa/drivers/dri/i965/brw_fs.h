@@ -356,13 +356,17 @@ public:
 class fs_assembly
 {
 protected:
-   fs_assembly()
+   explicit fs_assembly(struct brw_wm_compile *c)
    {
       this->mem_ctx = ralloc_context(NULL);
       this->failed = false;
       this->virtual_grf_array_size = 0;
       this->virtual_grf_next = 0;
       this->virtual_grf_sizes = NULL;
+      this->c = c;
+      this->p = &c->func;
+      this->brw = p->brw;
+      this->intel = &brw->intel;
    }
 
    ~fs_assembly()
@@ -382,6 +386,12 @@ private:
 public:
    int virtual_grf_next;
    int *virtual_grf_sizes;
+protected:
+   struct brw_compile *p;
+public:
+   struct brw_context *brw;
+   struct intel_context *intel;
+   struct brw_wm_compile *c;
 };
 
 class fs_visitor : protected ir_visitor
@@ -396,13 +406,9 @@ protected:
       this->variable_ht = hash_table_ctor(0,
 					  hash_table_pointer_hash,
 					  hash_table_pointer_compare);
-      this->c = c;
       memset(this->outputs, 0, sizeof(this->outputs));
       this->frag_depth = NULL;
-      this->p = &c->func;
-      this->brw = p->brw;
-      this->intel = &brw->intel;
-      this->ctx = &intel->ctx;
+      this->ctx = &assy->intel->ctx;
       this->prog = prog;
       this->fp = (struct gl_fragment_program *)
 	 prog->_LinkedShaders[MESA_SHADER_FRAGMENT]->Program;
@@ -421,7 +427,7 @@ protected:
        * appears that it does src1 - src0 and does the compare in the
        * execution type so dst type doesn't matter.
        */
-      if (this->intel->gen > 4)
+      if (assy->intel->gen > 4)
 	 this->reg_null_cmp = reg_null_d;
       else
 	 this->reg_null_cmp = reg_null_f;
@@ -545,9 +551,6 @@ private:
    struct hash_table *variable_ht;
 private:
    fs_reg dual_src_output;
-public:
-   struct brw_wm_compile *c;
-private:
    fs_reg outputs[BRW_MAX_DRAW_BUFFERS];
    unsigned output_components[BRW_MAX_DRAW_BUFFERS];
    ir_variable *frag_depth;
@@ -556,9 +559,6 @@ protected:
    /* Result of last visit() method. */
    fs_reg result;
 
-   struct brw_compile *p;
-   struct brw_context *brw;
-   struct intel_context *intel;
    struct gl_context *ctx;
 
 private:
@@ -609,7 +609,7 @@ public:
 
    fs_compilation(struct brw_wm_compile *c, struct gl_shader_program *prog,
                   struct brw_shader *shader)
-      : fs_visitor(c, prog, this)
+      : fs_assembly(c), fs_visitor(c, prog, this)
    {
       this->shader = shader;
 
