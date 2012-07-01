@@ -132,8 +132,6 @@ public:
    bool is_zero() const;
    bool is_one() const;
 
-   src_reg(class vec4_visitor *v, const struct glsl_type *type);
-
    explicit src_reg(dst_reg reg);
 
    GLuint swizzle; /**< SWIZZLE_XYZW swizzles from Mesa. */
@@ -538,6 +536,7 @@ public:
    void generate_pull_constant_load(vec4_instruction *inst,
 				    struct brw_reg dst,
 				    struct brw_reg index);
+   src_reg new_src_reg(const struct glsl_type *type);
 };
 
 } /* namespace brw */

@@ -271,7 +271,7 @@ vec4_visitor::emit_math1_gen6(enum opcode opcode, dst_reg dst, src_reg src)
     * could rearrange our swizzle, so let's leave this matter up to
     * copy propagation later.
     */
-   src_reg temp_src = src_reg(this, glsl_type::vec4_type);
+   src_reg temp_src = new_src_reg(glsl_type::vec4_type);
    emit(MOV(dst_reg(temp_src), src));
 
    if (dst.writemask != WRITEMASK_XYZW) {
@@ -334,12 +334,12 @@ vec4_visitor::emit_math2_gen6(enum opcode opcode,
     * generally work.
     */
 
-   expanded = src_reg(this, glsl_type::vec4_type);
+   expanded = new_src_reg(glsl_type::vec4_type);
    expanded.type = src0.type;
    emit(MOV(dst_reg(expanded), src0));
    src0 = expanded;
 
-   expanded = src_reg(this, glsl_type::vec4_type);
+   expanded = new_src_reg(glsl_type::vec4_type);
    expanded.type = src1.type;
    emit(MOV(dst_reg(expanded), src1));
    src1 = expanded;
@@ -483,20 +483,23 @@ swizzle_for_size(int size)
    return size_swizzles[size - 1];
 }
 
-src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
+src_reg
+vec4_visitor::new_src_reg(const struct glsl_type *type)
 {
-   init();
+   src_reg r;
 
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(type_size(type));
+   r.file = GRF;
+   r.reg = this->virtual_grf_alloc(type_size(type));
 
    if (type->is_array() || type->is_record()) {
-      this->swizzle = BRW_SWIZZLE_NOOP;
+      r.swizzle = BRW_SWIZZLE_NOOP;
    } else {
-      this->swizzle = swizzle_for_size(type->vector_elements);
+      r.swizzle = swizzle_for_size(type->vector_elements);
    }
 
-   this->type = brw_type_for_base_type(type);
+   r.reg = brw_type_for_base_type(type);
+
+   return r;
 }
 
 dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
@@ -1031,7 +1034,7 @@ vec4_visitor::try_emit_sat(ir_expression *ir)
    sat_src->accept(this);
    src_reg src = this->result;
 
-   this->result = src_reg(this, ir->type);
+   this->result = new_src_reg(ir->type);
    vec4_instruction *inst;
    inst = emit(MOV(dst_reg(this->result), src));
    inst->saturate = true;
@@ -1092,7 +1095,7 @@ vec4_visitor::visit(ir_expression *ir)
    /* Storage for our result.  Ideally for an assignment we'd be using
     * the actual storage for the result here, instead.
     */
-   result_src = src_reg(this, ir->type);
+   result_src = new_src_reg(ir->type);
    /* convenience for the emit functions below. */
    result_dst = dst_reg(result_src);
    /* If nothing special happens, this is the result. */
@@ -1474,13 +1477,13 @@ vec4_visitor::visit(ir_dereference_array *ir)
       if (element_size == 1) {
 	 index_reg = this->result;
       } else {
-	 index_reg = src_reg(this, glsl_type::int_type);
+	 index_reg = new_src_reg(glsl_type::int_type);
 
 	 emit(MUL(dst_reg(index_reg), this->result, src_reg(element_size)));
       }
 
       if (src.reladdr) {
-	 src_reg temp = src_reg(this, glsl_type::int_type);
+	 src_reg temp = new_src_reg(glsl_type::int_type);
 
 	 emit(ADD(dst_reg(temp), *src.reladdr, index_reg));
 
@@ -2017,7 +2020,7 @@ vec4_visitor::swizzle_result(ir_texture *ir, src_reg orig_val, int sampler)
       }
    }
 
-   this->result = src_reg(this, ir->type);
+   this->result = new_src_reg(ir->type);
    dst_reg swizzled_result(this->result);
 
    if (copy_mask) {
@@ -2383,7 +2386,7 @@ vec4_visitor::get_scratch_offset(vec4_instruction *inst,
       message_header_scale *= 16;
 
    if (reladdr) {
-      src_reg index = src_reg(this, glsl_type::int_type);
+      src_reg index = new_src_reg(glsl_type::int_type);
 
       emit_before(inst, ADD(dst_reg(index), *reladdr, src_reg(reg_offset)));
       emit_before(inst, MUL(dst_reg(index),
@@ -2400,7 +2403,7 @@ vec4_visitor::get_pull_constant_offset(vec4_instruction *inst,
 				       src_reg *reladdr, int reg_offset)
 {
    if (reladdr) {
-      src_reg index = src_reg(this, glsl_type::int_type);
+      src_reg index = new_src_reg(glsl_type::int_type);
 
       emit_before(inst, ADD(dst_reg(index), *reladdr, src_reg(reg_offset)));
 
@@ -2506,7 +2509,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
       current_annotation = inst->annotation;
 
       if (inst->dst.file == GRF && scratch_loc[inst->dst.reg] != -1) {
-	 src_reg temp = src_reg(this, glsl_type::vec4_type);
+	 src_reg temp = new_src_reg(glsl_type::vec4_type);
 
 	 emit_scratch_write(inst, temp, inst->dst, scratch_loc[inst->dst.reg]);
 
@@ -2633,7 +2636,7 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
        !reg->negate)
       return;
 
-   src_reg temp = src_reg(this, glsl_type::uvec4_type);
+   src_reg temp = new_src_reg(glsl_type::uvec4_type);
    emit(BRW_OPCODE_MOV, dst_reg(temp), *reg);
    *reg = temp;
 }
