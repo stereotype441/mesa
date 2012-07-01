@@ -28,7 +28,7 @@
 #include "brw_fs_cfg.h"
 #include "brw_fs_live_variables.h"
 
-using namespace brw;
+namespace brw {
 
 /** @file brw_fs_live_variables.cpp
  *
@@ -265,3 +265,5 @@ fs_visitor::virtual_grf_interferes(int a, int b)
 
    return start < end;
 }
+
+} /* namespace brw */

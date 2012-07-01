@@ -52,6 +52,8 @@
  * from in picking among those.
  */
 
+namespace brw {
+
 class schedule_node : public exec_node
 {
 public:
@@ -519,3 +521,6 @@ fs_visitor::schedule_instructions()
 
    this->live_intervals_valid = false;
 }
+
+} /* namespace brw */
+

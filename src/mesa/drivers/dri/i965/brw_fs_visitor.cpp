@@ -50,6 +50,8 @@ extern "C" {
 #include "glsl/ir_optimization.h"
 #include "glsl/ir_print_visitor.h"
 
+namespace brw {
+
 void
 fs_visitor::visit(ir_variable *ir)
 {
@@ -2233,3 +2235,5 @@ fs_visitor::resolve_bool_comparison(ir_rvalue *rvalue, fs_reg *reg)
    emit(BRW_OPCODE_AND, temp, *reg, fs_reg(1));
    *reg = temp;
 }
+
+} /* namespace brw */

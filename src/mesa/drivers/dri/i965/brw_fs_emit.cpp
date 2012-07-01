@@ -37,6 +37,8 @@ extern "C" {
 #include "brw_fs_cfg.h"
 #include "glsl/ir_print_visitor.h"
 
+namespace brw {
+
 void
 fs_visitor::generate_fb_write(fs_inst *inst)
 {
@@ -994,3 +996,5 @@ fs_visitor::generate_code()
       }
    }
 }
+
+} /* namespace brw */

@@ -50,6 +50,8 @@ extern "C" {
 #include "glsl/glsl_types.h"
 #include "glsl/ir_print_visitor.h"
 
+namespace brw {
+
 int
 fs_visitor::type_size(const struct glsl_type *type)
 {
@@ -1924,3 +1926,5 @@ brw_fs_precompile(struct gl_context *ctx, struct gl_shader_program *prog)
 
    return success;
 }
+
+} /* namespace brw */

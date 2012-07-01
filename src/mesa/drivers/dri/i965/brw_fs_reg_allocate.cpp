@@ -30,6 +30,8 @@
 #include "glsl/ir_optimization.h"
 #include "glsl/ir_print_visitor.h"
 
+namespace brw {
+
 static void
 assign_reg(int *reg_hw_locations, fs_reg *reg, int reg_width)
 {
@@ -423,3 +425,5 @@ fs_visitor::spill_reg(int spill_reg)
 
    this->live_intervals_valid = false;
 }
+
+} /* namespace brw */

@@ -24,6 +24,8 @@
 #include "brw_fs.h"
 #include "brw_fs_cfg.h"
 
+namespace brw {
+
 namespace { /* avoid conflict with opt_copy_propagation_elements */
 struct acp_entry : public exec_node {
    fs_reg dst;
@@ -135,3 +137,5 @@ fs_visitor::opt_copy_propagate()
 
    return progress;
 }
+
+} /* namespace brw */

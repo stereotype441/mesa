@@ -28,8 +28,6 @@ extern "C" {
 #include "main/macros.h"
 };
 
-using namespace brw;
-
 namespace brw {
 
 int

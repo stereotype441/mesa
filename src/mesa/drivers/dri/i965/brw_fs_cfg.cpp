@@ -28,6 +28,8 @@
 #include "brw_fs.h"
 #include "brw_fs_cfg.h"
 
+namespace brw {
+
 /** @file brw_fs_cfg.cpp
  *
  * Walks the shader instructions generated and creates a set of basic
@@ -248,3 +250,5 @@ fs_cfg::make_block_array()
    }
    assert(i == num_blocks);
 }
+
+} /* namespace brw */

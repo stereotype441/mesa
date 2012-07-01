@@ -32,6 +32,8 @@
  * 13.1 (p378).
  */
 
+namespace brw {
+
 namespace {
 struct aeb_entry : public exec_node {
    /** The instruction that generates the expression value. */
@@ -193,3 +195,5 @@ fs_visitor::opt_cse()
 
    return progress;
 }
+
+} /* namespace brw */

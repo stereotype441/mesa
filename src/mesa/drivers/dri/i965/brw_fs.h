@@ -49,6 +49,8 @@ extern "C" {
 #include "glsl/glsl_types.h"
 #include "glsl/ir.h"
 
+namespace brw {
+
 class fs_bblock;
 
 enum register_file {
@@ -654,6 +656,8 @@ public:
 
    class fs_bblock *bblock;
 };
+
+} /* namespace brw */
 
 bool brw_do_channel_expressions(struct exec_list *instructions);
 bool brw_do_vector_splitting(struct exec_list *instructions);

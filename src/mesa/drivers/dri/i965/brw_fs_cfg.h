@@ -27,6 +27,8 @@
 
 #include "brw_fs.h"
 
+namespace brw {
+
 class fs_bblock_link : public exec_node {
 public:
    fs_bblock_link(fs_bblock *block)
@@ -99,3 +101,5 @@ public:
    fs_bblock **blocks;
    int num_blocks;
 };
+
+} /* namespace brw */
