@@ -392,6 +392,7 @@ public:
    struct brw_context *brw;
    struct intel_context *intel;
    struct brw_wm_compile *c;
+   exec_list instructions;
 };
 
 class fs_visitor : protected ir_visitor
@@ -545,8 +546,6 @@ private:
 protected:
    void emit_instructions(const exec_list *list);
 
-public:
-   exec_list instructions;
 private:
    struct hash_table *variable_ht;
 private:

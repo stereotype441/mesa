@@ -193,12 +193,12 @@ fs_visitor::try_emit_saturate(ir_expression *ir)
    if (!sat_val)
       return false;
 
-   fs_inst *pre_inst = (fs_inst *) this->instructions.get_tail();
+   fs_inst *pre_inst = (fs_inst *) this->assy->instructions.get_tail();
 
    sat_val->accept(this);
    fs_reg src = this->result;
 
-   fs_inst *last_inst = (fs_inst *) this->instructions.get_tail();
+   fs_inst *last_inst = (fs_inst *) this->assy->instructions.get_tail();
 
    /* If the last instruction from our accept() didn't generate our
     * src, generate a saturated MOV
@@ -678,12 +678,12 @@ fs_visitor::visit(ir_assignment *ir)
    ir->lhs->accept(this);
    l = this->result;
 
-   fs_inst *pre_rhs_inst = (fs_inst *) this->instructions.get_tail();
+   fs_inst *pre_rhs_inst = (fs_inst *) this->assy->instructions.get_tail();
 
    ir->rhs->accept(this);
    r = this->result;
 
-   fs_inst *last_rhs_inst = (fs_inst *) this->instructions.get_tail();
+   fs_inst *last_rhs_inst = (fs_inst *) this->assy->instructions.get_tail();
 
    assert(l.file != BAD_FILE);
    assert(r.file != BAD_FILE);
@@ -1845,7 +1845,7 @@ fs_visitor::emit(fs_inst inst)
    list_inst->annotation = this->current_annotation;
    list_inst->ir = this->base_ir;
 
-   this->instructions.push_tail(list_inst);
+   this->assy->instructions.push_tail(list_inst);
 
    return list_inst;
 }

@@ -82,9 +82,9 @@ fs_cfg::fs_cfg(fs_visitor *v)
 
    set_next_block(entry);
 
-   entry->start = (fs_inst *)v->instructions.get_head();
+   entry->start = (fs_inst *)v->assy->instructions.get_head();
 
-   foreach_list(node, &v->instructions) {
+   foreach_list(node, &v->assy->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       cur->end = inst;
