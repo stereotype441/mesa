@@ -126,7 +126,6 @@ public:
 
    fs_reg(enum register_file file, int reg);
    fs_reg(enum register_file file, int reg, brw_register_type type);
-   fs_reg(class fs_visitor *v, const struct glsl_type *type);
 
    bool equals(const fs_reg &r) const
    {
@@ -468,6 +467,12 @@ public:
 		 fs_reg src0, fs_reg src1, fs_reg src2)
    {
       return emit(fs_inst(opcode, dst, src0, src1, src2));
+   }
+
+   fs_reg new_reg(const struct glsl_type *type)
+   {
+      return fs_reg(GRF, virtual_grf_alloc(type_size(type)),
+                    brw_type_for_base_type(type));
    }
 
    int type_size(const struct glsl_type *type);

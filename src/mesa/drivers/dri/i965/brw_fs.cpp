@@ -207,17 +207,6 @@ fs_reg::fs_reg(enum register_file file, int reg, brw_register_type type)
    this->type = type;
 }
 
-/** Automatic reg constructor. */
-fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type)
-{
-   init();
-
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(v->type_size(type));
-   this->reg_offset = 0;
-   this->type = brw_type_for_base_type(type);
-}
-
 fs_reg *
 fs_visitor::variable_storage(ir_variable *var)
 {
@@ -373,7 +362,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
    fs_reg wpos = *reg;
    bool flip = !ir->origin_upper_left ^ c->key.render_to_fbo;
 
@@ -444,7 +433,7 @@ fs_visitor::emit_linterp(const fs_reg &attr, const fs_reg &interp,
 fs_reg *
 fs_visitor::emit_general_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
    reg->type = brw_type_for_base_type(ir->type->get_scalar_type());
    fs_reg attr = *reg;
 
@@ -524,7 +513,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_frontfacing_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(new_reg(ir->type));
 
    /* The frontfacing comes in as a bit in the thread payload. */
    if (intel->gen >= 6) {
@@ -576,7 +565,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src)
    if (intel->gen == 6 && (src.file == UNIFORM ||
 			   src.abs ||
 			   src.negate)) {
-      fs_reg expanded = fs_reg(this, glsl_type::float_type);
+      fs_reg expanded = new_reg(glsl_type::float_type);
       emit(BRW_OPCODE_MOV, expanded, src);
       src = expanded;
    }
@@ -616,14 +605,14 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
        * instructions, so we also move to a temp to set those up.
        */
       if (src0.file == UNIFORM || src0.abs || src0.negate) {
-	 fs_reg expanded = fs_reg(this, glsl_type::float_type);
+	 fs_reg expanded = new_reg(glsl_type::float_type);
 	 expanded.type = src0.type;
 	 emit(BRW_OPCODE_MOV, expanded, src0);
 	 src0 = expanded;
       }
 
       if (src1.file == UNIFORM || src1.abs || src1.negate) {
-	 fs_reg expanded = fs_reg(this, glsl_type::float_type);
+	 fs_reg expanded = new_reg(glsl_type::float_type);
 	 expanded.type = src1.type;
 	 emit(BRW_OPCODE_MOV, expanded, src1);
 	 src1 = expanded;
@@ -976,7 +965,7 @@ fs_visitor::setup_pull_constants()
 	 if (uniform_nr < pull_uniform_base)
 	    continue;
 
-	 fs_reg dst = fs_reg(this, glsl_type::float_type);
+	 fs_reg dst = new_reg(glsl_type::float_type);
 	 fs_inst *pull = new(mem_ctx) fs_inst(FS_OPCODE_PULL_CONSTANT_LOAD,
 					      dst);
 	 pull->offset = ((uniform_nr - pull_uniform_base) * 4) & ~15;
