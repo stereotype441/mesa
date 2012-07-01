@@ -364,6 +364,7 @@ public:
 
    fs_visitor(struct brw_wm_compile *c, struct gl_shader_program *prog,
 	      struct brw_shader *shader)
+      : mem_ctx(ralloc_context(NULL))
    {
       this->c = c;
       this->p = &c->func;
@@ -373,7 +374,6 @@ public:
       this->prog = prog;
       this->intel = &brw->intel;
       this->ctx = &intel->ctx;
-      this->mem_ctx = ralloc_context(NULL);
       this->shader = shader;
       this->failed = false;
       this->variable_ht = hash_table_ctor(0,
@@ -605,7 +605,7 @@ private:
    struct brw_compile *p;
    struct brw_shader *shader;
    struct gl_shader_program *prog;
-   void *mem_ctx;
+   void * const mem_ctx;
    exec_list instructions;
 
    /* Delayed setup of c->prog_data.params[] due to realloc of
