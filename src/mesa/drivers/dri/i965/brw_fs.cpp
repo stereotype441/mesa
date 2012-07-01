@@ -777,7 +777,7 @@ fs_visitor::assign_urb_setup()
 void
 fs_visitor::split_virtual_grfs()
 {
-   int num_vars = this->virtual_grf_next;
+   int num_vars = this->get_num_virtual_grfs();
    bool split_grf[num_vars];
    int new_virtual_grf[num_vars];
 
@@ -1765,7 +1765,7 @@ fs_visitor::run()
 
       if (0) {
 	 /* Debug of register spilling: Go spill everything. */
-	 int virtual_grf_count = virtual_grf_next;
+	 int virtual_grf_count = get_num_virtual_grfs();
 	 for (int i = 0; i < virtual_grf_count; i++) {
 	    spill_reg(i);
 	 }

@@ -594,6 +594,7 @@ private:
    void setup_builtin_uniform_values(ir_variable *ir);
    int implied_mrf_writes(fs_inst *inst);
    int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
+   int get_num_virtual_grfs() const { return virtual_grf_next; }
 
    struct brw_context *brw;
    const struct gl_fragment_program *fp;

@@ -496,7 +496,7 @@ void
 fs_visitor::schedule_instructions()
 {
    fs_inst *next_block_header = (fs_inst *)instructions.head;
-   instruction_scheduler sched(this, mem_ctx, this->virtual_grf_next);
+   instruction_scheduler sched(this, mem_ctx, this->get_num_virtual_grfs());
 
    while (!next_block_header->is_tail_sentinel()) {
       /* Add things to be scheduled until we get to a new BB. */
