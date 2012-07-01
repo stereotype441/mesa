@@ -706,16 +706,18 @@ enum opcode {
 #define BRW_MESSAGE_REGISTER_FILE         2
 #define BRW_IMMEDIATE_VALUE               3
 
-#define BRW_REGISTER_TYPE_UD  0
-#define BRW_REGISTER_TYPE_D   1
-#define BRW_REGISTER_TYPE_UW  2
-#define BRW_REGISTER_TYPE_W   3
-#define BRW_REGISTER_TYPE_UB  4
-#define BRW_REGISTER_TYPE_B   5
-#define BRW_REGISTER_TYPE_VF  5	/* packed float vector, immediates only? */
-#define BRW_REGISTER_TYPE_HF  6
-#define BRW_REGISTER_TYPE_V   6	/* packed int vector, immediates only, uword dest only */
-#define BRW_REGISTER_TYPE_F   7
+enum brw_register_type {
+   BRW_REGISTER_TYPE_UD  = 0,
+   BRW_REGISTER_TYPE_D   = 1,
+   BRW_REGISTER_TYPE_UW  = 2,
+   BRW_REGISTER_TYPE_W   = 3,
+   BRW_REGISTER_TYPE_UB  = 4,
+   BRW_REGISTER_TYPE_B   = 5,
+   BRW_REGISTER_TYPE_VF  = 5,	/* packed float vector, immediates only? */
+   BRW_REGISTER_TYPE_HF  = 6,
+   BRW_REGISTER_TYPE_V   = 6,	/* packed int vector, immediates only, uword dest only */
+   BRW_REGISTER_TYPE_F   = 7,
+};
 
 #define BRW_ARF_NULL                  0x00
 #define BRW_ARF_ADDRESS               0x10

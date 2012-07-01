@@ -240,7 +240,7 @@ brw_link_shader(struct gl_context *ctx, struct gl_shader_program *shProg)
 }
 
 
-int
+brw_register_type
 brw_type_for_base_type(const struct glsl_type *type)
 {
    switch (type->base_type) {

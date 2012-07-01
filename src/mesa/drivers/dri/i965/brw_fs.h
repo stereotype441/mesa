@@ -121,11 +121,11 @@ public:
       init();
       this->file = FIXED_HW_REG;
       this->fixed_hw_reg = fixed_hw_reg;
-      this->type = fixed_hw_reg.type;
+      this->type = (brw_register_type) fixed_hw_reg.type;
    }
 
    fs_reg(enum register_file file, int reg);
-   fs_reg(enum register_file file, int reg, uint32_t type);
+   fs_reg(enum register_file file, int reg, brw_register_type type);
    fs_reg(class fs_visitor *v, const struct glsl_type *type);
 
    bool equals(const fs_reg &r) const
@@ -156,7 +156,7 @@ public:
     */
    int reg_offset;
    /** Register type.  BRW_REGISTER_TYPE_* */
-   int type;
+   brw_register_type type;
    bool negate;
    bool abs;
    bool sechalf;

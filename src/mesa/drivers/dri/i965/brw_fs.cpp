@@ -199,7 +199,7 @@ fs_reg::fs_reg(enum register_file file, int reg)
 }
 
 /** Fixed HW reg constructor. */
-fs_reg::fs_reg(enum register_file file, int reg, uint32_t type)
+fs_reg::fs_reg(enum register_file file, int reg, brw_register_type type)
 {
    init();
    this->file = file;
