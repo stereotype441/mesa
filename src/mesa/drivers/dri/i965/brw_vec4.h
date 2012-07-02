@@ -251,7 +251,44 @@ public:
    bool is_math();
 };
 
-class vec4_visitor : private ir_visitor
+class vec4_regs
+{
+public:
+   explicit vec4_regs(void *mem_ctx)
+      : mem_ctx(mem_ctx)
+   {
+      this->virtual_grf_sizes = NULL;
+      this->virtual_grf_count = 0;
+      this->virtual_grf_array_size = 0;
+      this->virtual_grf_reg_map = NULL;
+      this->virtual_grf_reg_count = 0;
+   }
+
+private:
+   int virtual_grf_alloc(int size);
+public:
+   src_reg new_src_reg(const struct glsl_type *type);
+   dst_reg new_dst_reg(const struct glsl_type *type);
+   int get_num_virtual_grfs() const { return virtual_grf_count; }
+   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
+
+private:
+   void * const mem_ctx;
+   int *virtual_grf_sizes;
+   int virtual_grf_count;
+   int virtual_grf_array_size;
+
+   /**
+    * This is the size to be used for an array with an element per
+    * reg_offset
+    */
+   int virtual_grf_reg_count;
+
+   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
+   int *virtual_grf_reg_map;
+};
+
+class vec4_visitor : private ir_visitor, private vec4_regs
 {
 public:
    vec4_visitor(struct brw_vs_compile *c,
@@ -293,22 +330,11 @@ private:
    ir_instruction *base_ir;
    const char *current_annotation;
 
-   int *virtual_grf_sizes;
-   int virtual_grf_count;
-   int virtual_grf_array_size;
    int first_non_payload_grf;
    unsigned int max_grf;
    int *virtual_grf_def;
    int *virtual_grf_use;
    dst_reg userplane[MAX_CLIP_PLANES];
-
-   /**
-    * This is the size to be used for an array with an element per
-    * reg_offset
-    */
-   int virtual_grf_reg_count;
-   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
-   int *virtual_grf_reg_map;
 
    bool live_intervals_valid;
 
@@ -360,7 +386,6 @@ private:
 
    void fail(const char *msg, ...);
 
-   int virtual_grf_alloc(int size);
    void setup_uniform_clipplane_values();
    int setup_uniform_values(int loc, const glsl_type *type);
    void setup_builtin_uniform_values(ir_variable *ir);
@@ -532,16 +557,12 @@ private:
    void generate_pull_constant_load(vec4_instruction *inst,
 				    struct brw_reg dst,
 				    struct brw_reg index);
-   src_reg new_src_reg(const struct glsl_type *type);
-   dst_reg new_dst_reg(const struct glsl_type *type);
    vec4_instruction *new_instruction(enum opcode opcode,
                                      dst_reg dst = dst_reg(),
                                      src_reg src0 = src_reg(),
                                      src_reg src1 = src_reg(),
                                      src_reg src2 = src_reg()) const;
    dst_reg get_assignment_lhs(ir_dereference *ir);
-   int get_virtual_grf_size(int reg) const { return virtual_grf_sizes[reg]; }
-   int get_num_virtual_grfs() const { return virtual_grf_count; }
 };
 
 } /* namespace brw */

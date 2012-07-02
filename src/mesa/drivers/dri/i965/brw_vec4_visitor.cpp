@@ -441,7 +441,7 @@ type_size(const struct glsl_type *type)
 }
 
 int
-vec4_visitor::virtual_grf_alloc(int size)
+vec4_regs::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_count) {
       if (virtual_grf_array_size == 0)
@@ -480,7 +480,7 @@ swizzle_for_size(int size)
 }
 
 src_reg
-vec4_visitor::new_src_reg(const struct glsl_type *type)
+vec4_regs::new_src_reg(const struct glsl_type *type)
 {
    src_reg r;
 
@@ -499,7 +499,7 @@ vec4_visitor::new_src_reg(const struct glsl_type *type)
 }
 
 dst_reg
-vec4_visitor::new_dst_reg(const struct glsl_type *type)
+vec4_regs::new_dst_reg(const struct glsl_type *type)
 {
    dst_reg r;
 
@@ -2642,6 +2642,7 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
 vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 			   struct gl_shader_program *prog,
 			   struct brw_shader *shader)
+   : mem_ctx(NULL /* TODO: wrong */)
 {
    this->c = c;
    this->p = &c->func;
@@ -2668,11 +2669,6 @@ vec4_visitor::vec4_visitor(struct brw_vs_compile *c,
 
    this->virtual_grf_def = NULL;
    this->virtual_grf_use = NULL;
-   this->virtual_grf_sizes = NULL;
-   this->virtual_grf_count = 0;
-   this->virtual_grf_reg_map = NULL;
-   this->virtual_grf_reg_count = 0;
-   this->virtual_grf_array_size = 0;
    this->live_intervals_valid = false;
 
    this->max_grf = intel->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
