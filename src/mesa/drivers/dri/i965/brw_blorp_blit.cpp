@@ -663,11 +663,11 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
       texel_fetch(result);
    }
 
-#if 0
+#if 1
    if (key->src_uses_mcs)
       brw_MOV(&func, result, offset(vec8(mcs_data), 0));
 #endif
-#if 1
+#if 0
    if (key->src_uses_mcs) {
       brw_MOV(&func, vec8(result), vec8(mcs_data));
       brw_MOV(&func, offset(vec8(result), 1), offset(vec8(mcs_data), 1));
@@ -713,7 +713,7 @@ brw_blorp_blit_program::alloc_regs()
    this->result = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->texture_data = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->mcs_data =
-      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 8;
+      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 9;
    for (int i = 0; i < 2; ++i) {
       this->x_coords[i]
          = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -1183,7 +1183,16 @@ brw_blorp_blit_program::mcs_fetch()
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT
    };
+#if 0
+   static const sampler_message_arg gen7_ld_mcs_wa_args[2] = {
+      SAMPLER_MESSAGE_ARG_U_INT_2Q,
+      SAMPLER_MESSAGE_ARG_V_INT_2Q
+   };
+#endif
    texture_lookup(mcs_data, GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
+                  gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
+                  response_length);
+   texture_lookup(offset(mcs_data, 1), GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
                   gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
                   response_length);
 }
