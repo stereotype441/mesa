@@ -464,7 +464,11 @@ private:
     */
    struct brw_reg texture_data;
 
-   /* Auxiliary storage for the contents of the MCS surface. */
+   /**
+    * Auxiliary storage for the contents of the MCS surface.  Note: we need to
+    * allocate 8 regs worth of space for this, since the sampler always
+    * returns 8 regs worth of data in SIMD16 mode.
+    */
    struct brw_reg mcs_data;
 
    /* X coordinates.  We have two of them so that we can perform coordinate
@@ -698,7 +702,7 @@ brw_blorp_blit_program::alloc_regs()
    this->result = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->texture_data = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->mcs_data =
-      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 2;
+      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 8;
    for (int i = 0; i < 2; ++i) {
       this->x_coords[i]
          = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
@@ -1162,7 +1166,7 @@ brw_blorp_blit_program::mcs_fetch()
     * 8x multisampling).  So make sure the texture lookup doesn't return more
     * than 2 registers worth of data.
     */
-   const GLuint response_length = 2;
+   const GLuint response_length = 8;
 
    static const sampler_message_arg gen7_ld_mcs_args[2] = {
       SAMPLER_MESSAGE_ARG_U_INT,
