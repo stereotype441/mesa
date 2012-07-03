@@ -663,6 +663,17 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
       texel_fetch(result);
    }
 
+#if 0
+   if (key->src_uses_mcs)
+      brw_MOV(&func, result, offset(vec8(mcs_data), 0));
+#endif
+#if 1
+   if (key->src_uses_mcs) {
+      brw_MOV(&func, vec8(result), vec8(mcs_data));
+      brw_MOV(&func, offset(vec8(result), 1), offset(vec8(mcs_data), 1));
+   }
+#endif
+
    /* Finally, write the fetched (or blended) value to the render target and
     * terminate the thread.
     */
@@ -1137,7 +1148,7 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
       break;
    case 7:
       if (key->tex_samples > 0) {
-         if (key->src_uses_mcs) {
+         if (false /* key->src_uses_mcs */) {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DMS,
                            gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args),
                            response_length);
@@ -1211,6 +1222,9 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
          expand_to_32_bits(Y, mrf);
          break;
       case SAMPLER_MESSAGE_ARG_SI_INT:
+#if 1
+         brw_MOV(&func, mrf, brw_imm_ud(2));
+#else
          /* Note: on Gen7, this code may be reached with s_is_zero==true
           * because in Gen7's ld2dss message, the sample index is the first
           * argument.  When this happens, we need to move a 0 into the
@@ -1220,6 +1234,7 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
             brw_MOV(&func, mrf, brw_imm_ud(0));
          else
             expand_to_32_bits(S, mrf);
+#endif
          break;
       case SAMPLER_MESSAGE_ARG_MCS_INT:
          brw_MOV(&func, mrf, mcs_data);

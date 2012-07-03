@@ -657,6 +657,11 @@ intel_miptree_alloc_mcs(struct intel_context *intel,
                                      mcs_num_samples,
                                      msaa_is_interleaved);
 
+#if 1
+   void *data = intel_region_map(intel, mt->mcs_mt->region, 0);
+   memset(data, 0xe4, mt->mcs_mt->region->width * mt->mcs_mt->region->height);
+   intel_region_unmap(intel, mt->mcs_mt->region);
+#endif
    return mt->mcs_mt;
 }
 
