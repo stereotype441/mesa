@@ -855,7 +855,7 @@ struct gen7_surface_state
    } ss5;
 
    struct {
-      GLuint pad; /* Multisample Control Surface stuff */
+      GLuint mcs_info;
    } ss6;
 
    struct {
