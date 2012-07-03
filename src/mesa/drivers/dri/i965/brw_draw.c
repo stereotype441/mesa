@@ -428,8 +428,6 @@ static bool brw_try_draw_prims( struct gl_context *ctx,
     */
    brw_predraw_resolve_buffers(brw);
 
-   goto out; /* HACK */
-
    /* Bind all inputs, derive varying and size information:
     */
    brw_merge_inputs( brw, arrays );
