@@ -69,6 +69,42 @@ gen7_set_surface_num_multisamples(struct gen7_surface_state *surf,
 
 
 void
+gen7_set_surface_mcs_info(struct brw_context *brw,
+                          struct gen7_surface_state *surf,
+                          uint32_t surf_offset,
+                          const struct intel_mipmap_tree *mcs_mt,
+                          bool is_render_target)
+{
+   /* MCS surfaces are always Y-tiled.  Compute the pitch in units of
+    * tiles.
+    */
+   unsigned pitch_bytes = mcs_mt->region->pitch * mcs_mt->cpp;
+   unsigned pitch_tiles = pitch_bytes / 4096;
+
+   /* When MCS in enabled, format of the MCS info dword is:
+    *   31:12: Bits 31:12 of MCS Base Address
+    *   11:3: MCS Surface Pitch (#Tiles - 1)
+    *   2:1: Reserved (MBZ)
+    *   0: MCS Enable
+    *
+    * We'll need to emit a reloc so that bits 31:12 get updated to point to
+    * the final graphics address of the MCS buffer.
+    */
+   assert ((mcs_mt->region->bo->offset & 0xfff) == 0);
+   surf->ss6.mcs_info =
+      mcs_mt->region->bo->offset | ((pitch_tiles - 1) << 3) | 1;
+   drm_intel_bo_emit_reloc(brw->intel.batch.bo,
+                           surf_offset +
+                           offsetof(struct gen7_surface_state, ss6),
+                           mcs_mt->region->bo,
+                           surf->ss6.mcs_info - mcs_mt->region->bo->offset,
+                           is_render_target ? I915_GEM_DOMAIN_RENDER
+                           : I915_GEM_DOMAIN_SAMPLER,
+                           is_render_target ? I915_GEM_DOMAIN_RENDER : 0);
+}
+
+
+void
 gen7_check_surface_setup(struct gen7_surface_state *surf,
                          bool is_render_target)
 {
@@ -450,6 +486,11 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    surf->ss3.pitch = (region->pitch * region->cpp) - 1;
 
    gen7_set_surface_num_multisamples(surf, irb->mt->num_samples);
+
+   if (irb->mt->mcs_mt) {
+      gen7_set_surface_mcs_info(brw, surf, brw->wm.surf_offset[unit],
+                                irb->mt->mcs_mt, true /* is_render_target */);
+   }
 
    if (intel->is_haswell) {
       surf->ss7.shader_chanel_select_r = HSW_SCS_RED;
