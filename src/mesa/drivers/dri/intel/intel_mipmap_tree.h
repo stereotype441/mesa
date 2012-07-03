@@ -363,6 +363,11 @@ intel_miptree_s8z24_gather(struct intel_context *intel,
                            uint32_t level,
                            uint32_t layer);
 
+bool
+intel_miptree_alloc_mcs(struct intel_context *intel,
+			struct intel_mipmap_tree *mt,
+                        GLuint num_samples);
+
 /**
  * \name Miptree HiZ functions
  * \{

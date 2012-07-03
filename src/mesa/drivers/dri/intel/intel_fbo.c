@@ -282,6 +282,15 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
       }
    }
 
+   if (rb->NumSamples > 0 && intel->vtbl.is_mcs_format(intel, rb->Format)) {
+      bool ok = intel_miptree_alloc_mcs(intel, irb->mt, rb->NumSamples);
+      if (!ok) {
+         intel_miptree_release(&irb->mt->hiz_mt);
+         intel_miptree_release(&irb->mt);
+         return false;
+      }
+   }
+
    return true;
 }
 
@@ -528,6 +537,12 @@ intel_renderbuffer_update_wrapper(struct intel_context *intel,
       if (!mt->hiz_mt)
 	 return false;
    }
+
+   /* If this format supports MCS, a separate MCS buffer should have been
+    * allocated at the time the texture was created.
+    */
+   if (rb->NumSamples > 0 && intel->vtbl.is_mcs_format(intel, rb->Format))
+      assert(mt->mcs_mt);
 
    return true;
 }

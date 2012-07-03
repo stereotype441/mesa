@@ -631,6 +631,36 @@ intel_miptree_copy_teximage(struct intel_context *intel,
 }
 
 bool
+intel_miptree_alloc_mcs(struct intel_context *intel,
+                        struct intel_mipmap_tree *mt,
+                        GLuint num_samples)
+{
+   assert(mt->mcs_mt == NULL);
+   assert(intel->gen >= 7); /* MCS only used on Gen7+ */
+   assert(num_samples == 4); /* TODO: support 8x MSAA */
+
+   /* MCS buffer contains just one value per pixel. */
+   const GLuint mcs_num_samples = 0;
+
+   /* MSAA surfaces are always interlaved for Gen7+ */
+   const bool msaa_is_interleaved = true;
+
+   mt->mcs_mt = intel_miptree_create(intel,
+                                     mt->target,
+                                     MESA_FORMAT_A8,
+                                     mt->first_level,
+                                     mt->last_level,
+                                     mt->width0,
+                                     mt->height0,
+                                     mt->depth0,
+                                     true,
+                                     mcs_num_samples,
+                                     msaa_is_interleaved);
+
+   return mt->mcs_mt;
+}
+
+bool
 intel_miptree_alloc_hiz(struct intel_context *intel,
 			struct intel_mipmap_tree *mt,
                         GLuint num_samples)
