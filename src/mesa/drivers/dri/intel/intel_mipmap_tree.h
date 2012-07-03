@@ -242,6 +242,15 @@ struct intel_mipmap_tree
     */
    struct intel_mipmap_tree *stencil_mt;
 
+   /**
+    * \brief MCS miptree for multisampled textures.
+    *
+    * This miptree contains the "multisample control surface", which is used
+    * on Gen7 to decrease the memory bandwidth requirements of MSAA by
+    * allowing multiple samples for the same pixel to share color values.
+    */
+   struct intel_mipmap_tree *mcs_mt;
+
    /* These are also refcounted:
     */
    GLuint refcount;
