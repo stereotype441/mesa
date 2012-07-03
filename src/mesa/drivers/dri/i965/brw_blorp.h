@@ -241,6 +241,12 @@ struct brw_blorp_blit_prog_key
     * than one sample per pixel.
     */
    bool persample_msaa_dispatch;
+
+   /**
+    * True if the source image uses an MCS ("Multisampled Control Surface")
+    * buffer.
+    */
+   bool src_uses_mcs;
 };
 
 class brw_blorp_blit_params : public brw_blorp_params
