@@ -272,6 +272,8 @@ enum sampler_message_arg
    SAMPLER_MESSAGE_ARG_V_FLOAT,
    SAMPLER_MESSAGE_ARG_U_INT,
    SAMPLER_MESSAGE_ARG_V_INT,
+   SAMPLER_MESSAGE_ARG_U_INT_2Q,
+   SAMPLER_MESSAGE_ARG_V_INT_2Q,
    SAMPLER_MESSAGE_ARG_SI_INT,
    SAMPLER_MESSAGE_ARG_MCS_INT,
    SAMPLER_MESSAGE_ARG_ZERO_INT,
@@ -430,6 +432,7 @@ private:
    void texel_fetch(struct brw_reg dst);
    void mcs_fetch();
    void expand_to_32_bits(struct brw_reg src, struct brw_reg dst);
+   void expand_to_32_bits_2q(struct brw_reg src, struct brw_reg dst);
    void texture_lookup(struct brw_reg dst, GLuint msg_type,
                        const sampler_message_arg *args, int num_args,
                        GLuint response_length);
@@ -663,7 +666,7 @@ brw_blorp_blit_program::compile(struct brw_context *brw,
       texel_fetch(result);
    }
 
-#if 1
+#if 0
    if (key->src_uses_mcs)
       brw_MOV(&func, result, offset(vec8(mcs_data), 0));
 #endif
@@ -1148,7 +1151,7 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
       break;
    case 7:
       if (key->tex_samples > 0) {
-         if (false /* key->src_uses_mcs */) {
+         if (key->src_uses_mcs) {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DMS,
                            gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args),
                            response_length);
@@ -1183,7 +1186,7 @@ brw_blorp_blit_program::mcs_fetch()
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT
    };
-#if 0
+#if 1
    static const sampler_message_arg gen7_ld_mcs_wa_args[2] = {
       SAMPLER_MESSAGE_ARG_U_INT_2Q,
       SAMPLER_MESSAGE_ARG_V_INT_2Q
@@ -1193,7 +1196,7 @@ brw_blorp_blit_program::mcs_fetch()
                   gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
                   response_length);
    texture_lookup(offset(mcs_data, 1), GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
-                  gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
+                  gen7_ld_mcs_wa_args, ARRAY_SIZE(gen7_ld_mcs_wa_args),
                   response_length);
 }
 
@@ -1202,6 +1205,16 @@ brw_blorp_blit_program::expand_to_32_bits(struct brw_reg src,
                                           struct brw_reg dst)
 {
    brw_MOV(&func, vec8(dst), vec8(src));
+   brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
+   brw_MOV(&func, offset(vec8(dst), 1), suboffset(vec8(src), 8));
+   brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
+}
+
+void
+brw_blorp_blit_program::expand_to_32_bits_2q(struct brw_reg src,
+                                             struct brw_reg dst)
+{
+   brw_MOV(&func, vec8(dst), suboffset(vec8(src), 8));
    brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
    brw_MOV(&func, offset(vec8(dst), 1), suboffset(vec8(src), 8));
    brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
@@ -1230,8 +1243,14 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
       case SAMPLER_MESSAGE_ARG_V_INT:
          expand_to_32_bits(Y, mrf);
          break;
+      case SAMPLER_MESSAGE_ARG_U_INT_2Q:
+         expand_to_32_bits_2q(X, mrf);
+         break;
+      case SAMPLER_MESSAGE_ARG_V_INT_2Q:
+         expand_to_32_bits_2q(Y, mrf);
+         break;
       case SAMPLER_MESSAGE_ARG_SI_INT:
-#if 1
+#if 0
          brw_MOV(&func, mrf, brw_imm_ud(2));
 #else
          /* Note: on Gen7, this code may be reached with s_is_zero==true
