@@ -79,7 +79,7 @@ gen7_set_surface_mcs_info(struct brw_context *brw,
     * tiles.
     */
    unsigned pitch_bytes = mcs_mt->region->pitch * mcs_mt->cpp;
-   unsigned pitch_tiles = pitch_bytes / 4096;
+   unsigned pitch_tiles = pitch_bytes / 128;
 
    /* When MCS in enabled, format of the MCS info dword is:
     *   31:12: Bits 31:12 of MCS Base Address
