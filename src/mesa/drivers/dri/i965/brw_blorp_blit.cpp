@@ -431,7 +431,8 @@ private:
    void mcs_fetch();
    void expand_to_32_bits(struct brw_reg src, struct brw_reg dst);
    void texture_lookup(struct brw_reg dst, GLuint msg_type,
-                       const sampler_message_arg *args, int num_args);
+                       const sampler_message_arg *args, int num_args,
+                       GLuint response_length);
    void render_target_write();
 
    void *mem_ctx;
@@ -1079,12 +1080,16 @@ brw_blorp_blit_program::manual_blend()
 void
 brw_blorp_blit_program::sample(struct brw_reg dst)
 {
+   /* TODO: should be smaller for non-RGBA formats? */
+   const GLuint response_length = 8;
+
    static const sampler_message_arg args[2] = {
       SAMPLER_MESSAGE_ARG_U_FLOAT,
       SAMPLER_MESSAGE_ARG_V_FLOAT
    };
 
-   texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE, args, ARRAY_SIZE(args));
+   texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE, args, ARRAY_SIZE(args),
+                  response_length);
 }
 
 /**
@@ -1094,6 +1099,9 @@ brw_blorp_blit_program::sample(struct brw_reg dst)
 void
 brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
 {
+   /* TODO: should be smaller for non-RGBA formats? */
+   const GLuint response_length = 8;
+
    static const sampler_message_arg gen6_args[5] = {
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT,
@@ -1121,21 +1129,23 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
    switch (brw->intel.gen) {
    case 6:
       texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE_LD, gen6_args,
-                     s_is_zero ? 2 : 5);
+                     s_is_zero ? 2 : 5, response_length);
       break;
    case 7:
       if (key->tex_samples > 0) {
          if (key->src_uses_mcs) {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DMS,
-                           gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args));
+                           gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args),
+                           response_length);
          } else {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DSS,
-                           gen7_ld2dss_args, ARRAY_SIZE(gen7_ld2dss_args));
+                           gen7_ld2dss_args, ARRAY_SIZE(gen7_ld2dss_args),
+                           response_length);
          }
       } else {
          assert(s_is_zero);
          texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE_LD, gen7_ld_args,
-                        ARRAY_SIZE(gen7_ld_args));
+                        ARRAY_SIZE(gen7_ld_args), response_length);
       }
       break;
    default:
@@ -1165,7 +1175,8 @@ void
 brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
                                        GLuint msg_type,
                                        const sampler_message_arg *args,
-                                       int num_args)
+                                       int num_args,
+                                       GLuint response_length)
 {
    struct brw_reg mrf =
       retype(vec16(brw_message_reg(base_mrf)), BRW_REGISTER_TYPE_UD);
@@ -1212,7 +1223,7 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
               0 /* sampler */,
               WRITEMASK_XYZW,
               msg_type,
-              8 /* response_length.  TODO: should be smaller for non-RGBA formats? */,
+              response_length,
               mrf.nr - base_mrf /* msg_length */,
               0 /* header_present */,
               BRW_SAMPLER_SIMD_MODE_SIMD16,
