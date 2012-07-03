@@ -1353,7 +1353,6 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
        src_mt->num_samples > 0 && dst_mt->num_samples == 0) {
       /* We are downsampling a color buffer, so blend. */
       wm_prog_key.blend = true;
-      wm_prog_key.src_uses_mcs = true; /* HACK */
    }
 
    /* src_samples and dst_samples are the true sample counts */
@@ -1371,6 +1370,9 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
     */
    wm_prog_key.src_interleaved = src_mt->msaa_is_interleaved;
    wm_prog_key.dst_interleaved = dst_mt->msaa_is_interleaved;
+
+   /* src_uses_mcs indicates whether src uses an MCS buffer. */
+   wm_prog_key.src_uses_mcs = src.mt->mcs_mt != NULL;
 
    wm_prog_key.src_tiled_w = src.map_stencil_as_y_tiled;
    wm_prog_key.dst_tiled_w = dst.map_stencil_as_y_tiled;
