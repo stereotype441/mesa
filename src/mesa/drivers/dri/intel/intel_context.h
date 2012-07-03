@@ -186,6 +186,12 @@ struct intel_context
 	                          gl_format format);
 
       /**
+       * Can MCS (Multisample Control Surface) be enabled on a buffer of the
+       * given format?
+       */
+      bool (*is_mcs_format)(struct intel_context *intel, gl_format format);
+
+      /**
        * Surface state operations (i965+ only)
        * \{
        */

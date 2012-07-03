@@ -886,6 +886,12 @@ i830_is_hiz_depth_format(struct intel_context *intel, gl_format format)
    return false;
 }
 
+static bool
+i830_is_mcs_format(struct intel_context *intel, gl_format format)
+{
+   return false;
+}
+
 void
 i830InitVtbl(struct i830_context *i830)
 {
@@ -904,4 +910,5 @@ i830InitVtbl(struct i830_context *i830)
    i830->intel.vtbl.invalidate_state = i830_invalidate_state;
    i830->intel.vtbl.render_target_supported = i830_render_target_supported;
    i830->intel.vtbl.is_hiz_depth_format = i830_is_hiz_depth_format;
+   i830->intel.vtbl.is_mcs_format = i830_is_mcs_format;
 }

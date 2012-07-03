@@ -220,6 +220,26 @@ static bool brw_is_hiz_depth_format(struct intel_context *intel,
    }
 }
 
+/**
+ * \see intel_context.vtbl.is_mcs_format
+ */
+static bool brw_is_mcs_format(struct intel_context *intel, gl_format format)
+{
+   /* HACK: assume Gen7+ supports MCS with all color formats.  It doesn't. */
+   if (intel->gen < 7)
+      return false;
+
+   switch (_mesa_get_format_base_format(format)) {
+   case GL_YCBCR_MESA: /* To be safe, assume this is non-MCS. */
+   case GL_DEPTH_COMPONENT:
+   case GL_STENCIL_INDEX:
+   case GL_DEPTH_STENCIL:
+      return false;
+   default:
+      return true;
+   }
+}
+
 void brwInitVtbl( struct brw_context *brw )
 {
    brw->intel.vtbl.check_vertex_size = 0;
@@ -237,6 +257,7 @@ void brwInitVtbl( struct brw_context *brw )
    brw->intel.vtbl.annotate_aub = brw_annotate_aub;
    brw->intel.vtbl.render_target_supported = brw_render_target_supported;
    brw->intel.vtbl.is_hiz_depth_format = brw_is_hiz_depth_format;
+   brw->intel.vtbl.is_mcs_format = brw_is_mcs_format;
 
    if (brw->intel.gen >= 7) {
       gen7_init_vtable_surface_functions(brw);
