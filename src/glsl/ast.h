@@ -47,7 +47,7 @@ struct YYLTYPE;
 /**
  * Base class of all abstract syntax tree nodes
  */
-class ast_node {
+class ast_node : public exec_node {
 public:
    /* Callers of this ralloc-based new need not call delete. It's
     * easier to just ralloc_free 'ctx' (or any of its ancestors). */
@@ -120,8 +120,6 @@ public:
       unsigned line;      /**< Line number within the source string. */
       unsigned column;    /**< Column in the line. */
    } location;
-
-   exec_node link;
 
 protected:
    /**

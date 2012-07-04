@@ -334,7 +334,7 @@ external_declaration_list:
 	    * FINISHME: NULL. (See production rule for external_declaration.)
 	    */
 	   if ($1 != NULL)
-	      state->translation_unit.push_tail(& $1->link);
+	      state->translation_unit.push_tail($1);
 	}
 	| external_declaration_list external_declaration
 	{
@@ -342,7 +342,7 @@ external_declaration_list:
 	    * FINISHME: NULL. (See production rule for external_declaration.)
 	    */
 	   if ($2 != NULL)
-	      state->translation_unit.push_tail(& $2->link);
+	      state->translation_unit.push_tail($2);
 	}
 	;
 
@@ -459,13 +459,13 @@ function_call_header_with_parameters:
 	{
 	   $$ = $1;
 	   $$->set_location(yylloc);
-	   $$->expressions.push_tail(& $2->link);
+	   $$->expressions.push_tail($2);
 	}
 	| function_call_header_with_parameters ',' assignment_expression
 	{
 	   $$ = $1;
 	   $$->set_location(yylloc);
-	   $$->expressions.push_tail(& $3->link);
+	   $$->expressions.push_tail($3);
 	}
 	;
 
@@ -514,13 +514,13 @@ method_call_header_with_parameters:
 	{
 	   $$ = $1;
 	   $$->set_location(yylloc);
-	   $$->expressions.push_tail(& $2->link);
+	   $$->expressions.push_tail($2);
 	}
 	| method_call_header_with_parameters ',' assignment_expression
 	{
 	   $$ = $1;
 	   $$->set_location(yylloc);
-	   $$->expressions.push_tail(& $3->link);
+	   $$->expressions.push_tail($3);
 	}
 	;
 
@@ -771,12 +771,12 @@ expression:
 	   if ($1->oper != ast_sequence) {
 	      $$ = new(ctx) ast_expression(ast_sequence, NULL, NULL, NULL);
 	      $$->set_location(yylloc);
-	      $$->expressions.push_tail(& $1->link);
+	      $$->expressions.push_tail($1);
 	   } else {
 	      $$ = $1;
 	   }
 
-	   $$->expressions.push_tail(& $3->link);
+	   $$->expressions.push_tail($3);
 	}
 	;
 
@@ -815,12 +815,12 @@ function_header_with_parameters:
 	function_header parameter_declaration
 	{
 	   $$ = $1;
-	   $$->parameters.push_tail(& $2->link);
+	   $$->parameters.push_tail($2);
 	}
 	| function_header_with_parameters ',' parameter_declaration
 	{
 	   $$ = $1;
-	   $$->parameters.push_tail(& $3->link);
+	   $$->parameters.push_tail($3);
 	}
 	;
 
@@ -934,7 +934,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	| init_declarator_list ',' any_identifier '[' ']'
@@ -944,7 +944,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	| init_declarator_list ',' any_identifier '[' constant_expression ']'
@@ -954,7 +954,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	| init_declarator_list ',' any_identifier '[' ']' '=' initializer
@@ -964,7 +964,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	| init_declarator_list ',' any_identifier '[' constant_expression ']' '=' initializer
@@ -974,7 +974,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	| init_declarator_list ',' any_identifier '=' initializer
@@ -984,7 +984,7 @@ init_declarator_list:
 	   decl->set_location(yylloc);
 
 	   $$ = $1;
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	   state->symbols->add_variable(new(state) ir_variable(NULL, $3, ir_var_auto));
 	}
 	;
@@ -1005,7 +1005,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| fully_specified_type any_identifier '[' ']'
 	{
@@ -1014,7 +1014,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| fully_specified_type any_identifier '[' constant_expression ']'
 	{
@@ -1023,7 +1023,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| fully_specified_type any_identifier '[' ']' '=' initializer
 	{
@@ -1032,7 +1032,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| fully_specified_type any_identifier '[' constant_expression ']' '=' initializer
 	{
@@ -1041,7 +1041,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| fully_specified_type any_identifier '=' initializer
 	{
@@ -1050,7 +1050,7 @@ single_declaration:
 
 	   $$ = new(ctx) ast_declarator_list($1);
 	   $$->set_location(yylloc);
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	| INVARIANT variable_identifier // Vertex only.
 	{
@@ -1061,7 +1061,7 @@ single_declaration:
 	   $$->set_location(yylloc);
 	   $$->invariant = true;
 
-	   $$->declarations.push_tail(&decl->link);
+	   $$->declarations.push_tail(decl);
 	}
 	;
 
@@ -1499,12 +1499,12 @@ struct_declaration_list:
 	struct_declaration
 	{
 	   $$ = (ast_node *) $1;
-	   $1->link.self_link();
+	   $1->self_link();
 	}
 	| struct_declaration_list struct_declaration
 	{
 	   $$ = (ast_node *) $1;
-	   $$->link.insert_before(& $2->link);
+	   $$->insert_before($2);
 	}
 	;
 
@@ -1519,7 +1519,7 @@ struct_declaration:
 	   $$ = new(ctx) ast_declarator_list(type);
 	   $$->set_location(yylloc);
 
-	   $$->declarations.push_degenerate_list_at_head(& $2->link);
+	   $$->declarations.push_degenerate_list_at_head($2);
 	}
 	;
 
@@ -1527,12 +1527,12 @@ struct_declarator_list:
 	struct_declarator
 	{
 	   $$ = $1;
-	   $1->link.self_link();
+	   $1->self_link();
 	}
 	| struct_declarator_list ',' struct_declarator
 	{
 	   $$ = $1;
-	   $$->link.insert_before(& $3->link);
+	   $$->insert_before($3);
 	}
 	;
 
@@ -1625,7 +1625,7 @@ statement_list:
 	   }
 
 	   $$ = $1;
-	   $$->link.self_link();
+	   $$->self_link();
 	}
 	| statement_list statement
 	{
@@ -1634,7 +1634,7 @@ statement_list:
 	      assert($2 != NULL);
 	   }
 	   $$ = $1;
-	   $$->link.insert_before(& $2->link);
+	   $$->insert_before($2);
 	}
 	;
 
@@ -1688,7 +1688,7 @@ condition:
 	   decl->set_location(yylloc);
 	   declarator->set_location(yylloc);
 
-	   declarator->declarations.push_tail(&decl->link);
+	   declarator->declarations.push_tail(decl);
 	   $$ = declarator;
 	}
 	;
@@ -1736,14 +1736,14 @@ case_label_list:
 	{
 	   ast_case_label_list *labels = new(state) ast_case_label_list();
 
-	   labels->labels.push_tail(& $1->link);
+	   labels->labels.push_tail($1);
 	   $$ = labels;
 	   $$->set_location(yylloc);
 	}
 	| case_label_list case_label
 	{
 	   $$ = $1;
-	   $$->labels.push_tail(& $2->link);
+	   $$->labels.push_tail($2);
 	}
 	;
 
@@ -1753,13 +1753,13 @@ case_statement:
 	   ast_case_statement *stmts = new(state) ast_case_statement($1);
 	   stmts->set_location(yylloc);
 
-	   stmts->stmts.push_tail(& $2->link);
+	   stmts->stmts.push_tail($2);
 	   $$ = stmts;
 	}
 	| case_statement statement
 	{
 	   $$ = $1;
-	   $$->stmts.push_tail(& $2->link);
+	   $$->stmts.push_tail($2);
 	}
 	;
 
@@ -1769,13 +1769,13 @@ case_statement_list:
 	   ast_case_statement_list *cases= new(state) ast_case_statement_list();
 	   cases->set_location(yylloc);
 
-	   cases->cases.push_tail(& $1->link);
+	   cases->cases.push_tail($1);
 	   $$ = cases;
 	}
 	| case_statement_list case_statement
 	{
 	   $$ = $1;
-	   $$->cases.push_tail(& $2->link);
+	   $$->cases.push_tail($2);
 	}
 	;
 

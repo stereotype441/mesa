@@ -42,7 +42,7 @@ process_parameters(exec_list *instructions, exec_list *actual_parameters,
    unsigned count = 0;
 
    foreach_list (n, parameters) {
-      ast_node *const ast = exec_node_data(ast_node, n, link);
+      ast_node *const ast = (ast_node *) n;
       ir_rvalue *result = ast->hir(instructions, state);
 
       ir_constant *const constant = result->constant_expression_value();
@@ -115,7 +115,7 @@ verify_parameter_modes(_mesa_glsl_parse_state *state,
       const ir_variable *const formal = (ir_variable *) formal_node;
       const ir_rvalue *const actual = (ir_rvalue *) actual_ir_node;
       const ast_expression *const actual_ast =
-	 exec_node_data(ast_expression, actual_ast_node, link);
+	 (const ast_expression *) actual_ast_node;
 
       /* FIXME: 'loc' is incorrect (as of 2011-01-21). It is always
        * FIXME: 0:0(0).
@@ -1328,7 +1328,7 @@ ast_function_expression::hir(exec_list *instructions,
       exec_list actual_parameters;
 
       foreach_list (n, &this->expressions) {
-	 ast_node *ast = exec_node_data(ast_node, n, link);
+	 ast_node *ast = (ast_node *) n;
 	 ir_rvalue *result = ast->hir(instructions, state)->as_rvalue();
 
 	 /* From page 50 (page 56 of the PDF) of the GLSL 1.50 spec:

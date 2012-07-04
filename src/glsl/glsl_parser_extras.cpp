@@ -512,7 +512,7 @@ ast_compound_statement::print(void) const
    printf("{\n");
    
    foreach_list_const(n, &this->statements) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
    }
 
@@ -526,7 +526,7 @@ ast_compound_statement::ast_compound_statement(int new_scope,
    this->new_scope = new_scope;
 
    if (statements != NULL) {
-      this->statements.push_degenerate_list_at_head(&statements->link);
+      this->statements.push_degenerate_list_at_head(statements);
    }
 }
 
@@ -595,7 +595,7 @@ ast_expression::print(void) const
 	 if (n != this->expressions.get_head())
 	    printf(", ");
 
-	 ast_node *ast = exec_node_data(ast_node, n, link);
+	 ast_node *ast = (ast_node *) n;
 	 ast->print();
       }
 
@@ -631,7 +631,7 @@ ast_expression::print(void) const
 	 if (n != this->expressions.get_head())
 	    printf(", ");
 
-	 ast_node *ast = exec_node_data(ast_node, n, link);
+	 ast_node *ast = (ast_node *) n;
 	 ast->print();
       }
       printf(") ");
@@ -681,7 +681,7 @@ ast_function::print(void) const
    printf(" %s (", identifier);
 
    foreach_list_const(n, & this->parameters) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
    }
 
@@ -760,7 +760,7 @@ ast_declarator_list::print(void) const
       if (ptr != this->declarations.get_head())
 	 printf(", ");
 
-      ast_node *ast = exec_node_data(ast_node, ptr, link);
+      ast_node *ast = (ast_node *) ptr;
       ast->print();
    }
 
@@ -891,7 +891,7 @@ ast_case_label::ast_case_label(ast_expression *test_value)
 void ast_case_label_list::print(void) const
 {
    foreach_list_const(n, & this->labels) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
    }
    printf("\n");
@@ -907,7 +907,7 @@ void ast_case_statement::print(void) const
 {
    labels->print();
    foreach_list_const(n, & this->stmts) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
       printf("\n");
    }
@@ -923,7 +923,7 @@ ast_case_statement::ast_case_statement(ast_case_label_list *labels)
 void ast_case_statement_list::print(void) const
 {
    foreach_list_const(n, & this->cases) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
    }
 }
@@ -994,7 +994,7 @@ ast_struct_specifier::print(void) const
 {
    printf("struct %s { ", name);
    foreach_list_const(n, &this->declarations) {
-      ast_node *ast = exec_node_data(ast_node, n, link);
+      ast_node *ast = (ast_node *) n;
       ast->print();
    }
    printf("} ");
@@ -1010,7 +1010,7 @@ ast_struct_specifier::ast_struct_specifier(const char *identifier,
       anon_count++;
    }
    name = identifier;
-   this->declarations.push_degenerate_list_at_head(&declarator_list->link);
+   this->declarations.push_degenerate_list_at_head(declarator_list);
 }
 
 /**

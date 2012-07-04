@@ -155,7 +155,7 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
    if (dump_ast) {
       foreach_list_const(n, &state->translation_unit) {
-	 ast_node *ast = exec_node_data(ast_node, n, link);
+	 ast_node *ast = (ast_node *) n;
 	 ast->print();
       }
       printf("\n\n");
