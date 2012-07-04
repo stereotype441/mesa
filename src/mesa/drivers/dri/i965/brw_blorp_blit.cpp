@@ -1155,13 +1155,13 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
 void
 brw_blorp_blit_program::mcs_fetch()
 {
-#if 0
+#if 1
    /* FIXME: This ought to work, but it doesn't.  Need to investigate. */
    static const sampler_message_arg gen7_ld_mcs_args[2] = {
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT
    };
-   texture_lookup(mcs_data, GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
+   texture_lookup(vec16(mcs_data), GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
                   gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
                   WRITEMASK_XYZW);
 #else
