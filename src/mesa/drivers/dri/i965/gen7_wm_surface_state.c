@@ -434,7 +434,7 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    memset(surf, 0, sizeof(*surf));
 
    /* Render targets can't use IMS layout */
-   assert(!irb->mt->msaa_is_interleaved);
+   assert(irb->mt->msaa_layout != INTEL_MSAA_LAYOUT_IMS);
 
    if (irb->mt->align_h == 4)
       surf->ss0.vertical_alignment = 1;
