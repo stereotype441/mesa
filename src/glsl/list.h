@@ -73,6 +73,9 @@
 
 #ifdef __cplusplus
 
+template<class node_type>
+class typed_exec_list;
+
 struct exec_node {
    struct exec_node *next;
    struct exec_node *prev;
@@ -167,7 +170,8 @@ struct exec_node {
    /**
     * Insert another list in the list before the current node
     */
-   void insert_before(struct exec_list *before);
+   template<class node_type>
+   void insert_before(typed_exec_list<node_type> *before);
 
    /**
     * Replace the current node with the given node.
@@ -226,10 +230,13 @@ struct exec_node {
 struct exec_node;
 
 
-struct exec_list {
-   struct exec_node *head;
-   struct exec_node *tail;
-   struct exec_node *tail_pred;
+template<class node_type>
+class typed_exec_list
+{
+public:
+   node_type *head;
+   node_type *tail;
+   node_type *tail_pred;
 
 #ifdef __cplusplus
    /* Callers of this ralloc-based new need not call delete. It's
@@ -251,16 +258,16 @@ struct exec_list {
       ralloc_free(node);
    }
 
-   exec_list()
+   typed_exec_list()
    {
       make_empty();
    }
 
    void make_empty()
    {
-      head = (exec_node *) & tail;
+      head = (node_type *) & tail;
       tail = NULL;
-      tail_pred = (exec_node *) & head;
+      tail_pred = (node_type *) & head;
    }
 
    bool is_empty() const
@@ -275,54 +282,54 @@ struct exec_list {
        * The first two methods tend to generate better code on modern systems
        * because they save a pointer dereference.
        */
-      return head == (exec_node *) &tail;
+      return head == (node_type *) &tail;
    }
 
-   const exec_node *get_head() const
+   const node_type *get_head() const
    {
       return !is_empty() ? head : NULL;
    }
 
-   exec_node *get_head()
+   node_type *get_head()
    {
       return !is_empty() ? head : NULL;
    }
 
-   const exec_node *get_tail() const
+   const node_type *get_tail() const
    {
       return !is_empty() ? tail_pred : NULL;
    }
 
-   exec_node *get_tail()
+   node_type *get_tail()
    {
       return !is_empty() ? tail_pred : NULL;
    }
 
-   void push_head(exec_node *n)
+   void push_head(node_type *n)
    {
       n->next = head;
-      n->prev = (exec_node *) &head;
+      n->prev = (node_type *) &head;
 
       n->next->prev = n;
       head = n;
    }
 
-   void push_tail(exec_node *n)
+   void push_tail(node_type *n)
    {
-      n->next = (exec_node *) &tail;
+      n->next = (node_type *) &tail;
       n->prev = tail_pred;
 
       n->prev->next = n;
       tail_pred = n;
    }
 
-   void push_degenerate_list_at_head(exec_node *n)
+   void push_degenerate_list_at_head(node_type *n)
    {
       assert(n->prev->next == n);
 
       n->prev->next = head;
       head->prev = n->prev;
-      n->prev = (exec_node *) &head;
+      n->prev = (node_type *) &head;
       head = n;
    }
 
@@ -334,9 +341,9 @@ struct exec_list {
     *
     * \sa exec_list::get_head
     */
-   exec_node *pop_head()
+   node_type *pop_head()
    {
-      exec_node *const n = this->get_head();
+      node_type *const n = this->get_head();
       if (n != NULL)
 	 n->remove();
 
@@ -346,7 +353,7 @@ struct exec_list {
    /**
     * Move all of the nodes from this list to the target list
     */
-   void move_nodes_to(exec_list *target)
+   void move_nodes_to(typed_exec_list<node_type> *target)
    {
       if (is_empty()) {
 	 target->make_empty();
@@ -355,8 +362,8 @@ struct exec_list {
 	 target->tail = NULL;
 	 target->tail_pred = tail_pred;
 
-	 target->head->prev = (exec_node *) &target->head;
-	 target->tail_pred->next = (exec_node *) &target->tail;
+	 target->head->prev = (node_type *) &target->head;
+	 target->tail_pred->next = (node_type *) &target->tail;
 
 	 make_empty();
       }
@@ -366,7 +373,7 @@ struct exec_list {
     * Append all nodes from the source list to the target list
     */
    void
-   append_list(exec_list *source)
+   append_list(typed_exec_list<node_type> *source)
    {
       if (source->is_empty())
 	 return;
@@ -379,7 +386,7 @@ struct exec_list {
       /* Make the tail of the source list be the tail of the target list.
        */
       this->tail_pred = source->tail_pred;
-      this->tail_pred->next = (exec_node *) &this->tail;
+      this->tail_pred->next = (node_type *) &this->tail;
 
       /* Make the source list empty for good measure.
        */
@@ -389,8 +396,17 @@ struct exec_list {
 };
 
 
+/* Normally this would be a typedef but since we're mixing C and C++ we have
+ * to make it a struct.
+ */
+struct exec_list : public typed_exec_list<exec_node>
+{
+};
+
+
 #ifdef __cplusplus
-inline void exec_node::insert_before(exec_list *before)
+template<class node_type>
+inline void exec_node::insert_before(typed_exec_list<node_type> *before)
 {
    if (before->is_empty())
       return;
