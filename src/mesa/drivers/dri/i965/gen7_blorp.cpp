@@ -182,11 +182,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
 
    gen7_set_surface_num_multisamples(surf, surface->num_samples);
    if (surface->mt->mcs_mt) {
-#if 1
-      printf("Blorp using MCS surface\n");
       gen7_set_surface_mcs_info(brw, surf, wm_surf_offset,
                                 surface->mt->mcs_mt, is_render_target);
-#endif
    }
 
    if (intel->is_haswell) {

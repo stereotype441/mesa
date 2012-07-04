@@ -75,8 +75,6 @@ gen7_set_surface_mcs_info(struct brw_context *brw,
                           const struct intel_mipmap_tree *mcs_mt,
                           bool is_render_target)
 {
-   printf("gen7_set_surface_mcs_info called\n");
-
    /* MCS surfaces are always Y-tiled.  Compute the pitch in units of
     * tiles.
     */
