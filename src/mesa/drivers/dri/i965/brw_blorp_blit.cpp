@@ -434,8 +434,7 @@ private:
    void expand_to_32_bits(struct brw_reg src, struct brw_reg dst);
    void expand_to_32_bits_2q(struct brw_reg src, struct brw_reg dst);
    void texture_lookup(struct brw_reg dst, GLuint msg_type,
-                       const sampler_message_arg *args, int num_args,
-                       GLuint response_length);
+                       const sampler_message_arg *args, int num_args);
    void render_target_write();
 
    void *mem_ctx;
@@ -1098,16 +1097,12 @@ brw_blorp_blit_program::manual_blend()
 void
 brw_blorp_blit_program::sample(struct brw_reg dst)
 {
-   /* TODO: should be smaller for non-RGBA formats? */
-   const GLuint response_length = 8;
-
    static const sampler_message_arg args[2] = {
       SAMPLER_MESSAGE_ARG_U_FLOAT,
       SAMPLER_MESSAGE_ARG_V_FLOAT
    };
 
-   texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE, args, ARRAY_SIZE(args),
-                  response_length);
+   texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE, args, ARRAY_SIZE(args));
 }
 
 /**
@@ -1117,9 +1112,6 @@ brw_blorp_blit_program::sample(struct brw_reg dst)
 void
 brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
 {
-   /* TODO: should be smaller for non-RGBA formats? */
-   const GLuint response_length = 8;
-
    static const sampler_message_arg gen6_args[5] = {
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT,
@@ -1147,23 +1139,21 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
    switch (brw->intel.gen) {
    case 6:
       texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE_LD, gen6_args,
-                     s_is_zero ? 2 : 5, response_length);
+                     s_is_zero ? 2 : 5);
       break;
    case 7:
       if (key->tex_samples > 0) {
          if (key->src_uses_mcs) {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DMS,
-                           gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args),
-                           response_length);
+                           gen7_ld2dms_args, ARRAY_SIZE(gen7_ld2dms_args));
          } else {
             texture_lookup(dst, GEN7_SAMPLER_MESSAGE_SAMPLE_LD2DSS,
-                           gen7_ld2dss_args, ARRAY_SIZE(gen7_ld2dss_args),
-                           response_length);
+                           gen7_ld2dss_args, ARRAY_SIZE(gen7_ld2dss_args));
          }
       } else {
          assert(s_is_zero);
          texture_lookup(dst, GEN5_SAMPLER_MESSAGE_SAMPLE_LD, gen7_ld_args,
-                        ARRAY_SIZE(gen7_ld_args), response_length);
+                        ARRAY_SIZE(gen7_ld_args));
       }
       break;
    default:
@@ -1175,13 +1165,6 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
 void
 brw_blorp_blit_program::mcs_fetch()
 {
-   /* We only allocated 2 registers of space for the MSC data, because there's
-    * only 8 or 32 bits of MCS data per pixel (depending whether we are 4x or
-    * 8x multisampling).  So make sure the texture lookup doesn't return more
-    * than 2 registers worth of data.
-    */
-   const GLuint response_length = 8;
-
    static const sampler_message_arg gen7_ld_mcs_args[2] = {
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT
@@ -1193,11 +1176,9 @@ brw_blorp_blit_program::mcs_fetch()
    };
 #endif
    texture_lookup(mcs_data, GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
-                  gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
-                  response_length);
+                  gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args));
    texture_lookup(offset(mcs_data, 1), GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
-                  gen7_ld_mcs_wa_args, ARRAY_SIZE(gen7_ld_mcs_wa_args),
-                  response_length);
+                  gen7_ld_mcs_wa_args, ARRAY_SIZE(gen7_ld_mcs_wa_args));
 }
 
 void
@@ -1224,8 +1205,7 @@ void
 brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
                                        GLuint msg_type,
                                        const sampler_message_arg *args,
-                                       int num_args,
-                                       GLuint response_length)
+                                       int num_args)
 {
    struct brw_reg mrf =
       retype(vec16(brw_message_reg(base_mrf)), BRW_REGISTER_TYPE_UD);
@@ -1282,7 +1262,7 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
               0 /* sampler */,
               WRITEMASK_XYZW,
               msg_type,
-              response_length,
+              8 /* response_length.  TODO: should be smaller for non-RGBA formats? */,
               mrf.nr - base_mrf /* msg_length */,
               0 /* header_present */,
               BRW_SAMPLER_SIMD_MODE_SIMD16,
