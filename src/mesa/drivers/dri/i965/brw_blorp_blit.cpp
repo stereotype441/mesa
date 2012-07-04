@@ -1155,8 +1155,6 @@ brw_blorp_blit_program::texel_fetch(struct brw_reg dst)
 void
 brw_blorp_blit_program::mcs_fetch()
 {
-#if 1
-   /* FIXME: This ought to work, but it doesn't.  Need to investigate. */
    static const sampler_message_arg gen7_ld_mcs_args[2] = {
       SAMPLER_MESSAGE_ARG_U_INT,
       SAMPLER_MESSAGE_ARG_V_INT
@@ -1164,35 +1162,6 @@ brw_blorp_blit_program::mcs_fetch()
    texture_lookup(vec16(mcs_data), GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS,
                   gen7_ld_mcs_args, ARRAY_SIZE(gen7_ld_mcs_args),
                   WRITEMASK_XYZW);
-#else
-   /* Work around problems with SIMD16 version of the ld_mcs message by
-    * sending two SIMD8 messages and storing their results in adjacent
-    * registers.
-    */
-   for (int which_half = 0; which_half < 2; ++which_half) {
-      struct brw_reg mrf =
-         retype(brw_message_reg(base_mrf), BRW_REGISTER_TYPE_UD);
-      if (which_half == 1)
-         brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
-      brw_MOV(&func, mrf, suboffset(vec8(X), 8*which_half));
-      brw_MOV(&func, offset(mrf, 1), suboffset(vec8(Y), 8*which_half));
-      struct brw_reg dest =
-         retype(offset(mcs_data, which_half), BRW_REGISTER_TYPE_UW);
-      brw_SAMPLE(&func,
-                 dest,
-                 base_mrf /* msg_reg_nr */,
-                 brw_message_reg(base_mrf) /* src0 */,
-                 BRW_BLORP_TEXTURE_BINDING_TABLE_INDEX,
-                 0 /* sampler */,
-                 WRITEMASK_XYZW /* TODO: try messing with this. */,
-                 GEN7_SAMPLER_MESSAGE_SAMPLE_LD_MCS /* msg_type */,
-                 4 /* response_length */,
-                 2 /* msg_length */,
-                 0 /* header_present */,
-                 BRW_SAMPLER_SIMD_MODE_SIMD8,
-                 BRW_SAMPLER_RETURN_FORMAT_FLOAT32 /* TODO: try messing with this. */);
-   }
-#endif
 }
 
 void
