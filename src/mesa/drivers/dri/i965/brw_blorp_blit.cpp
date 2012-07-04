@@ -701,7 +701,7 @@ brw_blorp_blit_program::alloc_regs()
    this->result = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->texture_data = vec16(brw_vec8_grf(reg, 0)); reg += 8;
    this->mcs_data =
-      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 9;
+      retype(brw_vec8_grf(reg, 0), BRW_REGISTER_TYPE_UD); reg += 8;
    for (int i = 0; i < 2; ++i) {
       this->x_coords[i]
          = vec16(retype(brw_vec8_grf(reg++, 0), BRW_REGISTER_TYPE_UW));
