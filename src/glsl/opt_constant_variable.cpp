@@ -39,8 +39,7 @@
 
 namespace {
 
-struct assignment_entry {
-   exec_node link;
+struct assignment_entry : public exec_node {
    int assignment_count;
    ir_variable *var;
    ir_constant *constval;
@@ -64,14 +63,15 @@ get_assignment_entry(ir_variable *var, exec_list *list)
 {
    struct assignment_entry *entry;
 
-   foreach_list_typed(struct assignment_entry, entry, link, list) {
+   foreach_list(node, list) {
+      struct assignment_entry *entry = (struct assignment_entry *) node;
       if (entry->var == var)
 	 return entry;
    }
 
    entry = (struct assignment_entry *)calloc(1, sizeof(*entry));
    entry->var = var;
-   list->push_head(&entry->link);
+   list->push_head(entry);
    return entry;
 }
 
@@ -176,13 +176,13 @@ do_constant_variable(exec_list *instructions)
    while (!v.list.is_empty()) {
 
       struct assignment_entry *entry;
-      entry = exec_node_data(struct assignment_entry, v.list.head, link);
+      entry = (struct assignment_entry *) v.list.head;
 
       if (entry->assignment_count == 1 && entry->constval && entry->our_scope) {
 	 entry->var->constant_value = entry->constval;
 	 progress = true;
       }
-      entry->link.remove();
+      entry->remove();
       free(entry);
    }
 
