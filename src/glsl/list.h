@@ -216,19 +216,6 @@ public:
 #define exec_list_offsetof(t, f, p) offsetof(t, f)
 #endif
 
-/**
- * Get a pointer to the structure containing an exec_node
- *
- * Given a pointer to an \c exec_node embedded in a structure, get a pointer to
- * the containing structure.
- *
- * \param type  Base type of the structure containing the node
- * \param node  Pointer to the \c exec_node
- * \param field Name of the field in \c type that is the embedded \c exec_node
- */
-#define exec_node_data(type, node, field) \
-   ((type *) (((char *) node) - exec_list_offsetof(type, field, node)))
-
 //struct exec_node;
 
 
@@ -449,18 +436,6 @@ typed_exec_node<node_type>::insert_before(typed_exec_list<node_type> *before)
    for (const exec_node * __node = (__list)->head	\
 	; (__node)->next != NULL 			\
 	; (__node) = (__node)->next)
-
-#define foreach_list_typed(__type, __node, __field, __list)		\
-   for (__type * __node =						\
-	   exec_node_data(__type, (__list)->head, __field);		\
-	(__node)->__field.next != NULL; 				\
-	(__node) = exec_node_data(__type, (__node)->__field.next, __field))
-
-#define foreach_list_typed_const(__type, __node, __field, __list)	\
-   for (const __type * __node =						\
-	   exec_node_data(__type, (__list)->head, __field);		\
-	(__node)->__field.next != NULL; 				\
-	(__node) = exec_node_data(__type, (__node)->__field.next, __field))
 
 #endif /* LIST_CONTAINER_H */
 
