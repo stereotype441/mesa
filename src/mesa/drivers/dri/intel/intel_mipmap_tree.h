@@ -183,12 +183,13 @@ struct intel_mipmap_tree
 
    /**
     * For MSAA buffers, there are two possible layouts:
-    * - Interleaved, in which the additional samples are accommodated
-    *   by scaling up the width and height of the surface.
-    * - Sliced, in which the surface is stored as a 2D array, with
-    *   array slice n containing all pixel data for sample n.
+    * - IMS (Interleaved Multisample Surface), in which the additional samples
+    *   are accommodated by scaling up the width and height of the surface.
+    * - UMS (Uncompressed Multisample Surface), in which the surface is stored
+    *   as a 2D array, with array slice n containing all pixel data for sample
+    *   n.
     *
-    * This value is true if num_samples > 0 and the format is interleaved.
+    * This value is true if num_samples > 0 and the IMS layout is in use.
     */
    bool msaa_is_interleaved;
 

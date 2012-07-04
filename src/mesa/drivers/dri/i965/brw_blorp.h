@@ -195,8 +195,8 @@ struct brw_blorp_blit_prog_key
    /* Actual number of samples per pixel in the source image. */
    unsigned src_samples;
 
-   /* If src_samples > 0, whether or not the source image uses an interleaved
-    * MSAA layout.  False if src_samples == 0.
+   /* If src_samples > 0, whether or not the source image uses an IMS
+    * (Interleaved Multisample Surface) layout.  False if src_samples == 0.
     */
    bool src_interleaved;
 
@@ -208,8 +208,8 @@ struct brw_blorp_blit_prog_key
    /* Actual number of samples per pixel in the destination image. */
    unsigned dst_samples;
 
-   /* If dst_samples > 0, whether or not the destination image uses an
-    * interleaved MSAA layout.  False if dst_samples == 0.
+   /* If dst_samples > 0, whether or not the destination image uses an IMS
+    * (Interleaved Multisample Surface) layout.  False if dst_samples == 0.
     */
    bool dst_interleaved;
 

@@ -433,7 +433,7 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
 			  sizeof(*surf), 32, &brw->wm.surf_offset[unit]);
    memset(surf, 0, sizeof(*surf));
 
-   /* Render targets can't use MSAA interleaved layout */
+   /* Render targets can't use IMS layout */
    assert(!irb->mt->msaa_is_interleaved);
 
    if (irb->mt->align_h == 4)

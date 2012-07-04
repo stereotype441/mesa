@@ -99,8 +99,8 @@ intel_miptree_create_internal(struct intel_context *intel,
    mt->msaa_is_interleaved = msaa_is_interleaved;
    mt->refcount = 1; 
 
-   /* array_spacing_lod0 is only used for non-interleaved MSAA surfaces.
-    * TODO: can we use it elsewhere?
+   /* array_spacing_lod0 is only used for non-IMS MSAA surfaces.  TODO: can we
+    * use it elsewhere?
     */
    mt->array_spacing_lod0 = num_samples > 0 && !msaa_is_interleaved;
 
@@ -116,7 +116,7 @@ intel_miptree_create_internal(struct intel_context *intel,
        (intel->must_use_separate_stencil ||
 	(intel->has_separate_stencil &&
 	 intel->vtbl.is_hiz_depth_format(intel, format)))) {
-      /* MSAA stencil surfaces are always interleaved. */
+      /* MSAA stencil surfaces always use IMS layout. */
       bool msaa_is_interleaved = num_samples > 0;
       mt->stencil_mt = intel_miptree_create(intel,
                                             mt->target,
@@ -265,20 +265,17 @@ intel_miptree_create_for_region(struct intel_context *intel,
 }
 
 /**
- * Determine whether the MSAA surface being created should use an interleaved
- * layout or a sliced layout, based on the chip generation and the surface
- * type.
+ * Determine whether the MSAA surface being created should use an IMS layout
+ * or a UMS layout, based on the chip generation and the surface type.
  */
 static bool
 msaa_format_is_interleaved(struct intel_context *intel, gl_format format)
 {
-   /* Prior to Gen7, all surfaces used interleaved layout. */
+   /* Prior to Gen7, all surfaces used IMS layout. */
    if (intel->gen < 7)
       return true;
 
-   /* In Gen7, interleaved layout is only used for depth and stencil
-    * buffers.
-    */
+   /* In Gen7, IMS layout is only used for depth and stencil buffers. */
    switch (_mesa_get_format_base_format(format)) {
    case GL_DEPTH_COMPONENT:
    case GL_STENCIL_INDEX:
@@ -642,8 +639,8 @@ intel_miptree_alloc_mcs(struct intel_context *intel,
    /* MCS buffer contains just one value per pixel. */
    const GLuint mcs_num_samples = 0;
 
-   /* MSAA surfaces are always interlaved for Gen7+ */
-   const bool msaa_is_interleaved = true;
+   /* Color MSAA surfaces are never IMS for Gen7+. */
+   const bool msaa_is_interleaved = false;
 
    mt->mcs_mt = intel_miptree_create(intel,
                                      mt->target,
@@ -671,7 +668,7 @@ intel_miptree_alloc_hiz(struct intel_context *intel,
                         GLuint num_samples)
 {
    assert(mt->hiz_mt == NULL);
-   /* MSAA HiZ surfaces are always interleaved. */
+   /* MSAA HiZ surfaces always use IMS layout. */
    bool msaa_is_interleaved = num_samples > 0;
    mt->hiz_mt = intel_miptree_create(intel,
                                      mt->target,
