@@ -272,8 +272,6 @@ enum sampler_message_arg
    SAMPLER_MESSAGE_ARG_V_FLOAT,
    SAMPLER_MESSAGE_ARG_U_INT,
    SAMPLER_MESSAGE_ARG_V_INT,
-   SAMPLER_MESSAGE_ARG_U_INT_2Q,
-   SAMPLER_MESSAGE_ARG_V_INT_2Q,
    SAMPLER_MESSAGE_ARG_SI_INT,
    SAMPLER_MESSAGE_ARG_MCS_INT,
    SAMPLER_MESSAGE_ARG_ZERO_INT,
@@ -432,7 +430,6 @@ private:
    void texel_fetch(struct brw_reg dst);
    void mcs_fetch();
    void expand_to_32_bits(struct brw_reg src, struct brw_reg dst);
-   void expand_to_32_bits_2q(struct brw_reg src, struct brw_reg dst);
    void texture_lookup(struct brw_reg dst, GLuint msg_type,
                        const sampler_message_arg *args, int num_args);
    void render_target_write();
@@ -1215,16 +1212,6 @@ brw_blorp_blit_program::expand_to_32_bits(struct brw_reg src,
 }
 
 void
-brw_blorp_blit_program::expand_to_32_bits_2q(struct brw_reg src,
-                                             struct brw_reg dst)
-{
-   brw_MOV(&func, vec8(dst), suboffset(vec8(src), 8));
-   brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
-   brw_MOV(&func, offset(vec8(dst), 1), suboffset(vec8(src), 8));
-   brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
-}
-
-void
 brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
                                        GLuint msg_type,
                                        const sampler_message_arg *args,
@@ -1245,12 +1232,6 @@ brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
          break;
       case SAMPLER_MESSAGE_ARG_V_INT:
          expand_to_32_bits(Y, mrf);
-         break;
-      case SAMPLER_MESSAGE_ARG_U_INT_2Q:
-         expand_to_32_bits_2q(X, mrf);
-         break;
-      case SAMPLER_MESSAGE_ARG_V_INT_2Q:
-         expand_to_32_bits_2q(Y, mrf);
          break;
       case SAMPLER_MESSAGE_ARG_SI_INT:
 #if 0
