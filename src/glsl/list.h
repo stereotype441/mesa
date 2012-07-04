@@ -76,9 +76,12 @@
 template<class node_type>
 class typed_exec_list;
 
-struct exec_node {
-   struct exec_node *next;
-   struct exec_node *prev;
+template<class node_type>
+class typed_exec_node
+{
+public:
+   node_type *next;
+   node_type *prev;
 
 #ifdef __cplusplus
    /* Callers of this ralloc-based new need not call delete. It's
@@ -100,27 +103,27 @@ struct exec_node {
       ralloc_free(node);
    }
 
-   exec_node() : next(NULL), prev(NULL)
+   typed_exec_node() : next(NULL), prev(NULL)
    {
       /* empty */
    }
 
-   const exec_node *get_next() const
+   const node_type *get_next() const
    {
       return next;
    }
 
-   exec_node *get_next()
+   node_type *get_next()
    {
       return next;
    }
 
-   const exec_node *get_prev() const
+   const node_type *get_prev() const
    {
       return prev;
    }
 
-   exec_node *get_prev()
+   node_type *get_prev()
    {
       return prev;
    }
@@ -140,17 +143,17 @@ struct exec_node {
     */
    void self_link()
    {
-      next = this;
-      prev = this;
+      next = (node_type *) this;
+      prev = (node_type *) this;
    }
 
    /**
     * Insert a node in the list after the current node
     */
-   void insert_after(exec_node *after)
+   void insert_after(node_type *after)
    {
       after->next = this->next;
-      after->prev = this;
+      after->prev = (node_type *) this;
 
       this->next->prev = after;
       this->next = after;
@@ -158,9 +161,9 @@ struct exec_node {
    /**
     * Insert a node in the list before the current node
     */
-   void insert_before(exec_node *before)
+   void insert_before(node_type *before)
    {
-      before->next = this;
+      before->next = (node_type *) this;
       before->prev = this->prev;
 
       this->prev->next = before;
@@ -170,13 +173,12 @@ struct exec_node {
    /**
     * Insert another list in the list before the current node
     */
-   template<class node_type>
    void insert_before(typed_exec_list<node_type> *before);
 
    /**
     * Replace the current node with the given node.
     */
-   void replace_with(exec_node *replacement)
+   void replace_with(node_type *replacement)
    {
       replacement->prev = this->prev;
       replacement->next = this->next;
@@ -227,7 +229,7 @@ struct exec_node {
 #define exec_node_data(type, node, field) \
    ((type *) (((char *) node) - exec_list_offsetof(type, field, node)))
 
-struct exec_node;
+//struct exec_node;
 
 
 template<class node_type>
@@ -399,6 +401,14 @@ public:
 /* Normally this would be a typedef but since we're mixing C and C++ we have
  * to make it a struct.
  */
+struct exec_node : public typed_exec_node<exec_node>
+{
+};
+
+
+/* Normally this would be a typedef but since we're mixing C and C++ we have
+ * to make it a struct.
+ */
 struct exec_list : public typed_exec_list<exec_node>
 {
 };
@@ -406,12 +416,13 @@ struct exec_list : public typed_exec_list<exec_node>
 
 #ifdef __cplusplus
 template<class node_type>
-inline void exec_node::insert_before(typed_exec_list<node_type> *before)
+inline void
+typed_exec_node<node_type>::insert_before(typed_exec_list<node_type> *before)
 {
    if (before->is_empty())
       return;
 
-   before->tail_pred->next = this;
+   before->tail_pred->next = (node_type *) this;
    before->head->prev = this->prev;
 
    this->prev->next = before->head;
