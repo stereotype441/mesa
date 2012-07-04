@@ -71,6 +71,8 @@
 
 #include "ralloc.h"
 
+#ifdef __cplusplus
+
 struct exec_node {
    struct exec_node *next;
    struct exec_node *prev;
@@ -434,3 +436,5 @@ inline void exec_node::insert_before(exec_list *before)
 	(__node) = exec_node_data(__type, (__node)->__field.next, __field))
 
 #endif /* LIST_CONTAINER_H */
+
+#endif
