@@ -237,9 +237,7 @@ loop_control_visitor::visit_leave(ir_loop *ir)
 
 	 ir_rvalue *init = find_initial_value(ir, var);
 
-	 foreach_list(iv_node, &ls->induction_variables) {
-	    loop_variable *lv = (loop_variable *) iv_node;
-
+	 foreach_list_typed(loop_variable, lv, &ls->induction_variables) {
 	    if (lv->var == var) {
 	       const int iterations = calculate_iterations(init, limit,
 							   lv->increment,

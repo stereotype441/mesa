@@ -78,21 +78,21 @@ public:
    /**
     * Variables that have not yet been classified
     */
-   exec_list variables;
+   typed_exec_list<loop_variable> variables;
 
    /**
     * Variables whose values are constant within the body of the loop
     *
     * This list contains \c loop_variable objects.
     */
-   exec_list constants;
+   typed_exec_list<loop_variable> constants;
 
    /**
     * Induction variables for this loop
     *
     * This list contains \c loop_variable objects.
     */
-   exec_list induction_variables;
+   typed_exec_list<loop_variable> induction_variables;
 
    /**
     * Simple if-statements that lead to the termination of the loop
@@ -160,7 +160,7 @@ private:
 };
 
 
-class loop_variable : public exec_node {
+class loop_variable : public typed_exec_node<loop_variable> {
 public:
    /** The variable in question. */
    ir_variable *var;

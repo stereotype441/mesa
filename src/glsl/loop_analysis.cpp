@@ -253,9 +253,7 @@ loop_analysis::visit_leave(ir_loop *ir)
    }
 
 
-   foreach_list_safe(node, &ls->variables) {
-      loop_variable *lv = (loop_variable *) node;
-
+   foreach_list_safe_typed(loop_variable, lv, &ls->variables) {
       /* Move variables that are already marked as being loop constant to
        * a separate list.  These trivially don't need to be tested.
        */
@@ -283,9 +281,7 @@ loop_analysis::visit_leave(ir_loop *ir)
    do {
       progress = false;
 
-      foreach_list_safe(node, &ls->variables) {
-	 loop_variable *lv = (loop_variable *) node;
-
+      foreach_list_safe_typed(loop_variable, lv, &ls->variables) {
 	 if (lv->conditional_assignment || (lv->num_assignments > 1))
 	    continue;
 
@@ -309,9 +305,7 @@ loop_analysis::visit_leave(ir_loop *ir)
    /* The remaining variables that are not loop invariant might be loop
     * induction variables.
     */
-   foreach_list_safe(node, &ls->variables) {
-      loop_variable *lv = (loop_variable *) node;
-
+   foreach_list_safe_typed(loop_variable, lv, &ls->variables) {
       /* If there is more than one assignment to a variable, it cannot be a
        * loop induction variable.  This isn't strictly true, but this is a
        * very simple induction variable detector, and it can't handle more
