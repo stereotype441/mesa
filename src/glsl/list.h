@@ -422,20 +422,29 @@ typed_exec_node<node_type>::insert_before(typed_exec_list<node_type> *before)
 /**
  * This version is safe even if the current node is removed.
  */ 
-#define foreach_list_safe(__node, __list)			     \
-   for (exec_node * __node = (__list)->head, * __next = __node->next \
-	; __next != NULL					     \
+#define foreach_list_safe_typed(__type, __node, __list)			\
+   for (__type * __node = (__list)->head, * __next = __node->next	\
+	; __next != NULL						\
 	; __node = __next, __next = __next->next)
 
+#define foreach_list_safe(__node, __list)		\
+   foreach_list_safe_typed(exec_node, __node, __list)
+
+#define foreach_list_typed(__type, __node, __list)	\
+   for (__type * __node = (__list)->head		\
+	; (__node)->next != NULL			\
+	; (__node) = (__node)->next)
+
 #define foreach_list(__node, __list)			\
-   for (exec_node * __node = (__list)->head		\
-	; (__node)->next != NULL 			\
+   foreach_list_typed(exec_node, __node, __list)
+
+#define foreach_list_const_typed(__type, __node, __list)	\
+   for (const __type * __node = (__list)->head			\
+	; (__node)->next != NULL				\
 	; (__node) = (__node)->next)
 
 #define foreach_list_const(__node, __list)		\
-   for (const exec_node * __node = (__list)->head	\
-	; (__node)->next != NULL 			\
-	; (__node) = (__node)->next)
+   foreach_list_const_typed(exec_node, __node, __list)
 
 #endif /* LIST_CONTAINER_H */
 
