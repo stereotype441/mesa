@@ -127,9 +127,11 @@
 #include "program/hash_table.h"
 #include "program.h"
 
-struct call_node : public exec_node {
+struct call_node : public typed_exec_node<call_node> {
    class function *func;
 };
+
+typedef typed_exec_list<call_node> call_list;
 
 class function {
 public:
@@ -162,10 +164,10 @@ public:
    ir_function_signature *sig;
 
    /** List of functions called by this function. */
-   exec_list callees;
+   call_list callees;
 
    /** List of functions that call this function. */
-   exec_list callers;
+   call_list callers;
 };
 
 class has_recursion_visitor : public ir_hierarchical_visitor {
@@ -240,9 +242,9 @@ public:
 };
 
 static void
-destroy_links(exec_list *list, function *f)
+destroy_links(call_list *list, function *f)
 {
-   foreach_list_safe(node, list) {
+   foreach_list_safe_typed(call_node, node, list) {
       struct call_node *n = (struct call_node *) node;
 
       /* If this is the right function, remove it.  Note that the loop cannot
