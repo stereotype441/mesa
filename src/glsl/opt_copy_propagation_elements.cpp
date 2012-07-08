@@ -51,7 +51,7 @@ static bool debug = false;
 
 namespace {
 
-class acp_entry : public exec_node
+class acp_entry : public typed_exec_node<acp_entry>
 {
 public:
    acp_entry(ir_variable *lhs, ir_variable *rhs, int write_mask, int swizzle[4])
@@ -98,7 +98,7 @@ public:
       this->killed_all = false;
       this->mem_ctx = ralloc_context(NULL);
       this->shader_mem_ctx = NULL;
-      this->acp = new(mem_ctx) exec_list;
+      this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
       this->kills = new(mem_ctx) exec_list;
    }
    ~ir_copy_propagation_elements_visitor()
@@ -120,7 +120,7 @@ public:
    void handle_if_block(exec_list *instructions);
 
    /** List of acp_entry: The available copies to propagate */
-   exec_list *acp;
+   typed_exec_list<acp_entry> *acp;
    /**
     * List of kill_entry: The variables whose values were killed in this
     * block.
@@ -146,11 +146,11 @@ ir_copy_propagation_elements_visitor::visit_enter(ir_function_signature *ir)
     * block.  Any instructions at global scope will be shuffled into
     * main() at link time, so they're irrelevant to us.
     */
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
@@ -244,9 +244,7 @@ ir_copy_propagation_elements_visitor::handle_rvalue(ir_rvalue **ir)
    /* Try to find ACP entries covering swizzle_chan[], hoping they're
     * the same source variable.
     */
-   foreach_list_safe(node, this->acp) {
-      acp_entry *entry = (acp_entry *) node;
-
+   foreach_list_safe_typed(acp_entry, entry, this->acp) {
       if (var == entry->lhs) {
 	 for (int c = 0; c < chans; c++) {
 	    if (entry->write_mask & (1 << swizzle_chan[c])) {
@@ -315,17 +313,16 @@ ir_copy_propagation_elements_visitor::visit_enter(ir_call *ir)
 void
 ir_copy_propagation_elements_visitor::handle_if_block(exec_list *instructions)
 {
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
    /* Populate the initial acp with a copy of the original */
-   foreach_list_safe(node, orig_acp) {
-      acp_entry *a = (acp_entry *) node;
+   foreach_list_safe_typed(acp_entry, a, orig_acp) {
       this->acp->push_tail(new(this->mem_ctx) acp_entry(a));
    }
 
@@ -364,7 +361,7 @@ ir_copy_propagation_elements_visitor::visit_enter(ir_if *ir)
 ir_visitor_status
 ir_copy_propagation_elements_visitor::visit_enter(ir_loop *ir)
 {
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
@@ -372,7 +369,7 @@ ir_copy_propagation_elements_visitor::visit_enter(ir_loop *ir)
     * We could go through once, then go through again with the acp
     * cloned minus the killed entries after the first run through.
     */
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
@@ -400,9 +397,7 @@ ir_copy_propagation_elements_visitor::visit_enter(ir_loop *ir)
 void
 ir_copy_propagation_elements_visitor::kill(kill_entry *k)
 {
-   foreach_list_safe(node, acp) {
-      acp_entry *entry = (acp_entry *)node;
-
+   foreach_list_safe_typed(acp_entry, entry, acp) {
       if (entry->lhs == k->var) {
 	 entry->write_mask = entry->write_mask & ~k->write_mask;
 	 if (entry->write_mask == 0) {
