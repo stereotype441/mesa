@@ -87,8 +87,8 @@ _mesa_ast_to_hir(exec_list *instructions, struct _mesa_glsl_parse_state *state)
     */
    state->symbols->push_scope();
 
-   foreach_list (ast, & state->translation_unit)
-      ((ast_node *) ast)->hir(instructions, state);
+   foreach_ast_list (ast, & state->translation_unit)
+      ast->hir(instructions, state);
 
    detect_recursion_unlinked(state, instructions);
    detect_conflicting_assignments(state, instructions);
@@ -1742,8 +1742,7 @@ ast_expression::hir(exec_list *instructions,
       exec_node *previous_tail_pred = NULL;
       YYLTYPE previous_operand_loc = loc;
 
-      foreach_list (node, &this->expressions) {
-         ast_node *ast = (ast_node *) node;
+      foreach_ast_list (ast, &this->expressions) {
 	 /* If one of the operands of comma operator does not generate any
 	  * code, we want to emit a warning.  At each pass through the loop
 	  * previous_tail_pred will point to the last instruction in the
@@ -1822,8 +1821,8 @@ ast_compound_statement::hir(exec_list *instructions,
    if (new_scope)
       state->symbols->push_scope();
 
-   foreach_list (ast, &this->statements)
-      ((ast_node *) ast)->hir(instructions, state);
+   foreach_ast_list (ast, &this->statements)
+      ast->hir(instructions, state);
 
    if (new_scope)
       state->symbols->pop_scope();
@@ -2475,7 +2474,7 @@ ast_declarator_list::hir(exec_list *instructions,
 			  "scope\n");
       }
 
-      foreach_list (node, &this->declarations) {
+      foreach_ast_list (node, &this->declarations) {
          ast_declaration *decl = (ast_declaration *) node;
 	 assert(!decl->is_array);
 	 assert(decl->array_size == NULL);
@@ -2551,7 +2550,7 @@ ast_declarator_list::hir(exec_list *instructions,
       }
    }
 
-   foreach_list (node, &this->declarations) {
+   foreach_ast_list (node, &this->declarations) {
       ast_declaration *decl = (ast_declaration *) node;
       const struct glsl_type *var_type;
       ir_variable *var;
@@ -3074,7 +3073,7 @@ ast_parameter_declarator::hir(exec_list *instructions,
 
 
 void
-ast_parameter_declarator::parameters_to_hir(exec_list *ast_parameters,
+ast_parameter_declarator::parameters_to_hir(ast_list *ast_parameters,
 					    bool formal,
 					    exec_list *ir_parameters,
 					    _mesa_glsl_parse_state *state)
@@ -3082,7 +3081,7 @@ ast_parameter_declarator::parameters_to_hir(exec_list *ast_parameters,
    ast_parameter_declarator *void_param = NULL;
    unsigned count = 0;
 
-   foreach_list (node, ast_parameters) {
+   foreach_ast_list (node, ast_parameters) {
       ast_parameter_declarator *param = (ast_parameter_declarator *) node;
       param->formal_parameter = formal;
       param->hir(ir_parameters, state);
@@ -3623,7 +3622,7 @@ ir_rvalue *
 ast_case_statement_list::hir(exec_list *instructions,
 			     struct _mesa_glsl_parse_state *state)
 {
-   foreach_list (case_stmt, & this->cases)
+   foreach_ast_list (case_stmt, & this->cases)
       ((ast_case_statement *) case_stmt)->hir(instructions, state);
 
    /* Case statements do not have r-values. */
@@ -3653,8 +3652,8 @@ ast_case_statement::hir(exec_list *instructions,
       new(state) ir_dereference_variable(state->switch_state.is_fallthru_var);
    ir_if *const test_fallthru = new(state) ir_if(deref_fallthru_guard);
 
-   foreach_list (stmt, & this->stmts)
-      ((ast_node *) stmt)->hir(& test_fallthru->then_instructions, state);
+   foreach_ast_list (stmt, & this->stmts)
+      stmt->hir(& test_fallthru->then_instructions, state);
 
    instructions->push_tail(test_fallthru);
 
@@ -3667,7 +3666,7 @@ ir_rvalue *
 ast_case_label_list::hir(exec_list *instructions,
 			 struct _mesa_glsl_parse_state *state)
 {
-   foreach_list (label, & this->labels)
+   foreach_ast_list (label, & this->labels)
       ((ast_case_label *) label)->hir(instructions, state);
 
    /* Case labels do not have r-values. */
@@ -3920,9 +3919,9 @@ ast_struct_specifier::hir(exec_list *instructions,
     * This means that we actually need to count the number of elements in the
     * 'declarations' list in each of the elements.
     */
-   foreach_list (node, &this->declarations) {
+   foreach_ast_list (node, &this->declarations) {
       ast_declarator_list *decl_list = (ast_declarator_list *) node;
-      foreach_list_const (decl_ptr, & decl_list->declarations) {
+      foreach_ast_list_const (decl_ptr, & decl_list->declarations) {
 	 decl_count++;
       }
    }
@@ -3936,7 +3935,7 @@ ast_struct_specifier::hir(exec_list *instructions,
 						  decl_count);
 
    unsigned i = 0;
-   foreach_list (node, &this->declarations) {
+   foreach_ast_list (node, &this->declarations) {
       ast_declarator_list *decl_list = (ast_declarator_list *) node;
       const char *type_name;
 
@@ -3954,7 +3953,7 @@ ast_struct_specifier::hir(exec_list *instructions,
       const glsl_type *decl_type =
 	 decl_list->type->specifier->glsl_type(& type_name, state);
 
-      foreach_list (node, &decl_list->declarations) {
+      foreach_ast_list (node, &decl_list->declarations) {
          ast_declaration *decl = (ast_declaration *) node;
 	 const struct glsl_type *field_type = decl_type;
 	 if (decl->is_array) {

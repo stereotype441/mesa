@@ -36,13 +36,12 @@ apply_implicit_conversion(const glsl_type *to, ir_rvalue * &from,
 
 static unsigned
 process_parameters(exec_list *instructions, exec_list *actual_parameters,
-		   exec_list *parameters,
+		   ast_list *parameters,
 		   struct _mesa_glsl_parse_state *state)
 {
    unsigned count = 0;
 
-   foreach_list (n, parameters) {
-      ast_node *const ast = (ast_node *) n;
+   foreach_ast_list (ast, parameters) {
       ir_rvalue *result = ast->hir(instructions, state);
 
       ir_constant *const constant = result->constant_expression_value();
@@ -102,10 +101,10 @@ static bool
 verify_parameter_modes(_mesa_glsl_parse_state *state,
 		       ir_function_signature *sig,
 		       exec_list &actual_ir_parameters,
-		       exec_list &actual_ast_parameters)
+		       ast_list &actual_ast_parameters)
 {
    exec_node *actual_ir_node  = actual_ir_parameters.head;
-   exec_node *actual_ast_node = actual_ast_parameters.head;
+   ast_node *actual_ast_node = actual_ast_parameters.head;
 
    foreach_list(formal_node, &sig->parameters) {
       /* The lists must be the same length. */
@@ -554,7 +553,7 @@ dereference_component(ir_rvalue *src, unsigned component)
 static ir_rvalue *
 process_array_constructor(exec_list *instructions,
 			  const glsl_type *constructor_type,
-			  YYLTYPE *loc, exec_list *parameters,
+			  YYLTYPE *loc, ast_list *parameters,
 			  struct _mesa_glsl_parse_state *state)
 {
    void *ctx = state;
@@ -1327,8 +1326,7 @@ ast_function_expression::hir(exec_list *instructions,
       unsigned nonmatrix_parameters = 0;
       exec_list actual_parameters;
 
-      foreach_list (n, &this->expressions) {
-	 ast_node *ast = (ast_node *) n;
+      foreach_ast_list (ast, &this->expressions) {
 	 ir_rvalue *result = ast->hir(instructions, state)->as_rvalue();
 
 	 /* From page 50 (page 56 of the PDF) of the GLSL 1.50 spec:

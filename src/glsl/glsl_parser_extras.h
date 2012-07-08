@@ -34,6 +34,9 @@
 #include <stdlib.h>
 #include "glsl_symbol_table.h"
 
+class ast_node;
+typedef typed_exec_list<ast_node> ast_list;
+
 enum _mesa_glsl_parser_targets {
    vertex_shader,
    geometry_shader,
@@ -79,7 +82,7 @@ struct _mesa_glsl_parse_state {
 
    struct gl_context *const ctx;
    void *scanner;
-   exec_list translation_unit;
+   ast_list translation_unit;
    glsl_symbol_table *symbols;
 
    bool es_shader;

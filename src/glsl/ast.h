@@ -33,6 +33,11 @@ struct _mesa_glsl_parse_state;
 
 struct YYLTYPE;
 
+#define foreach_ast_list(__node, __list) \
+   foreach_list_typed(ast_node, __node, __list)
+#define foreach_ast_list_const(__node, __list) \
+   foreach_list_const_typed(ast_node, __node, __list)
+
 /**
  * \defgroup AST Abstract syntax tree node definitions
  *
@@ -47,7 +52,7 @@ struct YYLTYPE;
 /**
  * Base class of all abstract syntax tree nodes
  */
-class ast_node : public exec_node {
+class ast_node : public typed_exec_node<ast_node> {
 public:
    /* Callers of this ralloc-based new need not call delete. It's
     * easier to just ralloc_free 'ctx' (or any of its ancestors). */
@@ -232,7 +237,7 @@ public:
     * List of expressions for an \c ast_sequence or parameters for an
     * \c ast_function_call
     */
-   exec_list expressions;
+   ast_list expressions;
 
    /**
     * For things that can't be l-values, this describes what it is.
@@ -310,7 +315,7 @@ public:
 			  struct _mesa_glsl_parse_state *state);
 
    int new_scope;
-   exec_list statements;
+   ast_list statements;
 };
 
 class ast_declaration : public ast_node {
@@ -424,7 +429,7 @@ public:
 			  struct _mesa_glsl_parse_state *state);
 
    const char *name;
-   exec_list declarations;
+   ast_list declarations;
 };
 
 
@@ -488,7 +493,7 @@ public:
 			  struct _mesa_glsl_parse_state *state);
 
    ast_fully_specified_type *type;
-   exec_list declarations;
+   ast_list declarations;
 
    /**
     * Special flag for vertex shader "invariant" declarations.
@@ -520,7 +525,7 @@ public:
    int is_array;
    ast_expression *array_size;
 
-   static void parameters_to_hir(exec_list *ast_parameters,
+   static void parameters_to_hir(ast_list *ast_parameters,
 				 bool formal, exec_list *ir_parameters,
 				 struct _mesa_glsl_parse_state *state);
 
@@ -549,7 +554,7 @@ public:
    ast_fully_specified_type *return_type;
    const char *identifier;
 
-   exec_list parameters;
+   ast_list parameters;
 
 private:
    /**
@@ -614,7 +619,7 @@ public:
    /**
     * A list of case labels.
     */
-   exec_list labels;
+   ast_list labels;
 };
 
 
@@ -631,7 +636,7 @@ public:
    /**
     * A list of statements.
     */
-   exec_list stmts;
+   ast_list stmts;
 };
 
 
@@ -646,7 +651,7 @@ public:
    /**
     * A list of cases.
     */
-   exec_list cases;
+   ast_list cases;
 };
 
 
