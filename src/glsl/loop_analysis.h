@@ -101,7 +101,7 @@ public:
     *
     * \sa is_loop_terminator
     */
-   exec_list terminators;
+   typed_exec_list<loop_terminator> terminators;
 
    /**
     * Hash table containing all variables accessed in this loop
@@ -220,7 +220,7 @@ public:
 };
 
 
-class loop_terminator : public exec_node {
+class loop_terminator : public typed_exec_node<loop_terminator> {
 public:
    ir_if *ir;
 };

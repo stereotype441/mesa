@@ -193,8 +193,7 @@ loop_control_visitor::visit_leave(ir_loop *ir)
    if(max_iterations < 0)
       max_iterations = INT_MAX;
 
-   foreach_list(node, &ls->terminators) {
-      loop_terminator *t = (loop_terminator *) node;
+   foreach_list_typed(loop_terminator, t, &ls->terminators) {
       ir_if *if_stmt = t->ir;
 
       /* If-statements can be either 'if (expr)' or 'if (deref)'.  We only care
