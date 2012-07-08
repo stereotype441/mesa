@@ -42,7 +42,7 @@ static bool debug = false;
 
 namespace {
 
-class assignment_entry : public exec_node
+class assignment_entry : public typed_exec_node<assignment_entry>
 {
 public:
    assignment_entry(ir_variable *lhs, ir_assignment *ir)
@@ -63,16 +63,14 @@ public:
 
 class kill_for_derefs_visitor : public ir_hierarchical_visitor {
 public:
-   kill_for_derefs_visitor(exec_list *assignments)
+   kill_for_derefs_visitor(typed_exec_list<assignment_entry> *assignments)
    {
       this->assignments = assignments;
    }
 
    void kill_channels(ir_variable *const var, int used)
    {
-      foreach_list_safe(node, this->assignments) {
-	 assignment_entry *entry = (assignment_entry *) node;
-
+      foreach_list_safe_typed(assignment_entry, entry, this->assignments) {
 	 if (entry->lhs == var) {
 	    if (var->type->is_scalar() || var->type->is_vector()) {
 	       if (debug)
@@ -115,7 +113,7 @@ public:
    }
 
 private:
-   exec_list *assignments;
+   typed_exec_list<assignment_entry> *assignments;
 };
 
 class array_index_visit : public ir_hierarchical_visitor {
@@ -147,7 +145,8 @@ public:
  * of a variable to a variable.
  */
 static bool
-process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
+process_assignment(void *ctx, ir_assignment *ir,
+                   typed_exec_list<assignment_entry> *assignments)
 {
    ir_variable *var = NULL;
    bool progress = false;
@@ -179,9 +178,7 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
 	    printf("looking for %s.0x%01x to remove\n", var->name,
 		   ir->write_mask);
 
-	 foreach_list_safe(node, assignments) {
-	    assignment_entry *entry = (assignment_entry *) node;
-
+	 foreach_list_safe_typed(assignment_entry, entry, assignments) {
 	    if (entry->lhs != var)
 	       continue;
 
@@ -241,9 +238,7 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
 	  */
 	 if (debug)
 	    printf("looking for %s to remove\n", var->name);
-	 foreach_list_safe(node, assignments) {
-	    assignment_entry *entry = (assignment_entry *) node;
-
+	 foreach_list_safe_typed(assignment_entry, entry, assignments) {
 	    if (entry->lhs == var) {
 	       if (debug)
 		  printf("removing %s\n", var->name);
@@ -263,9 +258,7 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
       printf("add %s\n", var->name);
 
       printf("current entries\n");
-      foreach_list_safe(node, assignments) {
-	 assignment_entry *entry = (assignment_entry *) node;
-
+      foreach_list_safe_typed(assignment_entry, entry, assignments) {
 	 printf("    %s (0x%01x)\n", entry->lhs->name, entry->available);
       }
    }
@@ -280,7 +273,7 @@ dead_code_local_basic_block(ir_instruction *first,
 {
    ir_instruction *ir, *ir_next;
    /* List of avaialble_copy */
-   exec_list assignments;
+   typed_exec_list<assignment_entry> assignments;
    bool *out_progress = (bool *)data;
    bool progress = false;
 
