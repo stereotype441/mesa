@@ -43,7 +43,7 @@ static bool debug = false;
 
 namespace opt_array_splitting {
 
-class variable_entry : public exec_node
+class variable_entry : public typed_exec_node<variable_entry>
 {
 public:
    variable_entry(ir_variable *var)
@@ -108,7 +108,7 @@ public:
    variable_entry *get_variable_entry(ir_variable *var);
 
    /* List of variable_entry */
-   exec_list variable_list;
+   typed_exec_list<variable_entry> variable_list;
 
    void *mem_ctx;
 };
@@ -131,8 +131,7 @@ ir_array_reference_visitor::get_variable_entry(ir_variable *var)
    if (var->type->is_array() && var->type->length == 0)
       return NULL;
 
-   foreach_list_safe(node, &this->variable_list) {
-      variable_entry *entry = (variable_entry *) node;
+   foreach_list_safe_typed(variable_entry, entry, &this->variable_list) {
       if (entry->var == var)
 	 return entry;
    }
@@ -220,9 +219,7 @@ ir_array_reference_visitor::get_split_list(exec_list *instructions,
    }
 
    /* Trim out variables we found that we can't split. */
-   foreach_list_safe(node, &variable_list) {
-      variable_entry *entry = (variable_entry *) node;
-
+   foreach_list_safe_typed(variable_entry, entry, &variable_list) {
       if (debug) {
 	 printf("array %s@%p: decl %d, split %d\n",
 		entry->var->name, (void *) entry->var, entry->declaration,
@@ -243,7 +240,7 @@ ir_array_reference_visitor::get_split_list(exec_list *instructions,
  */
 class ir_array_splitting_visitor : public ir_rvalue_visitor {
 public:
-   ir_array_splitting_visitor(exec_list *vars)
+   ir_array_splitting_visitor(typed_exec_list<variable_entry> *vars)
    {
       this->variable_list = vars;
    }
@@ -258,7 +255,7 @@ public:
    void handle_rvalue(ir_rvalue **rvalue);
    variable_entry *get_splitting_entry(ir_variable *var);
 
-   exec_list *variable_list;
+   typed_exec_list<variable_entry> *variable_list;
 };
 
 variable_entry *
@@ -266,8 +263,7 @@ ir_array_splitting_visitor::get_splitting_entry(ir_variable *var)
 {
    assert(var);
 
-   foreach_list_safe(node, this->variable_list) {
-      variable_entry *entry = (variable_entry *) node;
+   foreach_list_safe_typed(variable_entry, entry, this->variable_list) {
       if (entry->var == var) {
 	 return entry;
       }
@@ -364,8 +360,7 @@ optimize_split_arrays(exec_list *instructions, bool linked)
    /* Replace the decls of the arrays to be split with their split
     * components.
     */
-   foreach_list_safe(node, &refs.variable_list) {
-      variable_entry *entry = (variable_entry *) node;
+   foreach_list_safe_typed(variable_entry, entry, &refs.variable_list) {
       const struct glsl_type *type = entry->var->type;
       const struct glsl_type *subtype;
 
