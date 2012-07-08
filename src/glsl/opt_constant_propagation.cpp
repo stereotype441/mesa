@@ -43,7 +43,7 @@
 
 namespace {
 
-class acp_entry : public exec_node
+class acp_entry : public typed_exec_node<acp_entry>
 {
 public:
    acp_entry(ir_variable *var, unsigned write_mask, ir_constant *constant)
@@ -93,7 +93,7 @@ public:
    {
       progress = false;
       mem_ctx = ralloc_context(0);
-      this->acp = new(mem_ctx) exec_list;
+      this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
       this->kills = new(mem_ctx) exec_list;
    }
    ~ir_constant_propagation_visitor()
@@ -114,7 +114,7 @@ public:
    void handle_rvalue(ir_rvalue **rvalue);
 
    /** List of acp_entry: The available constants to propagate */
-   exec_list *acp;
+   typed_exec_list<acp_entry> *acp;
 
    /**
     * List of kill_entry: The masks of variables whose values were
@@ -171,8 +171,7 @@ ir_constant_propagation_visitor::handle_rvalue(ir_rvalue **rvalue)
 	 channel = i;
       }
 
-      foreach_list_safe(node, this->acp) {
-	 acp_entry *entry = (acp_entry *) node;
+      foreach_list_safe_typed(acp_entry, entry, this->acp) {
 	 if (entry->var == deref->var && entry->write_mask & (1 << channel)) {
 	    found = entry;
 	    break;
@@ -220,11 +219,11 @@ ir_constant_propagation_visitor::visit_enter(ir_function_signature *ir)
     * block.  Any instructions at global scope will be shuffled into
     * main() at link time, so they're irrelevant to us.
     */
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
@@ -307,17 +306,16 @@ ir_constant_propagation_visitor::visit_enter(ir_call *ir)
 void
 ir_constant_propagation_visitor::handle_if_block(exec_list *instructions)
 {
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
    /* Populate the initial acp with a constant of the original */
-   foreach_list_safe(node, orig_acp) {
-      acp_entry *a = (acp_entry *) node;
+   foreach_list_safe_typed(acp_entry, a, orig_acp) {
       this->acp->push_tail(new(this->mem_ctx) acp_entry(a));
    }
 
@@ -354,7 +352,7 @@ ir_constant_propagation_visitor::visit_enter(ir_if *ir)
 ir_visitor_status
 ir_constant_propagation_visitor::visit_enter(ir_loop *ir)
 {
-   exec_list *orig_acp = this->acp;
+   typed_exec_list<acp_entry> *orig_acp = this->acp;
    exec_list *orig_kills = this->kills;
    bool orig_killed_all = this->killed_all;
 
@@ -362,7 +360,7 @@ ir_constant_propagation_visitor::visit_enter(ir_loop *ir)
     * We could go through once, then go through again with the acp
     * cloned minus the killed entries after the first run through.
     */
-   this->acp = new(mem_ctx) exec_list;
+   this->acp = new(mem_ctx) typed_exec_list<acp_entry>;
    this->kills = new(mem_ctx) exec_list;
    this->killed_all = false;
 
@@ -396,9 +394,7 @@ ir_constant_propagation_visitor::kill(ir_variable *var, unsigned write_mask)
       return;
 
    /* Remove any entries currently in the ACP for this kill. */
-   foreach_list_safe(node, this->acp) {
-      acp_entry *entry = (acp_entry *) node;
-
+   foreach_list_safe_typed(acp_entry, entry, this->acp) {
       if (entry->var == var) {
 	 entry->write_mask &= ~write_mask;
 	 if (entry->write_mask == 0)
