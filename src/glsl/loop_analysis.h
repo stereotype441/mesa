@@ -63,7 +63,7 @@ unroll_loops(exec_list *instructions, loop_state *ls, unsigned max_iterations);
 /**
  * Tracking for all variables used in a loop
  */
-class loop_variable_state : public exec_node {
+class loop_variable_state : public typed_exec_node<loop_variable_state> {
 public:
    class loop_variable *get(const ir_variable *);
    class loop_variable *insert(ir_variable *);

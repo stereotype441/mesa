@@ -125,7 +125,7 @@ public:
 
    ir_assignment *current_assignment;
 
-   exec_list state;
+   typed_exec_list<loop_variable_state> state;
 };
 
 
