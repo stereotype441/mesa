@@ -46,7 +46,7 @@ static bool debug = false;
 // function) with the variable_entry class seen in ir_variable_refcount.h
 // Perhaps we can use the one in ir_variable_refcount.h and make this class
 // here go away?
-class variable_entry2 : public exec_node
+class variable_entry2 : public typed_exec_node<variable_entry2>
 {
 public:
    variable_entry2(ir_variable *var)
@@ -98,7 +98,7 @@ public:
    variable_entry2 *get_variable_entry2(ir_variable *var);
 
    /* List of variable_entry */
-   exec_list variable_list;
+   typed_exec_list<variable_entry2> variable_list;
 
    void *mem_ctx;
 };
@@ -111,8 +111,7 @@ ir_structure_reference_visitor::get_variable_entry2(ir_variable *var)
    if (!var->type->is_record() || var->mode == ir_var_uniform)
       return NULL;
 
-   foreach_list_safe(node, &this->variable_list) {
-      variable_entry2 *entry = (variable_entry2 *) node;
+   foreach_list_safe_typed(variable_entry2, entry, &this->variable_list) {
       if (entry->var == var)
 	 return entry;
    }
@@ -187,7 +186,7 @@ ir_structure_reference_visitor::visit_enter(ir_function_signature *ir)
 
 class ir_structure_splitting_visitor : public ir_rvalue_visitor {
 public:
-   ir_structure_splitting_visitor(exec_list *vars)
+   ir_structure_splitting_visitor(typed_exec_list<variable_entry2> *vars)
    {
       this->variable_list = vars;
    }
@@ -202,7 +201,7 @@ public:
    void handle_rvalue(ir_rvalue **rvalue);
    variable_entry2 *get_splitting_entry(ir_variable *var);
 
-   exec_list *variable_list;
+   typed_exec_list<variable_entry2> *variable_list;
 };
 
 variable_entry2 *
@@ -213,8 +212,7 @@ ir_structure_splitting_visitor::get_splitting_entry(ir_variable *var)
    if (!var->type->is_record())
       return NULL;
 
-   foreach_list_safe(node, this->variable_list) {
-      variable_entry2 *entry = (variable_entry2 *) node;
+   foreach_list_safe_typed(variable_entry2, entry, this->variable_list) {
       if (entry->var == var) {
 	 return entry;
       }
@@ -319,9 +317,7 @@ do_structure_splitting(exec_list *instructions)
    visit_list_elements(&refs, instructions);
 
    /* Trim out variables we can't split. */
-   foreach_list_safe(node, &refs.variable_list) {
-      variable_entry2 *entry = (variable_entry2 *) node;
-
+   foreach_list_safe_typed(variable_entry2, entry, &refs.variable_list) {
       if (debug) {
 	 printf("structure %s@%p: decl %d, whole_access %d\n",
 		entry->var->name, (void *) entry->var, entry->declaration,
@@ -341,8 +337,7 @@ do_structure_splitting(exec_list *instructions)
    /* Replace the decls of the structures to be split with their split
     * components.
     */
-   foreach_list_safe(node, &refs.variable_list) {
-      variable_entry2 *entry = (variable_entry2 *) node;
+   foreach_list_safe_typed(variable_entry2, entry, &refs.variable_list) {
       const struct glsl_type *type = entry->var->type;
 
       entry->mem_ctx = ralloc_parent(entry->var);
