@@ -39,7 +39,7 @@
 
 namespace {
 
-struct assignment_entry : public exec_node {
+struct assignment_entry : public typed_exec_node<assignment_entry> {
    int assignment_count;
    ir_variable *var;
    ir_constant *constval;
@@ -53,18 +53,17 @@ public:
    virtual ir_visitor_status visit_enter(ir_assignment *);
    virtual ir_visitor_status visit_enter(ir_call *);
 
-   exec_list list;
+   typed_exec_list<assignment_entry> list;
 };
 
 } /* unnamed namespace */
 
 static struct assignment_entry *
-get_assignment_entry(ir_variable *var, exec_list *list)
+get_assignment_entry(ir_variable *var, typed_exec_list<assignment_entry> *list)
 {
    struct assignment_entry *entry;
 
-   foreach_list(node, list) {
-      struct assignment_entry *entry = (struct assignment_entry *) node;
+   foreach_list_typed(assignment_entry, entry, list) {
       if (entry->var == var)
 	 return entry;
    }
