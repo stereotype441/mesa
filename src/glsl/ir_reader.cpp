@@ -164,7 +164,7 @@ ir_reader::scan_for_prototypes(exec_list *instructions, s_expression *expr)
       return;
    }
 
-   foreach_list_safe(node, &list->subexpressions) {
+   foreach_list_safe2(node, &list->subexpressions) {
       s_list *sub = SX_AS_LIST(node);
       if (sub == NULL)
 	 continue; // not a (function ...); ignore it.
@@ -199,7 +199,7 @@ ir_reader::read_function(s_expression *expr, bool skip_body)
       assert(added);
    }
 
-   exec_node *node = ((s_list *) expr)->subexpressions.head;
+   exec_node2 *node = ((s_list *) expr)->subexpressions.head;
    node = node->next; // skip "function" tag
    node = node->next; // skip function name
    for (/* nothing */; !node->is_tail_sentinel(); node = node->next) {
@@ -237,7 +237,7 @@ ir_reader::read_function_sig(ir_function *f, s_expression *expr, bool skip_body)
    exec_list hir_parameters;
    state->symbols->push_scope();
 
-   exec_node *node = paramlist->subexpressions.head;
+   exec_node2 *node = paramlist->subexpressions.head;
    for (node = node->next /* skip "parameters" */;
         !node->is_tail_sentinel(); node = node->next) {
       ir_variable *var = read_declaration((s_expression *) node);
@@ -300,7 +300,7 @@ ir_reader::read_instructions(exec_list *instructions, s_expression *expr,
       return;
    }
 
-   foreach_list_safe(node, &list->subexpressions) {
+   foreach_list_safe2(node, &list->subexpressions) {
       s_expression *sub = (s_expression*) node;
       ir_instruction *ir = read_instruction(sub, loop_ctx);
       if (ir != NULL) {
@@ -384,7 +384,7 @@ ir_reader::read_declaration(s_expression *expr)
    ir_variable *var = new(mem_ctx) ir_variable(type, s_name->value(),
 					       ir_var_auto);
 
-   foreach_list_safe(node, &s_quals->subexpressions) {
+   foreach_list_safe2(node, &s_quals->subexpressions) {
       s_symbol *qualifier = SX_AS_SYMBOL(node);
       if (qualifier == NULL) {
 	 ir_read_error(expr, "qualifier list must contain only symbols");
@@ -633,7 +633,7 @@ ir_reader::read_call(s_expression *expr)
 
    exec_list parameters;
 
-   foreach_list_safe(node, &params->subexpressions) {
+   foreach_list_safe2(node, &params->subexpressions) {
       s_expression *expr = (s_expression*) node;
       ir_rvalue *param = read_rvalue(expr);
       if (param == NULL) {
@@ -778,7 +778,7 @@ ir_reader::read_constant(s_expression *expr)
    if (type->is_array()) {
       unsigned elements_supplied = 0;
       exec_list elements;
-      foreach_list_safe(node, &values->subexpressions) {
+      foreach_list_safe2(node, &values->subexpressions) {
 	 s_expression *elt = (s_expression *) node;
 	 ir_constant *ir_elt = read_constant(elt);
 	 if (ir_elt == NULL)
@@ -799,7 +799,7 @@ ir_reader::read_constant(s_expression *expr)
 
    // Read in list of values (at most 16).
    unsigned k = 0;
-   foreach_list_safe(node, &values->subexpressions) {
+   foreach_list_safe2(node, &values->subexpressions) {
       if (k >= 16) {
 	 ir_read_error(values, "expected at most 16 numbers");
 	 return NULL;
