@@ -49,9 +49,8 @@ do_dead_code(exec_list *instructions, bool uniform_locations_assigned)
 
    v.run(instructions);
 
-   foreach_list_safe(node, &v.variable_list) {
-      ir_variable_refcount_entry *entry = (ir_variable_refcount_entry *) node;
-
+   foreach_list_safe_typed(ir_variable_refcount_entry, entry,
+                           &v.variable_list) {
       /* Since each assignment is a reference, the refereneced count must be
        * greater than or equal to the assignment count.  If they are equal,
        * then all of the references are assignments, and the variable is

@@ -33,7 +33,8 @@
 #include "ir_visitor.h"
 #include "glsl_types.h"
 
-class ir_variable_refcount_entry : public exec_node
+class ir_variable_refcount_entry
+   : public typed_exec_node<ir_variable_refcount_entry>
 {
 public:
    ir_variable_refcount_entry(ir_variable *var);
@@ -72,7 +73,7 @@ public:
    ir_variable_refcount_entry *get_variable_entry(ir_variable *var);
 
    /* List of ir_variable_refcount_entry */
-   exec_list variable_list;
+   typed_exec_list<ir_variable_refcount_entry> variable_list;
 
    void *mem_ctx;
 };
