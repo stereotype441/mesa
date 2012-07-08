@@ -34,7 +34,7 @@
 
 namespace {
 
-class signature_entry : public exec_node
+class signature_entry : public typed_exec_node<signature_entry>
 {
 public:
    signature_entry(ir_function_signature *sig)
@@ -65,7 +65,7 @@ public:
    signature_entry *get_signature_entry(ir_function_signature *var);
 
    /* List of signature_entry */
-   exec_list signature_list;
+   typed_exec_list<signature_entry> signature_list;
    void *mem_ctx;
 };
 
@@ -74,8 +74,7 @@ public:
 signature_entry *
 ir_dead_functions_visitor::get_signature_entry(ir_function_signature *sig)
 {
-   foreach_list_safe(node, &this->signature_list) {
-      signature_entry *entry = (signature_entry *) node;
+   foreach_list_safe_typed(signature_entry, entry, &this->signature_list) {
       if (entry->signature == sig)
 	 return entry;
    }
@@ -123,9 +122,7 @@ do_dead_functions(exec_list *instructions)
     * the unused ones, and remove function definitions that have no more
     * signatures.
     */
-    foreach_list_safe(node, &v.signature_list) {
-      signature_entry *entry = (signature_entry *) node;
-
+   foreach_list_safe_typed(signature_entry, entry, &v.signature_list) {
       if (!entry->used) {
 	 entry->signature->remove();
 	 delete entry->signature;
