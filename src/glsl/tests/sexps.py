@@ -42,14 +42,14 @@ def check_sexp(sexp):
     elif not isinstance(sexp, basestring):
         raise Exception('Not a sexp: {0!r}'.format(sexp))
 
-def parse_sexp(sexp):
+def parse_sexp(in_sexp):
     """Convert a string, of the form that would be output by mesa,
     into a sexp represented as nested lists containing strings.
     """
     sexp_token_regexp = re.compile(
         '[a-zA-Z_]+(@[0-9]+)?|[0-9]+(\\.[0-9]+)?|[^ \n]')
     stack = [[]]
-    for match in sexp_token_regexp.finditer(sexp):
+    for match in sexp_token_regexp.finditer(in_sexp):
         token = match.group(0)
         if token == '(':
             stack.append([])
@@ -63,6 +63,7 @@ def parse_sexp(sexp):
     if len(stack) != 1:
         raise Exception('Unmatched (')
     if len(stack[0]) != 1:
+        print in_sexp
         raise Exception('Multiple sexps')
     return stack[0][0]
 
