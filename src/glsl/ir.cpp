@@ -1561,13 +1561,13 @@ modes_match(unsigned a, unsigned b)
 const char *
 ir_function_signature::qualifiers_match(exec_list *params)
 {
-   exec_list_iterator iter_a = parameters.iterator();
-   exec_list_iterator iter_b = params->iterator();
+   exec_node *node_a = parameters.head;
+   exec_node *node_b = params->head;
 
    /* check that the qualifiers match. */
-   while (iter_a.has_next()) {
-      ir_variable *a = (ir_variable *)iter_a.get();
-      ir_variable *b = (ir_variable *)iter_b.get();
+   while (!node_a->is_tail_sentinel()) {
+      ir_variable *a = (ir_variable *) node_a;
+      ir_variable *b = (ir_variable *) node_b;
 
       if (a->read_only != b->read_only ||
 	  !modes_match(a->mode, b->mode) ||
@@ -1578,8 +1578,8 @@ ir_function_signature::qualifiers_match(exec_list *params)
 	 return a->name;
       }
 
-      iter_a.next();
-      iter_b.next();
+      node_a = node_a->next;
+      node_b = node_b->next;
    }
    return NULL;
 }
@@ -1592,10 +1592,10 @@ ir_function_signature::replace_parameters(exec_list *new_params)
     * parameter information comes from the function prototype, it may either
     * specify incorrect parameter names or not have names at all.
     */
-   foreach_iter(exec_list_iterator, iter, parameters) {
-      assert(((ir_instruction *) iter.get())->as_variable() != NULL);
+   foreach_list_safe(node, &parameters) {
+      assert(((ir_instruction *) node)->as_variable() != NULL);
 
-      iter.remove();
+      node->remove();
    }
 
    new_params->move_nodes_to(&parameters);
@@ -1634,8 +1634,8 @@ ir_rvalue::error_value(void *mem_ctx)
 void
 visit_exec_list(exec_list *list, ir_visitor *visitor)
 {
-   foreach_iter(exec_list_iterator, iter, *list) {
-      ((ir_instruction *)iter.get())->accept(visitor);
+   foreach_list_safe(node, list) {
+      ((ir_instruction *) node)->accept(visitor);
    }
 }
 
@@ -1656,8 +1656,8 @@ steal_memory(ir_instruction *ir, void *new_ctx)
     */
    if (constant != NULL) {
       if (constant->type->is_record()) {
-	 foreach_iter(exec_list_iterator, iter, constant->components) {
-	    ir_constant *field = (ir_constant *)iter.get();
+	 foreach_list_safe(node, &constant->components) {
+	    ir_constant *field = (ir_constant *) node;
 	    steal_memory(field, ir);
 	 }
       } else if (constant->type->is_array()) {

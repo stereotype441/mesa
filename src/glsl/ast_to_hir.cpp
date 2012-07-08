@@ -3294,8 +3294,8 @@ ast_function_definition::hir(exec_list *instructions,
     * Add these to the symbol table.
     */
    state->symbols->push_scope();
-   foreach_iter(exec_list_iterator, iter, signature->parameters) {
-      ir_variable *const var = ((ir_instruction *) iter.get())->as_variable();
+   foreach_list_safe(node, &signature->parameters) {
+      ir_variable *const var = ((ir_instruction *) node)->as_variable();
 
       assert(var != NULL);
 

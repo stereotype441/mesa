@@ -131,8 +131,8 @@ ir_array_reference_visitor::get_variable_entry(ir_variable *var)
    if (var->type->is_array() && var->type->length == 0)
       return NULL;
 
-   foreach_iter(exec_list_iterator, iter, this->variable_list) {
-      variable_entry *entry = (variable_entry *)iter.get();
+   foreach_list_safe(node, &this->variable_list) {
+      variable_entry *entry = (variable_entry *) node;
       if (entry->var == var)
 	 return entry;
    }
@@ -220,8 +220,8 @@ ir_array_reference_visitor::get_split_list(exec_list *instructions,
    }
 
    /* Trim out variables we found that we can't split. */
-   foreach_iter(exec_list_iterator, iter, variable_list) {
-      variable_entry *entry = (variable_entry *)iter.get();
+   foreach_list_safe(node, &variable_list) {
+      variable_entry *entry = (variable_entry *) node;
 
       if (debug) {
 	 printf("array %s@%p: decl %d, split %d\n",
@@ -266,8 +266,8 @@ ir_array_splitting_visitor::get_splitting_entry(ir_variable *var)
 {
    assert(var);
 
-   foreach_iter(exec_list_iterator, iter, *this->variable_list) {
-      variable_entry *entry = (variable_entry *)iter.get();
+   foreach_list_safe(node, this->variable_list) {
+      variable_entry *entry = (variable_entry *) node;
       if (entry->var == var) {
 	 return entry;
       }
@@ -364,8 +364,8 @@ optimize_split_arrays(exec_list *instructions, bool linked)
    /* Replace the decls of the arrays to be split with their split
     * components.
     */
-   foreach_iter(exec_list_iterator, iter, refs.variable_list) {
-      variable_entry *entry = (variable_entry *)iter.get();
+   foreach_list_safe(node, &refs.variable_list) {
+      variable_entry *entry = (variable_entry *) node;
       const struct glsl_type *type = entry->var->type;
       const struct glsl_type *subtype;
 

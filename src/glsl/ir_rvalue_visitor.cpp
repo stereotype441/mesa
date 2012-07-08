@@ -116,8 +116,8 @@ ir_rvalue_visitor::visit_leave(ir_assignment *ir)
 ir_visitor_status
 ir_rvalue_visitor::visit_leave(ir_call *ir)
 {
-   foreach_iter(exec_list_iterator, iter, *ir) {
-      ir_rvalue *param = (ir_rvalue *)iter.get();
+   foreach_list_safe(node, &ir->actual_parameters) {
+      ir_rvalue *param = (ir_rvalue *) node;
       ir_rvalue *new_param = param;
       handle_rvalue(&new_param);
 

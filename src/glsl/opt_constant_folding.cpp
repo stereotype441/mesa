@@ -122,10 +122,10 @@ ir_visitor_status
 ir_constant_folding_visitor::visit_enter(ir_call *ir)
 {
    /* Attempt to constant fold parameters */
-   exec_list_iterator sig_iter = ir->callee->parameters.iterator();
-   foreach_iter(exec_list_iterator, iter, *ir) {
-      ir_rvalue *param_rval = (ir_rvalue *)iter.get();
-      ir_variable *sig_param = (ir_variable *)sig_iter.get();
+   exec_node *sig_node = ir->callee->parameters.head;
+   foreach_list_safe(node, &ir->actual_parameters) {
+      ir_rvalue *param_rval = (ir_rvalue *) node;
+      ir_variable *sig_param = (ir_variable *) sig_node;
 
       if (sig_param->mode == ir_var_in || sig_param->mode == ir_var_const_in) {
 	 ir_rvalue *new_param = param_rval;
@@ -135,7 +135,7 @@ ir_constant_folding_visitor::visit_enter(ir_call *ir)
 	    param_rval->replace_with(new_param);
 	 }
       }
-      sig_iter.next();
+      sig_node = sig_node->next;
    }
 
    /* Next, see if the call can be replaced with an assignment of a constant */

@@ -107,7 +107,7 @@ ir_call::generate_inline(ir_instruction *next_ir)
    ht = hash_table_ctor(0, hash_table_pointer_hash, hash_table_pointer_compare);
 
    num_parameters = 0;
-   foreach_iter(exec_list_iterator, iter_sig, this->callee->parameters)
+   foreach_list_safe(node, &this->callee->parameters)
       num_parameters++;
 
    parameters = new ir_variable *[num_parameters];
@@ -116,11 +116,11 @@ ir_call::generate_inline(ir_instruction *next_ir)
     * and set up the mapping of real function body variables to ours.
     */
    i = 0;
-   exec_list_iterator sig_param_iter = this->callee->parameters.iterator();
-   exec_list_iterator param_iter = this->actual_parameters.iterator();
+   exec_node *sig_param_node = this->callee->parameters.head;
+   exec_node *param_node = this->actual_parameters.head;
    for (i = 0; i < num_parameters; i++) {
-      ir_variable *sig_param = (ir_variable *) sig_param_iter.get();
-      ir_rvalue *param = (ir_rvalue *) param_iter.get();
+      ir_variable *sig_param = (ir_variable *) sig_param_node;
+      ir_rvalue *param = (ir_rvalue *) param_node;
 
       /* Generate a new variable for the parameter. */
       if (sig_param->type->base_type == GLSL_TYPE_SAMPLER) {
@@ -154,15 +154,15 @@ ir_call::generate_inline(ir_instruction *next_ir)
 	 next_ir->insert_before(assign);
       }
 
-      sig_param_iter.next();
-      param_iter.next();
+      sig_param_node = sig_param_node->next;
+      param_node = param_node->next;
    }
 
    exec_list new_instructions;
 
    /* Generate the inlined body of the function to a new list */
-   foreach_iter(exec_list_iterator, iter, callee->body) {
-      ir_instruction *ir = (ir_instruction *)iter.get();
+   foreach_list_safe(node, &callee->body) {
+      ir_instruction *ir = (ir_instruction *) node;
       ir_instruction *new_ir = ir->clone(ctx, ht);
 
       new_instructions.push_tail(new_ir);
@@ -172,11 +172,11 @@ ir_call::generate_inline(ir_instruction *next_ir)
    /* If any samplers were passed in, replace any deref of the sampler
     * with a deref of the sampler argument.
     */
-   param_iter = this->actual_parameters.iterator();
-   sig_param_iter = this->callee->parameters.iterator();
+   param_node = this->actual_parameters.head;
+   sig_param_node = this->callee->parameters.head;
    for (i = 0; i < num_parameters; i++) {
-      ir_instruction *const param = (ir_instruction *) param_iter.get();
-      ir_variable *sig_param = (ir_variable *) sig_param_iter.get();
+      ir_instruction *const param = (ir_instruction *) param_node;
+      ir_variable *sig_param = (ir_variable *) sig_param_node;
 
       if (sig_param->type->base_type == GLSL_TYPE_SAMPLER) {
 	 ir_dereference *deref = param->as_dereference();
@@ -184,8 +184,8 @@ ir_call::generate_inline(ir_instruction *next_ir)
 	 assert(deref);
 	 do_sampler_replacement(&new_instructions, sig_param, deref);
       }
-      param_iter.next();
-      sig_param_iter.next();
+      param_node = param_node->next;
+      sig_param_node = sig_param_node->next;
    }
 
    /* Now push those new instructions in. */
@@ -195,11 +195,11 @@ ir_call::generate_inline(ir_instruction *next_ir)
     * variables to our own.
     */
    i = 0;
-   param_iter = this->actual_parameters.iterator();
-   sig_param_iter = this->callee->parameters.iterator();
+   param_node = this->actual_parameters.head;
+   sig_param_node = this->callee->parameters.head;
    for (i = 0; i < num_parameters; i++) {
-      ir_instruction *const param = (ir_instruction *) param_iter.get();
-      const ir_variable *const sig_param = (ir_variable *) sig_param_iter.get();
+      ir_instruction *const param = (ir_instruction *) param_node;
+      const ir_variable *const sig_param = (ir_variable *) sig_param_node;
 
       /* Move our param variable into the actual param if it's an 'out' type. */
       if (parameters[i] && (sig_param->mode == ir_var_out ||
@@ -212,8 +212,8 @@ ir_call::generate_inline(ir_instruction *next_ir)
 	 next_ir->insert_before(assign);
       }
 
-      param_iter.next();
-      sig_param_iter.next();
+      param_node = param_node->next;
+      sig_param_node = sig_param_node->next;
    }
 
    delete [] parameters;
@@ -349,8 +349,8 @@ ir_sampler_replacement_visitor::visit_leave(ir_dereference_record *ir)
 ir_visitor_status
 ir_sampler_replacement_visitor::visit_leave(ir_call *ir)
 {
-   foreach_iter(exec_list_iterator, iter, *ir) {
-      ir_rvalue *param = (ir_rvalue *)iter.get();
+   foreach_list_safe(node, &ir->actual_parameters) {
+      ir_rvalue *param = (ir_rvalue *) node;
       ir_rvalue *new_param = param;
       replace_rvalue(&new_param);
 

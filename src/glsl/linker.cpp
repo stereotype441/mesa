@@ -101,10 +101,10 @@ public:
 
    virtual ir_visitor_status visit_enter(ir_call *ir)
    {
-      exec_list_iterator sig_iter = ir->callee->parameters.iterator();
-      foreach_iter(exec_list_iterator, iter, *ir) {
-	 ir_rvalue *param_rval = (ir_rvalue *)iter.get();
-	 ir_variable *sig_param = (ir_variable *)sig_iter.get();
+      exec_node *sig_node = ir->callee->parameters.head;
+      foreach_list_safe(node, &ir->actual_parameters) {
+	 ir_rvalue *param_rval = (ir_rvalue *) node;
+	 ir_variable *sig_param = (ir_variable *) sig_node;
 
 	 if (sig_param->mode == ir_var_out ||
 	     sig_param->mode == ir_var_inout) {
@@ -114,7 +114,7 @@ public:
 	       return visit_stop;
 	    }
 	 }
-	 sig_iter.next();
+	 sig_node = sig_node->next;
       }
 
       if (ir->return_deref != NULL) {
@@ -950,9 +950,8 @@ link_intrastage_shaders(void *mem_ctx,
 	    if (other == NULL)
 	       continue;
 
-	    foreach_iter (exec_list_iterator, iter, *f) {
-	       ir_function_signature *sig =
-		  (ir_function_signature *) iter.get();
+	    foreach_list_safe (node, &f->signatures) {
+	       ir_function_signature *sig = (ir_function_signature *) node;
 
 	       if (!sig->is_defined || sig->is_builtin)
 		  continue;

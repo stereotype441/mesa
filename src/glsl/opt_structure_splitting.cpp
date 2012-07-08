@@ -111,8 +111,8 @@ ir_structure_reference_visitor::get_variable_entry2(ir_variable *var)
    if (!var->type->is_record() || var->mode == ir_var_uniform)
       return NULL;
 
-   foreach_iter(exec_list_iterator, iter, this->variable_list) {
-      variable_entry2 *entry = (variable_entry2 *)iter.get();
+   foreach_list_safe(node, &this->variable_list) {
+      variable_entry2 *entry = (variable_entry2 *) node;
       if (entry->var == var)
 	 return entry;
    }
@@ -213,8 +213,8 @@ ir_structure_splitting_visitor::get_splitting_entry(ir_variable *var)
    if (!var->type->is_record())
       return NULL;
 
-   foreach_iter(exec_list_iterator, iter, *this->variable_list) {
-      variable_entry2 *entry = (variable_entry2 *)iter.get();
+   foreach_list_safe(node, this->variable_list) {
+      variable_entry2 *entry = (variable_entry2 *) node;
       if (entry->var == var) {
 	 return entry;
       }
@@ -319,8 +319,8 @@ do_structure_splitting(exec_list *instructions)
    visit_list_elements(&refs, instructions);
 
    /* Trim out variables we can't split. */
-   foreach_iter(exec_list_iterator, iter, refs.variable_list) {
-      variable_entry2 *entry = (variable_entry2 *)iter.get();
+   foreach_list_safe(node, &refs.variable_list) {
+      variable_entry2 *entry = (variable_entry2 *) node;
 
       if (debug) {
 	 printf("structure %s@%p: decl %d, whole_access %d\n",
@@ -341,8 +341,8 @@ do_structure_splitting(exec_list *instructions)
    /* Replace the decls of the structures to be split with their split
     * components.
     */
-   foreach_iter(exec_list_iterator, iter, refs.variable_list) {
-      variable_entry2 *entry = (variable_entry2 *)iter.get();
+   foreach_list_safe(node, &refs.variable_list) {
+      variable_entry2 *entry = (variable_entry2 *) node;
       const struct glsl_type *type = entry->var->type;
 
       entry->mem_ctx = ralloc_parent(entry->var);

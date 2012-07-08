@@ -70,8 +70,8 @@ public:
 
    void kill_channels(ir_variable *const var, int used)
    {
-      foreach_iter(exec_list_iterator, iter, *this->assignments) {
-	 assignment_entry *entry = (assignment_entry *)iter.get();
+      foreach_list_safe(node, this->assignments) {
+	 assignment_entry *entry = (assignment_entry *) node;
 
 	 if (entry->lhs == var) {
 	    if (var->type->is_scalar() || var->type->is_vector()) {
@@ -179,8 +179,8 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
 	    printf("looking for %s.0x%01x to remove\n", var->name,
 		   ir->write_mask);
 
-	 foreach_iter(exec_list_iterator, iter, *assignments) {
-	    assignment_entry *entry = (assignment_entry *)iter.get();
+	 foreach_list_safe(node, assignments) {
+	    assignment_entry *entry = (assignment_entry *) node;
 
 	    if (entry->lhs != var)
 	       continue;
@@ -241,8 +241,8 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
 	  */
 	 if (debug)
 	    printf("looking for %s to remove\n", var->name);
-	 foreach_iter(exec_list_iterator, iter, *assignments) {
-	    assignment_entry *entry = (assignment_entry *)iter.get();
+	 foreach_list_safe(node, assignments) {
+	    assignment_entry *entry = (assignment_entry *) node;
 
 	    if (entry->lhs == var) {
 	       if (debug)
@@ -263,8 +263,8 @@ process_assignment(void *ctx, ir_assignment *ir, exec_list *assignments)
       printf("add %s\n", var->name);
 
       printf("current entries\n");
-      foreach_iter(exec_list_iterator, iter, *assignments) {
-	 assignment_entry *entry = (assignment_entry *)iter.get();
+      foreach_list_safe(node, assignments) {
+	 assignment_entry *entry = (assignment_entry *) node;
 
 	 printf("    %s (0x%01x)\n", entry->lhs->name, entry->available);
       }

@@ -197,12 +197,12 @@ generate_call(exec_list *instructions, ir_function_signature *sig,
     * call takes place.  Since we haven't emitted the call yet, we'll place
     * the post-call conversions in a temporary exec_list, and emit them later.
     */
-   exec_list_iterator actual_iter = actual_parameters->iterator();
-   exec_list_iterator formal_iter = sig->parameters.iterator();
+   exec_node *actual_node = actual_parameters->head;
+   exec_node *formal_node = sig->parameters.head;
 
-   while (actual_iter.has_next()) {
-      ir_rvalue *actual = (ir_rvalue *) actual_iter.get();
-      ir_variable *formal = (ir_variable *) formal_iter.get();
+   while (!actual_node->is_tail_sentinel()) {
+      ir_rvalue *actual = (ir_rvalue *) actual_node;
+      ir_variable *formal = (ir_variable *) formal_node;
 
       assert(actual != NULL);
       assert(formal != NULL);
@@ -268,8 +268,8 @@ generate_call(exec_list *instructions, ir_function_signature *sig,
 	 }
       }
 
-      actual_iter.next();
-      formal_iter.next();
+      actual_node = actual_node->next;
+      formal_node = formal_node->next;
    }
 
    /* If the function call is a constant expression, don't generate any

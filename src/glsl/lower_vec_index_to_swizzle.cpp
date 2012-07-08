@@ -134,8 +134,8 @@ ir_vec_index_to_swizzle_visitor::visit_enter(ir_assignment *ir)
 ir_visitor_status
 ir_vec_index_to_swizzle_visitor::visit_enter(ir_call *ir)
 {
-   foreach_iter(exec_list_iterator, iter, *ir) {
-      ir_rvalue *param = (ir_rvalue *)iter.get();
+   foreach_list_safe(node, &ir->actual_parameters) {
+      ir_rvalue *param = (ir_rvalue *) node;
       ir_rvalue *new_param = convert_vec_index_to_swizzle(param);
 
       if (new_param != param) {

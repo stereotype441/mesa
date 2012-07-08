@@ -49,8 +49,8 @@ do_dead_code(exec_list *instructions, bool uniform_locations_assigned)
 
    v.run(instructions);
 
-   foreach_iter(exec_list_iterator, iter, v.variable_list) {
-      ir_variable_refcount_entry *entry = (ir_variable_refcount_entry *)iter.get();
+   foreach_list_safe(node, &v.variable_list) {
+      ir_variable_refcount_entry *entry = (ir_variable_refcount_entry *) node;
 
       /* Since each assignment is a reference, the refereneced count must be
        * greater than or equal to the assignment count.  If they are equal,
@@ -125,13 +125,12 @@ do_dead_code_unlinked(exec_list *instructions)
 {
    bool progress = false;
 
-   foreach_iter(exec_list_iterator, iter, *instructions) {
-      ir_instruction *ir = (ir_instruction *)iter.get();
+   foreach_list_safe(node, instructions) {
+      ir_instruction *ir = (ir_instruction *) node;
       ir_function *f = ir->as_function();
       if (f) {
-	 foreach_iter(exec_list_iterator, sigiter, *f) {
-	    ir_function_signature *sig =
-	       (ir_function_signature *) sigiter.get();
+	 foreach_list_safe(node, &f->signatures) {
+	    ir_function_signature *sig = (ir_function_signature *) node;
 	    /* The setting of the uniform_locations_assigned flag here is
 	     * irrelevent.  If there is a uniform declaration encountered
 	     * inside the body of the function, something has already gone

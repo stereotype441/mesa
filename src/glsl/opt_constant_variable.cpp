@@ -132,10 +132,10 @@ ir_visitor_status
 ir_constant_variable_visitor::visit_enter(ir_call *ir)
 {
    /* Mark any out parameters as assigned to */
-   exec_list_iterator sig_iter = ir->callee->parameters.iterator();
-   foreach_iter(exec_list_iterator, iter, *ir) {
-      ir_rvalue *param_rval = (ir_rvalue *)iter.get();
-      ir_variable *param = (ir_variable *)sig_iter.get();
+   exec_node *sig_node = ir->callee->parameters.head;
+   foreach_list_safe(node, &ir->actual_parameters) {
+      ir_rvalue *param_rval = (ir_rvalue *) node;
+      ir_variable *param = (ir_variable *) sig_node;
 
       if (param->mode == ir_var_out ||
 	  param->mode == ir_var_inout) {
@@ -146,7 +146,7 @@ ir_constant_variable_visitor::visit_enter(ir_call *ir)
 	 entry = get_assignment_entry(var, &this->list);
 	 entry->assignment_count++;
       }
-      sig_iter.next();
+      sig_node = sig_node->next;
    }
 
    /* Mark the return storage as having been assigned to */
@@ -194,13 +194,13 @@ do_constant_variable_unlinked(exec_list *instructions)
 {
    bool progress = false;
 
-   foreach_iter(exec_list_iterator, iter, *instructions) {
-      ir_instruction *ir = (ir_instruction *)iter.get();
+   foreach_list_safe(node, instructions) {
+      ir_instruction *ir = (ir_instruction *) node;
       ir_function *f = ir->as_function();
       if (f) {
-	 foreach_iter(exec_list_iterator, sigiter, *f) {
+	 foreach_list_safe(node, &f->signatures) {
 	    ir_function_signature *sig =
-	       (ir_function_signature *) sigiter.get();
+	       (ir_function_signature *) node;
 	    if (do_constant_variable(&sig->body))
 	       progress = true;
 	 }

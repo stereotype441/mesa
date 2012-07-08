@@ -50,8 +50,8 @@ ir_variable_refcount_entry *
 ir_variable_refcount_visitor::get_variable_entry(ir_variable *var)
 {
    assert(var);
-   foreach_iter(exec_list_iterator, iter, this->variable_list) {
-      ir_variable_refcount_entry *entry = (ir_variable_refcount_entry *)iter.get();
+   foreach_list_safe(node, &this->variable_list) {
+      ir_variable_refcount_entry *entry = (ir_variable_refcount_entry *) node;
       if (entry->var == var)
 	 return entry;
    }
