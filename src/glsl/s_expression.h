@@ -42,9 +42,8 @@
 #define MATCH(list, pat) s_match(list, Elements(pat), pat, false)
 #define PARTIAL_MATCH(list, pat) s_match(list, Elements(pat), pat, true)
 
-struct exec_node2 : public typed_exec_node<exec_node2>
-{
-};
+class s_expression;
+typedef s_expression exec_node2;
 
 typedef typed_exec_list<exec_node2> exec_list2;
 
@@ -59,7 +58,7 @@ typedef typed_exec_list<exec_node2> exec_list2;
  *
  * Unlike LISP/Scheme, we do not support (foo . bar) pairs.
  */
-class s_expression : public exec_node2
+class s_expression : public typed_exec_node<exec_node2>
 {
 public:
    /**
