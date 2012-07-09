@@ -46,9 +46,7 @@ struct exec_node2 : public typed_exec_node<exec_node2>
 {
 };
 
-struct exec_list2 : public typed_exec_list<exec_node2>
-{
-};
+typedef typed_exec_list<exec_node2> exec_list2;
 
 #define foreach_list_safe2(__node, __list)		\
    foreach_list_safe_typed(exec_node2, __node, __list)
