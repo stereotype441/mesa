@@ -252,11 +252,33 @@ public:
       make_empty();
    }
 
+   node_type *get_head_sentinel()
+   {
+      return (node_type *) (typed_exec_node<node_type> *) &this->head;
+   }
+
+   const node_type *get_head_sentinel() const
+   {
+      return
+         (const node_type *) (const typed_exec_node<node_type> *) &this->head;
+   }
+
+   node_type *get_tail_sentinel()
+   {
+      return (node_type *) (typed_exec_node<node_type> *) &this->tail;
+   }
+
+   const node_type *get_tail_sentinel() const
+   {
+      return
+         (const node_type *) (const typed_exec_node<node_type> *) &this->tail;
+   }
+
    void make_empty()
    {
-      head = (node_type *) & tail;
+      head = get_tail_sentinel();
       tail = NULL;
-      tail_pred = (node_type *) & head;
+      tail_pred = get_head_sentinel();
    }
 
    bool is_empty() const
@@ -271,7 +293,7 @@ public:
        * The first two methods tend to generate better code on modern systems
        * because they save a pointer dereference.
        */
-      return head == (node_type *) &tail;
+      return head == get_tail_sentinel();
    }
 
    const node_type *get_head() const
@@ -297,7 +319,7 @@ public:
    void push_head(node_type *n)
    {
       n->next = head;
-      n->prev = (node_type *) &head;
+      n->prev = get_head_sentinel();
 
       n->next->prev = n;
       head = n;
@@ -305,7 +327,7 @@ public:
 
    void push_tail(node_type *n)
    {
-      n->next = (node_type *) &tail;
+      n->next = get_tail_sentinel();
       n->prev = tail_pred;
 
       n->prev->next = n;
@@ -318,7 +340,7 @@ public:
 
       n->prev->next = head;
       head->prev = n->prev;
-      n->prev = (node_type *) &head;
+      n->prev = get_head_sentinel();
       head = n;
    }
 
@@ -351,8 +373,8 @@ public:
 	 target->tail = NULL;
 	 target->tail_pred = tail_pred;
 
-	 target->head->prev = (node_type *) &target->head;
-	 target->tail_pred->next = (node_type *) &target->tail;
+	 target->head->prev = target->get_head_sentinel();
+	 target->tail_pred->next = target->get_tail_sentinel();
 
 	 make_empty();
       }
@@ -375,7 +397,7 @@ public:
       /* Make the tail of the source list be the tail of the target list.
        */
       this->tail_pred = source->tail_pred;
-      this->tail_pred->next = (node_type *) &this->tail;
+      this->tail_pred->next = get_tail_sentinel();
 
       /* Make the source list empty for good measure.
        */
