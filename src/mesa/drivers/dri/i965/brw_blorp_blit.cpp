@@ -159,12 +159,16 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
    intel_renderbuffer_resolve_depth(intel, src_irb);
    intel_renderbuffer_resolve_depth(intel, dst_irb);
 
+   intel_miptree_dump_ppm(intel, src_mt, "src");
+
    /* Do the blit */
    brw_blorp_blit_miptrees(intel,
                            src_mt, src_irb->mt_level, src_irb->mt_layer,
                            dst_mt, dst_irb->mt_level, dst_irb->mt_layer,
                            srcX0, srcY0, dstX0, dstY0, dstX1, dstY1,
                            mirror_x, mirror_y);
+
+   intel_miptree_dump_ppm(intel, dst_mt, "dst");
 
    intel_renderbuffer_set_needs_hiz_resolve(dst_irb);
    intel_renderbuffer_set_needs_downsample(dst_irb);
