@@ -1709,3 +1709,212 @@ intel_miptree_unmap(struct intel_context *intel,
    else
       intel_miptree_unmap_multisample(intel, mt, level, slice);
 }
+
+static char *
+choose_miptree_dump_filename(const char *base_file_name, const char *extension)
+{
+   static unsigned file_counter = 0;
+   char *result = NULL;
+
+   ++file_counter;
+   asprintf(&result, "%s%d.%s", base_file_name, file_counter, extension);
+   return result;
+}
+
+/**
+ * For debugging purposes only: dump the contents of a miptree to a .ppm file.
+ */
+void
+intel_miptree_dump_ppm(struct intel_context *intel,
+                       struct intel_mipmap_tree *mt,
+                       const char *base_file_name)
+{
+   switch (mt->format) {
+   case MESA_FORMAT_ARGB8888:
+   case MESA_FORMAT_XRGB8888:
+   case MESA_FORMAT_RGBA_16:
+   case MESA_FORMAT_ARGB2101010:
+   case MESA_FORMAT_SARGB8:
+   case MESA_FORMAT_RGBA_UINT8:
+   case MESA_FORMAT_RGBA_UINT16:
+   case MESA_FORMAT_RGBA_UINT32:
+   case MESA_FORMAT_RGBA_INT8:
+   case MESA_FORMAT_RGBA_INT16:
+   case MESA_FORMAT_RGBA_INT32:
+   case MESA_FORMAT_R8:
+   case MESA_FORMAT_R16:
+   case MESA_FORMAT_GR88:
+   case MESA_FORMAT_RG1616:
+   case MESA_FORMAT_A8:
+   case MESA_FORMAT_RGB565:
+   case MESA_FORMAT_ARGB4444:
+   case MESA_FORMAT_ARGB1555:
+   case MESA_FORMAT_R_INT8:
+   case MESA_FORMAT_R_UINT8:
+   case MESA_FORMAT_R_INT16:
+   case MESA_FORMAT_R_UINT16:
+   case MESA_FORMAT_R_INT32:
+   case MESA_FORMAT_R_UINT32:
+   case MESA_FORMAT_RG_INT8:
+   case MESA_FORMAT_RG_UINT8:
+   case MESA_FORMAT_RG_INT16:
+   case MESA_FORMAT_RG_UINT16:
+   case MESA_FORMAT_RG_INT32:
+   case MESA_FORMAT_RG_UINT32:
+   case MESA_FORMAT_SIGNED_R8:
+   case MESA_FORMAT_SIGNED_RG88_REV:
+   case MESA_FORMAT_SIGNED_RGBA8888_REV:
+   case MESA_FORMAT_SIGNED_R16:
+   case MESA_FORMAT_SIGNED_GR1616:
+      break;
+   default:
+      printf("Unsupported format for intel_miptree_dump_ppm: %s\n",
+             _mesa_get_format_name(mt->format));
+      return;
+   }
+
+   unsigned bits[3] = { 0, 0, 0 };
+   bool greyscale = false;
+   switch (_mesa_get_format_base_format(mt->format)) {
+   case GL_RED:
+   case GL_RG:
+   case GL_RGB:
+   case GL_RGBA:
+      bits[0] = _mesa_get_format_bits(mt->format, GL_RED_BITS);
+      bits[1] = _mesa_get_format_bits(mt->format, GL_GREEN_BITS);
+      bits[2] = _mesa_get_format_bits(mt->format, GL_BLUE_BITS);
+      break;
+   case GL_ALPHA:
+      bits[0] = _mesa_get_format_bits(mt->format, GL_ALPHA_BITS);
+      greyscale = true;
+      break;
+   default:
+      printf("Unsupported base format for intel_miptree_dump_ppm: %s\n",
+             _mesa_get_format_name(mt->format));
+      return;
+   }
+
+   GLenum datatype = _mesa_get_format_datatype(mt->format);
+
+   const char *extension = greyscale ? "pgm" : "ppm";
+   char *file_name = choose_miptree_dump_filename(base_file_name, extension);
+   if (!file_name)
+      return;
+   printf("Dumping image to %s\n", file_name);
+   FILE *dump_file = fopen(file_name, "w+");
+   free(file_name);
+   if (!dump_file)
+      return;
+
+   const unsigned char *data = intel_region_map(intel, mt->region,
+                                                GL_MAP_READ_BIT);
+   unsigned height = mt->total_height;
+   unsigned width = mt->total_width;
+   unsigned pitch = mt->region->pitch;
+   unsigned cpp = mt->region->cpp;
+
+   fprintf(dump_file, "%s\n%d %d\n255\n", greyscale ? "P5" : "P6",
+           width, height);
+   for (unsigned y = 0; y < height; ++y) {
+      for (unsigned x = 0; x < width; ++x) {
+         const unsigned char *raw_pixel = data + (y * pitch + x) * cpp;
+         unsigned rgb[3];
+
+#define DECODE(fmt, type, rvalue, gvalue, bvalue)   \
+   case fmt: {                                      \
+      const type *pixel = (const type *) raw_pixel; \
+      rgb[0] = rvalue;                              \
+      rgb[1] = gvalue;                              \
+      rgb[2] = bvalue;                              \
+   }                                                \
+      break
+#define DECODE_RGB(fmt, type) \
+   DECODE(fmt, type, pixel[0], pixel[1], pixel[2])
+#define DECODE_BGR(fmt, type) \
+   DECODE(fmt, type, pixel[2], pixel[1], pixel[0])
+#define DECODE_R(fmt, type) \
+   DECODE(fmt, type, pixel[0], 0, 0)
+#define DECODE_RG(fmt, type) \
+   DECODE(fmt, type, pixel[0], pixel[1], 0)
+#define DECODE_PACKED_BGR(fmt, type)       \
+   DECODE(fmt, type,                       \
+          pixel[0] >> (bits[1] + bits[2]), \
+          pixel[0] >> bits[2],        \
+          pixel[0])
+
+         switch (mt->format) {
+            DECODE_BGR(MESA_FORMAT_ARGB8888, unsigned char);
+            DECODE_BGR(MESA_FORMAT_XRGB8888, unsigned char);
+            DECODE_BGR(MESA_FORMAT_SARGB8, unsigned char);
+            DECODE_R(MESA_FORMAT_A8, unsigned char);
+            DECODE_R(MESA_FORMAT_R8, unsigned char);
+            DECODE_PACKED_BGR(MESA_FORMAT_RGB565, unsigned short);
+            DECODE_RGB(MESA_FORMAT_RGBA_16, unsigned short);
+            DECODE_RGB(MESA_FORMAT_RGBA_UINT16, unsigned short);
+            DECODE_PACKED_BGR(MESA_FORMAT_ARGB4444, unsigned short);
+            DECODE_PACKED_BGR(MESA_FORMAT_ARGB1555, unsigned short);
+            DECODE_PACKED_BGR(MESA_FORMAT_ARGB2101010, unsigned);
+            DECODE_RGB(MESA_FORMAT_RGBA_UINT8, unsigned char);
+            DECODE_RGB(MESA_FORMAT_RGBA_UINT32, unsigned);
+            DECODE_RGB(MESA_FORMAT_RGBA_INT8, signed char);
+            DECODE_RGB(MESA_FORMAT_RGBA_INT16, short);
+            DECODE_RGB(MESA_FORMAT_RGBA_INT32, int);
+            DECODE_R(MESA_FORMAT_R16, unsigned short);
+            DECODE_RG(MESA_FORMAT_GR88, unsigned char);
+            DECODE_RG(MESA_FORMAT_RG1616, unsigned short);
+            DECODE_R(MESA_FORMAT_R_INT8, unsigned char);
+            DECODE_R(MESA_FORMAT_R_UINT8, unsigned char);
+            DECODE_R(MESA_FORMAT_R_INT16, unsigned short);
+            DECODE_R(MESA_FORMAT_R_UINT16, unsigned short);
+            DECODE_R(MESA_FORMAT_R_INT32, unsigned);
+            DECODE_R(MESA_FORMAT_R_UINT32, unsigned);
+            DECODE_RG(MESA_FORMAT_RG_INT8, unsigned char);
+            DECODE_RG(MESA_FORMAT_RG_UINT8, unsigned char);
+            DECODE_RG(MESA_FORMAT_RG_INT16, unsigned short);
+            DECODE_RG(MESA_FORMAT_RG_UINT16, unsigned short);
+            DECODE_RG(MESA_FORMAT_RG_INT32, unsigned);
+            DECODE_RG(MESA_FORMAT_RG_UINT32, unsigned);
+            DECODE_R(MESA_FORMAT_SIGNED_R8, signed char);
+            DECODE_RG(MESA_FORMAT_SIGNED_RG88_REV, signed char);
+            DECODE_RGB(MESA_FORMAT_SIGNED_RGBA8888_REV, signed char);
+            DECODE_R(MESA_FORMAT_SIGNED_R16, short);
+            DECODE_RG(MESA_FORMAT_SIGNED_GR1616, short);
+         default:
+            assert(!"Unsupported format for intel_miptree_dump_ppm");
+            break;
+         }
+         for (int i = 0; i < (greyscale ? 1 : 3); ++i) {
+            if (bits[i]) {
+               /* Shifting a 32-bit value by 32 bits is undefined, so compute
+                * 2 << (bits[i] - 1) instead of 1 << bits[i].
+                */
+               unsigned mask = (2u << (bits[i] - 1)) - 1;
+               unsigned rgb_masked = rgb[i] & mask;
+               float rgb_f;
+               switch (datatype) {
+               case GL_UNSIGNED_NORMALIZED:
+               case GL_UNSIGNED_INT:
+                  rgb_f = ((float) rgb_masked) / mask;
+                  break;
+               case GL_SIGNED_NORMALIZED:
+               case GL_INT:
+                  rgb_f =
+                     ((float) (rgb_masked ^ (1u << (bits[i] - 1)))) / mask;
+                  break;
+               default:
+                  assert(!"Unsupported datatype for intel_miptree_dump_ppm");
+                  break;
+               };
+               unsigned char rgb_char = rgb_f * 255.0 + 0.5;
+               fputc(rgb_char, dump_file);
+            } else {
+               fputc(0, dump_file);
+            }
+         }
+      }
+   }
+
+   intel_region_unmap(intel, mt->region);
+
+   fclose(dump_file);
+}

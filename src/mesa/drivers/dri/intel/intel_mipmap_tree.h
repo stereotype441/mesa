@@ -587,6 +587,11 @@ intel_miptree_unmap(struct intel_context *intel,
 		    unsigned int level,
 		    unsigned int slice);
 
+void
+intel_miptree_dump_ppm(struct intel_context *intel,
+                       struct intel_mipmap_tree *mt,
+                       const char *base_file_name);
+
 #ifdef I915
 static inline void
 intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
