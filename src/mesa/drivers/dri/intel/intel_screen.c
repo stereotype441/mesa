@@ -866,14 +866,54 @@ intel_screen_make_configs(__DRIscreen *dri_screen)
       GLX_SWAP_UNDEFINED_OML, GLX_NONE, GLX_SWAP_COPY_OML,
    };
 
-   static const uint8_t msaa_samples[] = {0};
+   static const uint8_t msaa_samples[] = {0, 4};
+
+   struct intel_screen *screen = dri_screen->driverPrivate;
+
+   int num_msaa_modes;
+   if (screen->gen >= 6)
+      num_msaa_modes = 2;
+   else
+      num_msaa_modes = 1;
 
    /* Starting with DRI2 protocol version 1.1 we can request a depth/stencil
     * buffer that has a different number of bits per pixel than the color
     * buffer.  This isn't yet supported here.
     */
    struct config_params params[] = {
-      /* Configs without accumulation buffer. */
+      /* Multisample configs. */
+      {
+         .color_format = GL_RGB,
+         .color_type = GL_UNSIGNED_SHORT_5_6_5,
+         .depth_sizes =   {0, 16},
+         .stencil_sizes = {0,  0},
+         .num_depth_stencil_sizes = 2,
+         .num_back_buffer_modes = 1,
+         .num_msaa_modes = num_msaa_modes,
+         .enable_accum = false,
+      },
+      {
+         .color_format = GL_BGR,
+         .color_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+         .depth_sizes =   {0, 24},
+         .stencil_sizes = {0,  8},
+         .num_depth_stencil_sizes = 2,
+         .num_back_buffer_modes = 1,
+         .num_msaa_modes = num_msaa_modes,
+         .enable_accum = false,
+      },
+      {
+         .color_format = GL_BGRA,
+         .color_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+         .depth_sizes =   {0, 24},
+         .stencil_sizes = {0,  8},
+         .num_depth_stencil_sizes = 2,
+         .num_back_buffer_modes = 1,
+         .num_msaa_modes = num_msaa_modes,
+         .enable_accum = false,
+      },
+
+      /* Single sample configs. */
       {
          .color_format = GL_RGB,
          .color_type = GL_UNSIGNED_SHORT_5_6_5,
