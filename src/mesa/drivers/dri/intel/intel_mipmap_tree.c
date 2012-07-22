@@ -1339,6 +1339,15 @@ intel_miptree_map(struct intel_context *intel,
 {
    struct intel_miptree_map *map;
 
+   if (mt->num_samples > 0 && (mode & GL_MAP_WRITE_BIT)) {
+      /* We choose not support swrast on multisample buffers because
+       * it would require an upsample on unmap. As of 2012-07-20, this
+       * warning occurs only on glDrawPixels(GL_STENCIL_INDEX).
+       */
+      _mesa_warning(&intel->ctx, "unsupported fallback to software "
+                    "rasterization on a multisample buffer");
+   }
+
    map = calloc(1, sizeof(struct intel_miptree_map));
    if (!map){
       *out_ptr = NULL;
@@ -1354,6 +1363,7 @@ intel_miptree_map(struct intel_context *intel,
    map->w = w;
    map->h = h;
 
+   intel_miptree_downsample(intel, mt);
    intel_miptree_slice_resolve_depth(intel, mt, level, slice);
    if (map->mode & GL_MAP_WRITE_BIT) {
       intel_miptree_slice_set_needs_hiz_resolve(mt, level, slice);
