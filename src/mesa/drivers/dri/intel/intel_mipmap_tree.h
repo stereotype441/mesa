@@ -540,6 +540,9 @@ intel_miptree_unmap(struct intel_context *intel,
 		    unsigned int slice);
 
 #ifdef I915
+
+void intel_miptree_downsample();
+
 static inline void
 intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
 	       unsigned int level, unsigned int layer, enum gen6_hiz_op op)
@@ -548,7 +551,14 @@ intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
     * there.
     */
 }
+
 #else
+
+void
+intel_miptree_downsample(struct intel_context *intel,
+                         struct intel_mipmap_tree *mt);
+
+
 void
 intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
 	       unsigned int level, unsigned int layer, enum gen6_hiz_op op);
