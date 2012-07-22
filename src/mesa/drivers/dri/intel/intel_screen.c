@@ -109,6 +109,33 @@ const GLuint __driNConfigOptions = 15;
 static PFNGLXCREATECONTEXTMODES create_context_modes = NULL;
 #endif /*USE_NEW_INTERFACE */
 
+
+/**
+ * Round up the requested multisample count to the next supported sample size.
+ */
+unsigned
+intel_quantize_num_samples(struct intel_screen *intel, unsigned num_samples)
+{
+   switch (intel->gen) {
+   case 6:
+      /* Gen6 supports only 4x multisampling. */
+      if (num_samples > 0)
+         return 4;
+      else
+         return 0;
+   case 7:
+      /* TODO: Gen7 supports only 4x multisampling at the moment. */
+      if (num_samples > 0)
+         return 4;
+      else
+         return 0;
+      return 0;
+   default:
+      /* MSAA unsupported */
+      return 0;
+   }
+}
+
 void
 aub_dump_bmp(struct gl_context *ctx)
 {

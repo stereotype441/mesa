@@ -83,4 +83,7 @@ intelMakeCurrent(__DRIcontext * driContextPriv,
 
 void aub_dump_bmp(struct gl_context *ctx);
 
+unsigned
+intel_quantize_num_samples(struct intel_screen *intel, unsigned num_samples);
+
 #endif

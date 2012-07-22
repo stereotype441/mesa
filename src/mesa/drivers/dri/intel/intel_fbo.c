@@ -178,34 +178,6 @@ intel_unmap_renderbuffer(struct gl_context *ctx,
    intel_miptree_unmap(intel, irb->mt, irb->mt_level, irb->mt_layer);
 }
 
-
-/**
- * Round up the requested multisample count to the next supported sample size.
- */
-static unsigned
-quantize_num_samples(struct intel_context *intel, unsigned num_samples)
-{
-   switch (intel->gen) {
-   case 6:
-      /* Gen6 supports only 4x multisampling. */
-      if (num_samples > 0)
-         return 4;
-      else
-         return 0;
-   case 7:
-      /* TODO: Gen7 supports only 4x multisampling at the moment. */
-      if (num_samples > 0)
-         return 4;
-      else
-         return 0;
-      return 0;
-   default:
-      /* MSAA unsupported */
-      return 0;
-   }
-}
-
-
 /**
  * Called via glRenderbufferStorageEXT() to set the format and allocate
  * storage for a user-created renderbuffer.
@@ -216,8 +188,9 @@ intel_alloc_renderbuffer_storage(struct gl_context * ctx, struct gl_renderbuffer
                                  GLuint width, GLuint height)
 {
    struct intel_context *intel = intel_context(ctx);
+   struct intel_screen *screen = intel->intelScreen;
    struct intel_renderbuffer *irb = intel_renderbuffer(rb);
-   rb->NumSamples = quantize_num_samples(intel, rb->NumSamples);
+   rb->NumSamples = intel_quantize_num_samples(screen, rb->NumSamples);
 
    switch (internalFormat) {
    default:
