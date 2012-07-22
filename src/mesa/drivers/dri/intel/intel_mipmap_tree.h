@@ -248,6 +248,29 @@ struct intel_mipmap_tree
    uint32_t offset;
 
    /**
+    * \brief Singlesample miptree.
+    *
+    * This is used only for multisample window system front and back buffers.
+    *
+    * Suppose that the window system FBO was created with a multisample
+    * config.  Let back_rb be the intel_renderbuffer for the FBO's back
+    * buffer. Then back_rb contains two miptrees: a parent multisample miptree
+    * (back_rb->mt) and a child singlesample miptree
+    * (back_rb->mt->singlesample_mt).  The DRM buffer shared with DRI2 belongs
+    * to back_rb->mt->singlesample_mt and contains singlesample data.
+    *
+    * When access to the singlesample data is needed, such as at
+    * eglSwapBuffers and glReadPixels, an automatic downsample occurs from
+    * back_rb->mt to back_rb->mt->singlesample_mt when necessary.
+    */
+   struct intel_mipmap_tree *singlesample_mt;
+
+   /**
+    * \brief A downsample is needed from this miptree to singlesample_mt.
+    */
+   bool need_downsample;
+
+   /**
     * \brief HiZ miptree
     *
     * This is non-null only if HiZ is enabled for this miptree.
