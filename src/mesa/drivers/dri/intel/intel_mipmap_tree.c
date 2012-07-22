@@ -324,6 +324,58 @@ compute_msaa_layout(struct intel_context *intel, gl_format format)
    }
 }
 
+/**
+ * If the DRI2 buffer is multisampled, then its content is undefined
+ * after calling this. This behavior violates the GLX spec for the
+ * benefit of avoiding a performance penalty.
+ */
+struct intel_mipmap_tree*
+intel_miptree_create_for_dri2_buffer(struct intel_context *intel,
+                                     gl_format format,
+                                     uint32_t num_samples,
+                                     struct intel_region *region)
+{
+   struct intel_mipmap_tree *singlesample_mt = NULL;
+   struct intel_mipmap_tree *multisample_mt = NULL;
+   GLenum base_format = _mesa_get_format_base_format(format);
+
+   /* Only the front and back buffers, which are color buffers, are shared
+    * through DRI2.
+    */
+   assert(base_format == GL_RGB || base_format == GL_RGBA);
+
+   singlesample_mt = intel_miptree_create_for_region(intel, GL_TEXTURE_2D,
+                                                     format, region);
+   if (!singlesample_mt)
+      return NULL;
+
+   if (num_samples == 0) {
+      return singlesample_mt;
+   } else {
+      multisample_mt = intel_miptree_create_for_renderbuffer(intel,
+                                                             format,
+                                                             region->width,
+                                                             region->height,
+                                                             num_samples);
+      if (!multisample_mt) {
+         intel_miptree_release(&singlesample_mt);
+         return NULL;
+      }
+
+      multisample_mt->singlesample_mt = singlesample_mt;
+      multisample_mt->need_downsample = false;
+
+      /* If we wanted to preserve the contents of the DRI2 buffer, here we
+       * would need to do an upsample from singlesample_mt to multisample_mt.
+       * However, it is unlikely that any app desires that behavior. So we
+       * invalidate its content for the benefit of avoiding the upsample
+       * performance penalty.
+       */
+
+      return multisample_mt;
+   }
+}
+
 struct intel_mipmap_tree*
 intel_miptree_create_for_renderbuffer(struct intel_context *intel,
                                       gl_format format,
