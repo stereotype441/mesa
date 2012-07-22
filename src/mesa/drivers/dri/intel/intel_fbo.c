@@ -361,7 +361,9 @@ intel_nop_alloc_storage(struct gl_context * ctx, struct gl_renderbuffer *rb,
  * not a user-created renderbuffer.
  */
 struct intel_renderbuffer *
-intel_create_renderbuffer(gl_format format)
+intel_create_renderbuffer(struct intel_screen *screen,
+                          gl_format format,
+                          unsigned num_samples)
 {
    struct intel_renderbuffer *irb;
    struct gl_renderbuffer *rb;
@@ -381,6 +383,7 @@ intel_create_renderbuffer(gl_format format)
    rb->_BaseFormat = _mesa_get_format_base_format(format);
    rb->Format = format;
    rb->InternalFormat = rb->_BaseFormat;
+   rb->NumSamples = intel_quantize_num_samples(screen, num_samples);
 
    /* intel-specific methods */
    rb->Delete = intel_delete_renderbuffer;
@@ -396,11 +399,13 @@ intel_create_renderbuffer(gl_format format)
  * may be called at intel_update_renderbuffers() time.
  */
 struct intel_renderbuffer *
-intel_create_private_renderbuffer(gl_format format)
+intel_create_private_renderbuffer(struct intel_screen *screen,
+                                  gl_format format,
+                                  unsigned num_samples)
 {
    struct intel_renderbuffer *irb;
 
-   irb = intel_create_renderbuffer(format);
+   irb = intel_create_renderbuffer(screen, format, num_samples);
    irb->Base.Base.AllocStorage = intel_alloc_renderbuffer_storage;
 
    return irb;
