@@ -423,7 +423,8 @@ int draw_geometry_shader_run(struct draw_geometry_shader *shader,
    output_verts->vertex_size = vertex_size;
    output_verts->stride = output_verts->vertex_size;
    output_verts->verts =
-      (struct vertex_header *)MALLOC(output_verts->vertex_size *
+      (struct vertex_header *)MALLOC(sizeof(struct vertex_header) +
+                                     output_verts->vertex_size *
                                      num_in_primitives *
                                      shader->max_output_vertices);
 
