@@ -91,8 +91,8 @@ gen6_emit_3dstate_multisample(struct brw_context *brw,
        * d         1
        * f   7
        */
-      sample_positions_3210 = 0x267db463; //0xdbb39d79;
-      sample_positions_7654 = 0xcc3b88e8; //0x3ff55117;
+      sample_positions_3210 = 0x2a73bc6d; //0x267db463; //0xdbb39d79;
+      sample_positions_7654 = 0xc43588e8; //0xcc3b88e8; //0x3ff55117;
       break;
    default:
       assert(!"Unrecognized num_samples in gen6_emit_3dstate_multisample");
