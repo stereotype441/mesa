@@ -1907,6 +1907,7 @@ external_declaration:
 	| declaration		{ $$ = $1; }
 	| pragma_statement	{ $$ = NULL; }
 	| layout_defaults	{ $$ = NULL; }
+	| extension_statement	{ $$ = NULL; }
 	;
 
 function_definition:
