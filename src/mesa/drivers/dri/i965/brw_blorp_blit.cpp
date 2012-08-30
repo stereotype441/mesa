@@ -1846,6 +1846,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
       src.x_offset *= 2;
       src.y_offset /= 2;
    }
+
+   printf("Offsets: (%d, %d) -> (%d, %d)\n", src.x_offset, src.y_offset, dst.x_offset, dst.y_offset);
 }
 
 uint32_t
