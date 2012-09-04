@@ -1729,6 +1729,9 @@ intel_miptree_dump_ppm(struct intel_context *intel,
                        struct intel_mipmap_tree *mt,
                        const char *base_file_name)
 {
+   bool detile_w = false;
+   bool swizzled = false;
+
    switch (mt->format) {
    case MESA_FORMAT_ARGB8888:
    case MESA_FORMAT_XRGB8888:
@@ -1766,6 +1769,7 @@ intel_miptree_dump_ppm(struct intel_context *intel,
    case MESA_FORMAT_SIGNED_RGBA8888_REV:
    case MESA_FORMAT_SIGNED_R16:
    case MESA_FORMAT_SIGNED_GR1616:
+   case MESA_FORMAT_S8:
       break;
    default:
       printf("Unsupported format for intel_miptree_dump_ppm: %s\n",
@@ -1787,6 +1791,12 @@ intel_miptree_dump_ppm(struct intel_context *intel,
    case GL_ALPHA:
       bits[0] = _mesa_get_format_bits(mt->format, GL_ALPHA_BITS);
       greyscale = true;
+      break;
+   case GL_STENCIL_INDEX:
+      bits[0] = _mesa_get_format_bits(mt->format, GL_STENCIL_BITS);
+      greyscale = true;
+      detile_w = true;
+      swizzled = true; /* TODO: this is a guess */
       break;
    default:
       printf("Unsupported base format for intel_miptree_dump_ppm: %s\n",
@@ -1817,8 +1827,12 @@ intel_miptree_dump_ppm(struct intel_context *intel,
            width, height);
    for (unsigned y = 0; y < height; ++y) {
       for (unsigned x = 0; x < width; ++x) {
-         const unsigned char *raw_pixel = data + (y * pitch + x) * cpp;
          unsigned rgb[3];
+         const unsigned char *raw_pixel;
+         if (detile_w)
+            raw_pixel = data + intel_offset_S8(pitch, x, y, swizzled);
+         else
+            raw_pixel = data + (y * pitch + x) * cpp;
 
 #define DECODE(fmt, type, rvalue, gvalue, bvalue)   \
    case fmt: {                                      \
@@ -1879,6 +1893,7 @@ intel_miptree_dump_ppm(struct intel_context *intel,
             DECODE_RGB(MESA_FORMAT_SIGNED_RGBA8888_REV, signed char);
             DECODE_R(MESA_FORMAT_SIGNED_R16, short);
             DECODE_RG(MESA_FORMAT_SIGNED_GR1616, short);
+            DECODE_R(MESA_FORMAT_S8, unsigned char);
          default:
             assert(!"Unsupported format for intel_miptree_dump_ppm");
             break;
