@@ -40,10 +40,10 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
                         unsigned src_level, unsigned src_layer,
                         struct intel_mipmap_tree *dst_mt,
                         unsigned dst_level, unsigned dst_layer,
-                        int src_x0, int src_y0,
                         int dst_x0, int dst_y0,
                         int dst_x1, int dst_y1,
-                        float x_multiplier, float y_multiplier);
+                        float x_multiplier, float y_multiplier,
+                        float x_offset, float y_offset);
 
 #ifdef __cplusplus
 } /* end extern "C" */
@@ -302,10 +302,10 @@ public:
                          unsigned src_level, unsigned src_layer,
                          struct intel_mipmap_tree *dst_mt,
                          unsigned dst_level, unsigned dst_layer,
-                         GLuint src_x0, GLuint src_y0,
                          GLuint dst_x0, GLuint dst_y0,
                          GLuint width, GLuint height,
-                         float x_multiplier, float y_multiplier);
+                         float x_multiplier, float y_multiplier,
+                         float x_offset, float y_offset);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
                                 brw_blorp_prog_data **prog_data) const;

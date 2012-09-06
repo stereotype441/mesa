@@ -35,25 +35,69 @@
 
 
 /**
- * Helper function for handling mirror image blits.
+ * Compute the necessary coordinate transformation (multiplier and offset) to
+ * transform between source and destination coordinates.  Also, swap dst_x0
+ * and dst_x1 if necessary to ensure that dst_x0 < dst_x1.
  *
- * If coord0 > coord1, swap them and negate the "multiplier" float.
+ * If there is no blitting to be done (because dst_x0 == dst_x1), return
+ * false.
+ *
+ * For clarity, the nomenclature of this function assumes we are handling the
+ * X coordinate; the exact same logic applies for Y coordinates.
  */
-static inline void
-fixup_mirroring(float &multiplier, GLint &coord0, GLint &coord1)
+static inline bool
+compute_multiplier_and_offset(GLint src_x0, GLint src_x1,
+                              GLint &dst_x0, GLint &dst_x1,
+                              float &multiplier, float &offset)
 {
-   if (coord0 > coord1) {
-      multiplier = -multiplier;
-      GLint tmp = coord0;
-      coord0 = coord1;
-      coord1 = tmp;
+   /* Compute the midpoint and width of the source and destination
+    * coordinates.  Note that the midpoint is offset by 0.5 to account for the
+    * fact that x0 coordinates are inclusive and x1 coordinates are exclusive
+    * (e.g. if src_x0 = 0 and src_x1 = 5, the source pixels have x coordinates
+    * 0, 1, 2, 3, and 4, so the midpoint is 2).
+    */
+   float src_w = src_x1 - src_x0;
+   float src_mid = src_x0 + src_w / 2.0 - 0.5;
+   float dst_w = dst_x1 - dst_x0;
+   float dst_mid = dst_x0 + dst_w / 2.0 - 0.5;
+
+   /* If dst_w == 0, we can stop now, since no blitting will occur.  This will
+    * prevent divide-by-zero problems in the code below.
+    */
+   if (dst_w == 0)
+      return false;
+
+   /* The transformation between source and destination coordinates is simple
+    * to express in terms of the midpoints and widths computed earlier:
+    * midpoint should be mapped to midpoint, and the image should be scaled by
+    * a factor of src_w / dst_w:
+    *
+    * src_x = src_mid + (src_w / dst_w) * (dst_x - dst_mid)
+    *
+    * Or equivalently:
+    *
+    * multiplier = src_w / dst_w
+    * offset = src_mid - multiplier * dst_mid
+    */
+   multiplier = src_w / dst_w;
+   offset = src_mid - multiplier * dst_mid;
+
+   /* Now that multiplier and offset have been computed, it is safe to swap
+    * dst_x0 and dst_x1 if necessary.
+    */
+   if (dst_x0 > dst_x1) {
+      GLint tmp = dst_x0;
+      dst_x0 = dst_x1;
+      dst_x1 = tmp;
    }
+
+   return true;
 }
 
 
 /**
- * Adjust {src,dst}_x{0,1} to account for clipping and scissoring of
- * destination coordinates.
+ * Adjust dst_x{0,1} to account for clipping and scissoring of destination
+ * coordinates.
  *
  * Return true if there is still blitting to do, false if all pixels got
  * rejected by the clip and/or scissor.
@@ -61,13 +105,10 @@ fixup_mirroring(float &multiplier, GLint &coord0, GLint &coord1)
  * For clarity, the nomenclature of this function assumes we are clipping and
  * scissoring the X coordinate; the exact same logic applies for Y
  * coordinates.
- *
- * Note: this function may also be used to account for clipping of source
- * coordinates, by swapping the roles of src and dst.
  */
 static inline bool
-clip_or_scissor(float multiplier, GLint &src_x0, GLint &src_x1, GLint &dst_x0,
-                GLint &dst_x1, GLint fb_xmin, GLint fb_xmax)
+clip_or_scissor_dst(float multiplier, float offset, GLint &dst_x0,
+                    GLint &dst_x1, GLint fb_xmin, GLint fb_xmax)
 {
    /* If we are going to scissor everything away, stop. */
    if (!(fb_xmin < fb_xmax &&
@@ -77,35 +118,115 @@ clip_or_scissor(float multiplier, GLint &src_x0, GLint &src_x1, GLint &dst_x0,
       return false;
    }
 
-   /* Clip the destination rectangle, and keep track of how many pixels we
-    * clipped off of the left and right sides of it.
-    */
-   GLint pixels_clipped_left = 0;
-   GLint pixels_clipped_right = 0;
-   if (dst_x0 < fb_xmin) {
-      pixels_clipped_left = fb_xmin - dst_x0;
+   /* Clip the destination rectangle */
+   if (dst_x0 < fb_xmin)
       dst_x0 = fb_xmin;
-   }
-   if (fb_xmax < dst_x1) {
-      pixels_clipped_right = dst_x1 - fb_xmax;
+
+   if (fb_xmax < dst_x1)
       dst_x1 = fb_xmax;
+
+   return true;
+}
+
+
+/**
+ * Adjust dst_x{0,1} to account for clipping of source coordinates.
+ *
+ * This is tricky because we have to allow for the fact that the blit may
+ * perform scaling, so integer source coordinates may not necessarily
+ * correspond to integer destination coordinates.
+ *
+ * Return true if there is still blitting to do, false if all pixels got
+ * rejected by the clip.
+ *
+ * For clarity, the nomenclature of this function assumes we are clipping the
+ * X coordinate; the exact same logic applies for Y coordinates.
+ */
+static inline bool
+clip_src(float multiplier, float offset, GLint &dst_x0, GLint &dst_x1,
+         GLint src_width)
+{
+   float dst_xmin_f, dst_xmax_f;
+
+   /* The transformation from destination coordinate to source coordinate is:
+    *
+    * src_x = round(multiplier * dst_x + offset)
+    *
+    * There are two cases to consider, depending on the sign of multiplier.
+    */
+   if (multiplier > 0) {
+      /* To ensure that src_x >= 0, we must ensure that:
+       *
+       * multiplier * dst_x + offset > -0.5
+       *
+       * Solving for dst_x:
+       *
+       * dst_x > (-0.5 - offset) / multiplier
+       */
+      dst_xmin_f = (-0.5 - offset) / multiplier;
+
+      /* Similarly, to ensure that src_x <= src_width - 1, we must ensure
+       * that:
+       *
+       * multiplier * dst_x + offset < src_width - 1.0 + 0.5
+       *
+       * Solving for dst_x:
+       *
+       * dst_x < (src_width - 0.5 - offset) / multiplier
+       */
+      dst_xmax_f = (src_width - 0.5 - offset) / multiplier;
+   } else if (multiplier < 0) {
+      /* The logic is the same as above, except that since multiplier is
+       * negative, when we divide by it, it flips the inequality, so we are
+       * left with:
+       *
+       * dst_x < (-0.5 - offset) / multiplier
+       * dst_x > (src_width - 0.5 - offset) / multiplier
+       */
+      dst_xmax_f = (-0.5 - offset) / multiplier;
+      dst_xmin_f = (src_width - 0.5 - offset) / multiplier;
+   } else {
+      /* When multiplier == 0, every destination pixel gets mapped to the same
+       * source pixel coordinate, so there are only two possibilities: either
+       * the source pixel is in range (so we don't have to adjust anything) or
+       * it isn't (and there is no blitting to do).
+       *
+       * The conditions for the source pixel being in range are the same as in
+       * the computations above, except we may substitute 0 for multiplier, to
+       * get:
+       *
+       * offset > 0.5
+       * offset < src_width - 0.5
+       */
+      if (offset > -0.5 && offset < src_width - 0.5)
+         return true;
+      else
+         return false;
    }
 
-   /* If we are mirrored, then before applying pixels_clipped_{left,right} to
-    * the source coordinates, we need to flip them to account for the
-    * mirroring.
+   /* Since the destination pixel coordinates will be integers ranging from
+    * dst_x0 to dst_x1 - 1, we need to ensure that dst_xmin_f < dst_x0 and
+    * dst_x1 - 1 < dst_xmax_f.  Therefore, the smallest possible integer value
+    * for dst_x0 is floor(dst_xmin_f + 1.0), and the largest possible integer
+    * value for dst_x1 is ceil(dst_xmax_f).
     */
-   if (multiplier < 0) {
-      GLint tmp = pixels_clipped_left;
-      pixels_clipped_left = pixels_clipped_right;
-      pixels_clipped_right = tmp;
+   float dst_xmin = floor(dst_xmin_f + 1.0);
+   float dst_xmax = ceil(dst_xmax_f);
+
+   /* If we are going to clip everything away, stop. */
+   if (!(dst_xmin < dst_xmax &&
+         dst_x0 < dst_xmax &&
+         dst_xmin < dst_x1 &&
+         dst_x0 < dst_x1)) {
+      return false;
    }
 
-   /* Adjust the source rectangle to remove the pixels corresponding to those
-    * that were clipped/scissored out of the destination rectangle.
-    */
-   src_x0 += pixels_clipped_left;
-   src_x1 -= pixels_clipped_right;
+   /* Clip the destination rectangle. */
+   if (dst_x0 < dst_xmin)
+      dst_x0 = dst_xmin;
+
+   if (dst_xmax < dst_x1)
+      dst_x1 = dst_xmax;
 
    return true;
 }
@@ -126,18 +247,18 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
                         unsigned src_level, unsigned src_layer,
                         struct intel_mipmap_tree *dst_mt,
                         unsigned dst_level, unsigned dst_layer,
-                        int src_x0, int src_y0,
                         int dst_x0, int dst_y0,
                         int dst_x1, int dst_y1,
-                        float x_multiplier, float y_multiplier)
+                        float x_multiplier, float y_multiplier,
+                        float x_offset, float y_offset)
 {
    brw_blorp_blit_params params(brw_context(&intel->ctx),
                                 src_mt, src_level, src_layer,
                                 dst_mt, dst_level, dst_layer,
-                                src_x0, src_y0,
                                 dst_x0, dst_y0,
                                 dst_x1, dst_y1,
-                                x_multiplier, y_multiplier);
+                                x_multiplier, y_multiplier,
+                                x_offset, y_offset);
    brw_blorp_exec(intel, &params);
 }
 
@@ -145,9 +266,9 @@ static void
 do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
               struct intel_renderbuffer *src_irb,
               struct intel_renderbuffer *dst_irb,
-              GLint srcX0, GLint srcY0,
               GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
-              float x_multiplier, float y_multiplier)
+              float x_multiplier, float y_multiplier,
+              float x_offset, float y_offset)
 {
    /* Find source/dst miptrees */
    struct intel_mipmap_tree *src_mt = find_miptree(buffer_bit, src_irb);
@@ -163,8 +284,8 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
    brw_blorp_blit_miptrees(intel,
                            src_mt, src_irb->mt_level, src_irb->mt_layer,
                            dst_mt, dst_irb->mt_level, dst_irb->mt_layer,
-                           srcX0, srcY0, dstX0, dstY0, dstX1, dstY1,
-                           x_multiplier, y_multiplier);
+                           dstX0, dstY0, dstX1, dstY1,
+                           x_multiplier, y_multiplier, x_offset, y_offset);
 
    intel_renderbuffer_set_needs_hiz_resolve(dst_irb);
    intel_renderbuffer_set_needs_downsample(dst_irb);
@@ -201,32 +322,35 @@ try_blorp_blit(struct intel_context *intel,
    const struct gl_framebuffer *read_fb = ctx->ReadBuffer;
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
 
-   /* Detect if the blit needs to be mirrored */
-   float x_multiplier = 1.0, y_multiplier = 1.0;
-   fixup_mirroring(x_multiplier, srcX0, srcX1);
-   fixup_mirroring(x_multiplier, dstX0, dstX1);
-   fixup_mirroring(y_multiplier, srcY0, srcY1);
-   fixup_mirroring(y_multiplier, dstY0, dstY1);
-
    /* Make sure width and height match */
-   if (srcX1 - srcX0 != dstX1 - dstX0) return false;
-   if (srcY1 - srcY0 != dstY1 - dstY0) return false;
+   if (abs(srcX1 - srcX0) != abs(dstX1 - dstX0)) return false;
+   if (abs(srcY1 - srcY0) != abs(dstY1 - dstY0)) return false;
+
+   /* Compute multipliers and offsets, and ensure that destination coordinates
+    * are properly ordered.
+    */
+   float x_multiplier, y_multiplier, x_offset, y_offset;
+   if (!(compute_multiplier_and_offset(srcX0, srcX1, dstX0, dstX1,
+                                       x_multiplier, x_offset) &&
+         compute_multiplier_and_offset(srcY0, srcY1, dstY0, dstY1,
+                                       y_multiplier, y_offset))) {
+      /* No destination pixels, so the blit was successful */
+      return true;
+   }
 
    /* If the destination rectangle needs to be clipped or scissored, do so.
     */
-   if (!(clip_or_scissor(x_multiplier, srcX0, srcX1, dstX0, dstX1,
-                         draw_fb->_Xmin, draw_fb->_Xmax) &&
-         clip_or_scissor(y_multiplier, srcY0, srcY1, dstY0, dstY1,
-                         draw_fb->_Ymin, draw_fb->_Ymax))) {
+   if (!(clip_or_scissor_dst(x_multiplier, x_offset, dstX0, dstX1,
+                             draw_fb->_Xmin, draw_fb->_Xmax) &&
+         clip_or_scissor_dst(y_multiplier, y_offset, dstY0, dstY1,
+                             draw_fb->_Ymin, draw_fb->_Ymax))) {
       /* Everything got clipped/scissored away, so the blit was successful. */
       return true;
    }
 
    /* If the source rectangle needs to be clipped or scissored, do so. */
-   if (!(clip_or_scissor(x_multiplier, dstX0, dstX1, srcX0, srcX1,
-                         0, read_fb->Width) &&
-         clip_or_scissor(y_multiplier, dstY0, dstY1, srcY0, srcY1,
-                         0, read_fb->Height))) {
+   if (!(clip_src(x_multiplier, x_offset, dstX0, dstX1, read_fb->Width) &&
+         clip_src(y_multiplier, y_offset, dstY0, dstY1, read_fb->Height))) {
       /* Everything got clipped/scissored away, so the blit was successful. */
       return true;
    }
@@ -235,16 +359,49 @@ try_blorp_blit(struct intel_context *intel,
     * the lower left.
     */
    if (_mesa_is_winsys_fbo(read_fb)) {
-      GLint tmp = read_fb->Height - srcY0;
-      srcY0 = read_fb->Height - srcY1;
-      srcY1 = tmp;
+      /* Instead of transforming dst to src like so:
+       *
+       * src_y = round(y_multiplier * dst_y + y_offset)
+       *
+       * We need to transform
+       *
+       * read_fb->Height - src_y - 1 = round(y_multiplier * dst_y + y_offset)
+       *
+       * Solving for src_y:
+       *
+       * src_y = read_fb->Height - 1 - round(y_multiplier * dst_y + y_offset)
+       *       = round(-y_multiplier * dst_y + read_fb->Height - 1 - y_offset)
+       *
+       * Therefore we need to replace y_offset with (read_fb->Height - 1 -
+       * y_offset) and negate y_multiplier.
+       */
+      y_offset = read_fb->Height - 1 - y_offset;
       y_multiplier = -y_multiplier;
    }
    if (_mesa_is_winsys_fbo(draw_fb)) {
+      /* Instead of transforming dst to src like so:
+       *
+       * src_y = round(y_multiplier * dst_y + y_offset)
+       *
+       * We need to transform
+       *
+       * src_y = round(y_multiplier * (draw_fb->Height - dst_y - 1) + y_offset)
+       *
+       * Rearranging:
+       *
+       * src_y = round(-y_multiplier * dst_y +
+       *               y_multiplier * (draw_fb->Height - 1) + y_offset)
+       *
+       * Therefore we need to increase y_offset by y_multiplier *
+       * (draw_fb->Height - 1) and then negate y_multiplier.
+       */
+      y_offset += y_multiplier * (draw_fb->Height - 1);
+      y_multiplier = -y_multiplier;
+
+      /* We also need to invert the destination coordinates. */
       GLint tmp = draw_fb->Height - dstY0;
       dstY0 = draw_fb->Height - dstY1;
       dstY1 = tmp;
-      y_multiplier = -y_multiplier;
    }
 
    /* Find buffers */
@@ -260,8 +417,9 @@ try_blorp_blit(struct intel_context *intel,
       }
       for (unsigned i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; ++i) {
          dst_irb = intel_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[i]);
-         do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                       dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
+         do_blorp_blit(intel, buffer_bit, src_irb, dst_irb,
+                       dstX0, dstY0, dstX1, dstY1,
+                       x_multiplier, y_multiplier, x_offset, y_offset);
       }
       break;
    case GL_DEPTH_BUFFER_BIT:
@@ -271,8 +429,9 @@ try_blorp_blit(struct intel_context *intel,
          intel_renderbuffer(draw_fb->Attachment[BUFFER_DEPTH].Renderbuffer);
       if (!formats_match(buffer_bit, src_irb, dst_irb))
          return false;
-      do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                    dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
+      do_blorp_blit(intel, buffer_bit, src_irb, dst_irb,
+                    dstX0, dstY0, dstX1, dstY1,
+                    x_multiplier, y_multiplier, x_offset, y_offset);
       break;
    case GL_STENCIL_BUFFER_BIT:
       src_irb =
@@ -281,8 +440,9 @@ try_blorp_blit(struct intel_context *intel,
          intel_renderbuffer(draw_fb->Attachment[BUFFER_STENCIL].Renderbuffer);
       if (!formats_match(buffer_bit, src_irb, dst_irb))
          return false;
-      do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                    dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
+      do_blorp_blit(intel, buffer_bit, src_irb, dst_irb,
+                    dstX0, dstY0, dstX1, dstY1,
+                    x_multiplier, y_multiplier, x_offset, y_offset);
       break;
    default:
       assert(false);
@@ -1655,10 +1815,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
                                              unsigned src_level, unsigned src_layer,
                                              struct intel_mipmap_tree *dst_mt,
                                              unsigned dst_level, unsigned dst_layer,
-                                             GLuint src_x0, GLuint src_y0,
                                              GLuint dst_x0, GLuint dst_y0,
                                              GLuint dst_x1, GLuint dst_y1,
-                                             float x_multiplier, float y_multiplier)
+                                             float x_multiplier, float y_multiplier,
+                                             float x_offset, float y_offset)
 {
    src.set(brw, src_mt, src_level, src_layer);
    dst.set(brw, dst_mt, dst_level, dst_layer);
@@ -1764,8 +1924,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
    y0 = wm_push_consts.dst_y0 = dst_y0;
    x1 = wm_push_consts.dst_x1 = dst_x1;
    y1 = wm_push_consts.dst_y1 = dst_y1;
-   wm_push_consts.x_transform.setup(src_x0, dst_x0, dst_x1, x_multiplier);
-   wm_push_consts.y_transform.setup(src_y0, dst_y0, dst_y1, y_multiplier);
+   wm_push_consts.x_transform.multiplier_f = x_multiplier;
+   wm_push_consts.x_transform.offset_f = x_offset;
+   wm_push_consts.y_transform.multiplier_f = y_multiplier;
+   wm_push_consts.y_transform.offset_f = y_offset;
 
    if (dst.num_samples <= 1 && dst_mt->num_samples > 1) {
       /* We must expand the rectangle we send through the rendering pipeline,
