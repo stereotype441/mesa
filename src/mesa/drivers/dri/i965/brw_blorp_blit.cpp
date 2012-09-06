@@ -37,13 +37,13 @@
 /**
  * Helper function for handling mirror image blits.
  *
- * If coord0 > coord1, swap them and invert the "mirror" boolean.
+ * If coord0 > coord1, swap them and negate the "multiplier" float.
  */
 static inline void
-fixup_mirroring(bool &mirror, GLint &coord0, GLint &coord1)
+fixup_mirroring(float &multiplier, GLint &coord0, GLint &coord1)
 {
    if (coord0 > coord1) {
-      mirror = !mirror;
+      multiplier = -multiplier;
       GLint tmp = coord0;
       coord0 = coord1;
       coord1 = tmp;
@@ -66,7 +66,7 @@ fixup_mirroring(bool &mirror, GLint &coord0, GLint &coord1)
  * coordinates, by swapping the roles of src and dst.
  */
 static inline bool
-clip_or_scissor(bool mirror, GLint &src_x0, GLint &src_x1, GLint &dst_x0,
+clip_or_scissor(float multiplier, GLint &src_x0, GLint &src_x1, GLint &dst_x0,
                 GLint &dst_x1, GLint fb_xmin, GLint fb_xmax)
 {
    /* If we are going to scissor everything away, stop. */
@@ -95,7 +95,7 @@ clip_or_scissor(bool mirror, GLint &src_x0, GLint &src_x1, GLint &dst_x0,
     * the source coordinates, we need to flip them to account for the
     * mirroring.
     */
-   if (mirror) {
+   if (multiplier < 0) {
       GLint tmp = pixels_clipped_left;
       pixels_clipped_left = pixels_clipped_right;
       pixels_clipped_right = tmp;
@@ -129,7 +129,7 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
                         int src_x0, int src_y0,
                         int dst_x0, int dst_y0,
                         int dst_x1, int dst_y1,
-                        bool mirror_x, bool mirror_y)
+                        float x_multiplier, float y_multiplier)
 {
    brw_blorp_blit_params params(brw_context(&intel->ctx),
                                 src_mt, src_level, src_layer,
@@ -137,7 +137,7 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
                                 src_x0, src_y0,
                                 dst_x0, dst_y0,
                                 dst_x1, dst_y1,
-                                mirror_x, mirror_y);
+                                x_multiplier, y_multiplier);
    brw_blorp_exec(intel, &params);
 }
 
@@ -147,7 +147,7 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
               struct intel_renderbuffer *dst_irb,
               GLint srcX0, GLint srcY0,
               GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
-              bool mirror_x, bool mirror_y)
+              float x_multiplier, float y_multiplier)
 {
    /* Find source/dst miptrees */
    struct intel_mipmap_tree *src_mt = find_miptree(buffer_bit, src_irb);
@@ -164,7 +164,7 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
                            src_mt, src_irb->mt_level, src_irb->mt_layer,
                            dst_mt, dst_irb->mt_level, dst_irb->mt_layer,
                            srcX0, srcY0, dstX0, dstY0, dstX1, dstY1,
-                           mirror_x, mirror_y);
+                           x_multiplier, y_multiplier);
 
    intel_renderbuffer_set_needs_hiz_resolve(dst_irb);
    intel_renderbuffer_set_needs_downsample(dst_irb);
@@ -202,11 +202,11 @@ try_blorp_blit(struct intel_context *intel,
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;
 
    /* Detect if the blit needs to be mirrored */
-   bool mirror_x = false, mirror_y = false;
-   fixup_mirroring(mirror_x, srcX0, srcX1);
-   fixup_mirroring(mirror_x, dstX0, dstX1);
-   fixup_mirroring(mirror_y, srcY0, srcY1);
-   fixup_mirroring(mirror_y, dstY0, dstY1);
+   float x_multiplier = 1.0, y_multiplier = 1.0;
+   fixup_mirroring(x_multiplier, srcX0, srcX1);
+   fixup_mirroring(x_multiplier, dstX0, dstX1);
+   fixup_mirroring(y_multiplier, srcY0, srcY1);
+   fixup_mirroring(y_multiplier, dstY0, dstY1);
 
    /* Make sure width and height match */
    if (srcX1 - srcX0 != dstX1 - dstX0) return false;
@@ -214,18 +214,18 @@ try_blorp_blit(struct intel_context *intel,
 
    /* If the destination rectangle needs to be clipped or scissored, do so.
     */
-   if (!(clip_or_scissor(mirror_x, srcX0, srcX1, dstX0, dstX1,
+   if (!(clip_or_scissor(x_multiplier, srcX0, srcX1, dstX0, dstX1,
                          draw_fb->_Xmin, draw_fb->_Xmax) &&
-         clip_or_scissor(mirror_y, srcY0, srcY1, dstY0, dstY1,
+         clip_or_scissor(y_multiplier, srcY0, srcY1, dstY0, dstY1,
                          draw_fb->_Ymin, draw_fb->_Ymax))) {
       /* Everything got clipped/scissored away, so the blit was successful. */
       return true;
    }
 
    /* If the source rectangle needs to be clipped or scissored, do so. */
-   if (!(clip_or_scissor(mirror_x, dstX0, dstX1, srcX0, srcX1,
+   if (!(clip_or_scissor(x_multiplier, dstX0, dstX1, srcX0, srcX1,
                          0, read_fb->Width) &&
-         clip_or_scissor(mirror_y, dstY0, dstY1, srcY0, srcY1,
+         clip_or_scissor(y_multiplier, dstY0, dstY1, srcY0, srcY1,
                          0, read_fb->Height))) {
       /* Everything got clipped/scissored away, so the blit was successful. */
       return true;
@@ -238,13 +238,13 @@ try_blorp_blit(struct intel_context *intel,
       GLint tmp = read_fb->Height - srcY0;
       srcY0 = read_fb->Height - srcY1;
       srcY1 = tmp;
-      mirror_y = !mirror_y;
+      y_multiplier = -y_multiplier;
    }
    if (_mesa_is_winsys_fbo(draw_fb)) {
       GLint tmp = draw_fb->Height - dstY0;
       dstY0 = draw_fb->Height - dstY1;
       dstY1 = tmp;
-      mirror_y = !mirror_y;
+      y_multiplier = -y_multiplier;
    }
 
    /* Find buffers */
@@ -261,7 +261,7 @@ try_blorp_blit(struct intel_context *intel,
       for (unsigned i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; ++i) {
          dst_irb = intel_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[i]);
          do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                       dstX0, dstY0, dstX1, dstY1, mirror_x, mirror_y);
+                       dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
       }
       break;
    case GL_DEPTH_BUFFER_BIT:
@@ -272,7 +272,7 @@ try_blorp_blit(struct intel_context *intel,
       if (!formats_match(buffer_bit, src_irb, dst_irb))
          return false;
       do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                    dstX0, dstY0, dstX1, dstY1, mirror_x, mirror_y);
+                    dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
       break;
    case GL_STENCIL_BUFFER_BIT:
       src_irb =
@@ -282,7 +282,7 @@ try_blorp_blit(struct intel_context *intel,
       if (!formats_match(buffer_bit, src_irb, dst_irb))
          return false;
       do_blorp_blit(intel, buffer_bit, src_irb, dst_irb, srcX0, srcY0,
-                    dstX0, dstY0, dstX1, dstY1, mirror_x, mirror_y);
+                    dstX0, dstY0, dstX1, dstY1, x_multiplier, y_multiplier);
       break;
    default:
       assert(false);
@@ -1600,15 +1600,15 @@ brw_blorp_blit_program::render_target_write()
 
 void
 brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
-                                        bool mirror)
+                                        float multiplier)
 {
-   if (!mirror) {
+   multiplier_f = multiplier;
+   if (multiplier > 0) {
       /* When not mirroring a coordinate (say, X), we need:
        *   x' - src_x0 = x - dst_x0
        * Therefore:
        *   x' = 1*x + (src_x0 - dst_x0)
        */
-      multiplier_f = 1;
       offset_f = (int) (src0 - dst0);
    } else {
       /* When mirroring X we need:
@@ -1616,7 +1616,6 @@ brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
        * Therefore:
        *   x' = -1*x + (src_x0 + dst_x1 - 1)
        */
-      multiplier_f = -1;
       offset_f = (int) (src0 + dst1 - 1);
    }
 }
@@ -1659,7 +1658,7 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
                                              GLuint src_x0, GLuint src_y0,
                                              GLuint dst_x0, GLuint dst_y0,
                                              GLuint dst_x1, GLuint dst_y1,
-                                             bool mirror_x, bool mirror_y)
+                                             float x_multiplier, float y_multiplier)
 {
    src.set(brw, src_mt, src_level, src_layer);
    dst.set(brw, dst_mt, dst_level, dst_layer);
@@ -1765,8 +1764,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
    y0 = wm_push_consts.dst_y0 = dst_y0;
    x1 = wm_push_consts.dst_x1 = dst_x1;
    y1 = wm_push_consts.dst_y1 = dst_y1;
-   wm_push_consts.x_transform.setup(src_x0, dst_x0, dst_x1, mirror_x);
-   wm_push_consts.y_transform.setup(src_y0, dst_y0, dst_y1, mirror_y);
+   wm_push_consts.x_transform.setup(src_x0, dst_x0, dst_x1, x_multiplier);
+   wm_push_consts.y_transform.setup(src_y0, dst_y0, dst_y1, y_multiplier);
 
    if (dst.num_samples <= 1 && dst_mt->num_samples > 1) {
       /* We must expand the rectangle we send through the rendering pipeline,

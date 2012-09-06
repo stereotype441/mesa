@@ -43,7 +43,7 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
                         int src_x0, int src_y0,
                         int dst_x0, int dst_y0,
                         int dst_x1, int dst_y1,
-                        bool mirror_x, bool mirror_y);
+                        float x_multiplier, float y_multiplier);
 
 #ifdef __cplusplus
 } /* end extern "C" */
@@ -145,7 +145,7 @@ public:
 struct brw_blorp_coord_transform_params
 {
    void setup(GLuint src0, GLuint dst0, GLuint dst1,
-              bool mirror);
+              float multiplier);
 
    float multiplier_f;
    float offset_f;
@@ -305,7 +305,7 @@ public:
                          GLuint src_x0, GLuint src_y0,
                          GLuint dst_x0, GLuint dst_y0,
                          GLuint width, GLuint height,
-                         bool mirror_x, bool mirror_y);
+                         float x_multiplier, float y_multiplier);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
                                 brw_blorp_prog_data **prog_data) const;
