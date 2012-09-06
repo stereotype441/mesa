@@ -500,6 +500,7 @@ private:
    void texel_fetch(struct brw_reg dst);
    void mcs_fetch();
    void expand_to_32_bits(struct brw_reg src, struct brw_reg dst);
+   void compress_to_16_bits(struct brw_reg src, struct brw_reg dst);
    void texture_lookup(struct brw_reg dst, GLuint msg_type,
                        const sampler_message_arg *args, int num_args);
    void render_target_write();
@@ -526,8 +527,8 @@ private:
    struct brw_reg dst_y0;
    struct brw_reg dst_y1;
    struct {
-      struct brw_reg multiplier;
-      struct brw_reg offset;
+      struct brw_reg multiplier_f;
+      struct brw_reg offset_f;
    } x_transform, y_transform;
 
    /* Data read from texture (4 vec16's per array element) */
@@ -740,18 +741,18 @@ void
 brw_blorp_blit_program::alloc_push_const_regs(int base_reg)
 {
 #define CONST_LOC(name) offsetof(brw_blorp_wm_push_constants, name)
-#define ALLOC_REG(name) \
+#define ALLOC_REG(type, size, name) \
    this->name = \
-      brw_uw1_reg(BRW_GENERAL_REGISTER_FILE, base_reg, CONST_LOC(name) / 2)
+      type(BRW_GENERAL_REGISTER_FILE, base_reg, CONST_LOC(name) / size)
 
-   ALLOC_REG(dst_x0);
-   ALLOC_REG(dst_x1);
-   ALLOC_REG(dst_y0);
-   ALLOC_REG(dst_y1);
-   ALLOC_REG(x_transform.multiplier);
-   ALLOC_REG(x_transform.offset);
-   ALLOC_REG(y_transform.multiplier);
-   ALLOC_REG(y_transform.offset);
+   ALLOC_REG(brw_uw1_reg, 2, dst_x0);
+   ALLOC_REG(brw_uw1_reg, 2, dst_x1);
+   ALLOC_REG(brw_uw1_reg, 2, dst_y0);
+   ALLOC_REG(brw_uw1_reg, 2, dst_y1);
+   ALLOC_REG(brw_vec1_reg, 4, x_transform.multiplier_f);
+   ALLOC_REG(brw_vec1_reg, 4, x_transform.offset_f);
+   ALLOC_REG(brw_vec1_reg, 4, y_transform.multiplier_f);
+   ALLOC_REG(brw_vec1_reg, 4, y_transform.offset_f);
 #undef CONST_LOC
 #undef ALLOC_REG
 }
@@ -1195,10 +1196,24 @@ brw_blorp_blit_program::kill_if_outside_dst_rect()
 void
 brw_blorp_blit_program::translate_dst_to_src()
 {
-   brw_MUL(&func, Xp, X, x_transform.multiplier);
-   brw_MUL(&func, Yp, Y, y_transform.multiplier);
-   brw_ADD(&func, Xp, Xp, x_transform.offset);
-   brw_ADD(&func, Yp, Yp, y_transform.offset);
+   /* We do this transformation before any texturing, so it is safe to use
+    * this->texture_data[0] for temporary registers.
+    */
+   struct brw_reg tmp_f = retype(texture_data[0], BRW_REGISTER_TYPE_F);
+   struct brw_reg tmp_ud = retype(texture_data[0], BRW_REGISTER_TYPE_UD);
+
+   expand_to_32_bits(X, tmp_f);
+   brw_MUL(&func, tmp_f, vec8(tmp_f), x_transform.multiplier_f);
+   brw_ADD(&func, tmp_f, vec8(tmp_f), x_transform.offset_f);
+   brw_RNDE(&func, tmp_f, vec8(tmp_f));
+   brw_MOV(&func, tmp_ud, vec8(tmp_f)); /* Conversion must be DWORD aligned */
+   compress_to_16_bits(tmp_ud, Xp);
+   expand_to_32_bits(Y, tmp_f);
+   brw_MUL(&func, tmp_f, vec8(tmp_f), y_transform.multiplier_f);
+   brw_ADD(&func, tmp_f, vec8(tmp_f), y_transform.offset_f);
+   brw_RNDE(&func, tmp_f, vec8(tmp_f));
+   brw_MOV(&func, tmp_ud, vec8(tmp_f)); /* Conversion must be DWORD aligned */
+   compress_to_16_bits(tmp_ud, Yp);
    SWAP_XY_AND_XPYP();
 }
 
@@ -1453,6 +1468,17 @@ brw_blorp_blit_program::expand_to_32_bits(struct brw_reg src,
 }
 
 void
+brw_blorp_blit_program::compress_to_16_bits(struct brw_reg src,
+                                            struct brw_reg dst)
+{
+   src = stride(retype(src, BRW_REGISTER_TYPE_UW), 16, 8, 2);
+   brw_MOV(&func, vec8(dst), src);
+   brw_set_compression_control(&func, BRW_COMPRESSION_2NDHALF);
+   brw_MOV(&func, suboffset(vec8(dst), 8), offset(src, 1));
+   brw_set_compression_control(&func, BRW_COMPRESSION_NONE);
+}
+
+void
 brw_blorp_blit_program::texture_lookup(struct brw_reg dst,
                                        GLuint msg_type,
                                        const sampler_message_arg *args,
@@ -1582,16 +1608,16 @@ brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
        * Therefore:
        *   x' = 1*x + (src_x0 - dst_x0)
        */
-      multiplier = 1;
-      offset = src0 - dst0;
+      multiplier_f = 1;
+      offset_f = (int) (src0 - dst0);
    } else {
       /* When mirroring X we need:
        *   x' - src_x0 = dst_x1 - x - 1
        * Therefore:
        *   x' = -1*x + (src_x0 + dst_x1 - 1)
        */
-      multiplier = -1;
-      offset = src0 + dst1 - 1;
+      multiplier_f = -1;
+      offset_f = (int) (src0 + dst1 - 1);
    }
 }
 

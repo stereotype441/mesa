@@ -493,10 +493,12 @@ retry:
 	 brw_upload_state(brw);
       }
 
+#if 1
       if (intel->gen >= 7)
 	 gen7_emit_prim(brw, &prim[i], brw->primitive);
       else
 	 brw_emit_prim(brw, &prim[i], brw->primitive);
+#endif
 
       intel->no_batch_wrap = false;
 
