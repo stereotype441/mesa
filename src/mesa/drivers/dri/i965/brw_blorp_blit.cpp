@@ -1758,29 +1758,6 @@ brw_blorp_blit_program::render_target_write()
 }
 
 
-void
-brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
-                                        float multiplier)
-{
-   multiplier_f = multiplier;
-   if (multiplier > 0) {
-      /* When not mirroring a coordinate (say, X), we need:
-       *   x' - src_x0 = x - dst_x0
-       * Therefore:
-       *   x' = 1*x + (src_x0 - dst_x0)
-       */
-      offset_f = (int) (src0 - dst0);
-   } else {
-      /* When mirroring X we need:
-       *   x' - src_x0 = dst_x1 - x - 1
-       * Therefore:
-       *   x' = -1*x + (src_x0 + dst_x1 - 1)
-       */
-      offset_f = (int) (src0 + dst1 - 1);
-   }
-}
-
-
 /**
  * Determine which MSAA layout the GPU pipeline should be configured for,
  * based on the chip generation, the number of samples, and the true layout of

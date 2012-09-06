@@ -144,9 +144,6 @@ public:
 
 struct brw_blorp_coord_transform_params
 {
-   void setup(GLuint src0, GLuint dst0, GLuint dst1,
-              float multiplier);
-
    float multiplier_f;
    float offset_f;
 };
