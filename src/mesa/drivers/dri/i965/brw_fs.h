@@ -295,6 +295,9 @@ public:
    void generate_pull_constant_load(fs_inst *inst, struct brw_reg dst,
 				    struct brw_reg index,
 				    struct brw_reg offset);
+   void gen7_generate_pull_constant_load(fs_inst *inst, struct brw_reg dst,
+                                         struct brw_reg index,
+                                         struct brw_reg offset);
    void generate_mov_dispatch_to_flags();
 
    void emit_dummy_fs();
