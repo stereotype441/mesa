@@ -103,6 +103,9 @@ brw_fast_clear_depth(struct gl_context *ctx)
    if (!mt->hiz_mt)
       return false;
 
+   unsigned slice_width = mt->level[depth_irb->mt_level].width;
+   unsigned slice_height = mt->level[depth_irb->mt_level].height;
+
    /* We only handle full buffer clears -- otherwise you'd have to track whether
     * a previous clear had happened at a different clear value and resolve it
     * first.
@@ -116,13 +119,12 @@ brw_fast_clear_depth(struct gl_context *ctx)
    /* The rendered area has to be 8x4 samples, not resolved pixels, so we look
     * at the miptree slice dimensions instead of renderbuffer size.
     */
-   if (mt->level[depth_irb->mt_level].width % 8 != 0 ||
-       mt->level[depth_irb->mt_level].height % 4 != 0) {
+   if (slice_width % 8 != 0 || slice_height % 4 != 0) {
       perf_debug("Failed to fast clear depth due to width/height %d,%d not "
                  "being aligned to 8,4.  Possible 5%% performance win if "
                  "avoided\n",
-                 mt->level[depth_irb->mt_level].width,
-                 mt->level[depth_irb->mt_level].height);
+                 slice_width,
+                 slice_height);
       return false;
    }
 
