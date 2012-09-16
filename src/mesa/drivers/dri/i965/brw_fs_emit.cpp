@@ -585,6 +585,37 @@ fs_visitor::generate_unspill(fs_inst *inst, struct brw_reg dst)
 }
 
 void
+fs_visitor::gen7_generate_pull_constant_load(fs_inst *inst, struct brw_reg dst,
+                                             struct brw_reg index,
+                                             struct brw_reg offset)
+{
+   assert(intel->gen == 7);
+   assert(index.file == BRW_IMMEDIATE_VALUE &&
+	  index.type == BRW_REGISTER_TYPE_UD);
+   assert(offset.file == BRW_IMMEDIATE_VALUE &&
+	  offset.type == BRW_REGISTER_TYPE_UD);
+   uint32_t surf_index = index.dw1.ud;
+   uint32_t read_offset = offset.dw1.ud;
+
+   /* offset is an IMM; SEND needs to be from a GRF. */
+   offset = retype(brw_vec8_grf(127, 0), BRW_REGISTER_TYPE_UD);
+   brw_MOV(p, offset, brw_imm_ud(read_offset / 16));
+
+   brw_instruction *insn = brw_next_insn(p, BRW_OPCODE_SEND);
+   brw_set_dest(p, insn, dst);
+   brw_set_src0(p, insn, offset);
+   brw_set_sampler_message(p, insn,
+                           surf_index,
+                           0, /* LD message ignores sampler unit */
+                           GEN5_SAMPLER_MESSAGE_SAMPLE_LD,
+                           1, /* rlen */
+                           1, /* mlen */
+                           false, /* no header */
+                           BRW_SAMPLER_SIMD_MODE_SIMD4X2,
+                           0);
+}
+
+void
 fs_visitor::generate_pull_constant_load(fs_inst *inst, struct brw_reg dst,
 					struct brw_reg index,
 					struct brw_reg offset)
@@ -980,7 +1011,10 @@ fs_visitor::generate_code()
 	 break;
 
       case FS_OPCODE_PULL_CONSTANT_LOAD:
-	 generate_pull_constant_load(inst, dst, src[0], src[1]);
+	 if (intel->gen == 7)
+	    gen7_generate_pull_constant_load(inst, dst, src[0], src[1]);
+	 else
+	    generate_pull_constant_load(inst, dst, src[0], src[1]);
 	 break;
 
       case FS_OPCODE_FB_WRITE:
