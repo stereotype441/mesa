@@ -77,6 +77,16 @@ debug_mask(const char *name, GLbitfield mask)
 }
 
 /**
+ * Returns true if the scissor is a noop (cuts out nothing).
+ */
+static bool
+noop_scissor(struct gl_context *ctx, unsigned w, unsigned h)
+{
+   return ctx->Scissor.X == 0 && ctx->Scissor.Y == 0 &&
+          ctx->Scissor.Width == w && ctx->Scissor.Height == h;
+}
+
+/**
  * Implements fast depth clears on gen6+.
  *
  * Fast clears basically work by setting a flag in each of the subspans
@@ -110,7 +120,7 @@ brw_fast_clear_depth(struct gl_context *ctx)
     * a previous clear had happened at a different clear value and resolve it
     * first.
     */
-   if (ctx->Scissor.Enabled) {
+   if (ctx->Scissor.Enabled && !noop_scissor(ctx, slice_width, slice_height)) {
       perf_debug("Failed to fast clear depth due to scissor being enabled.  "
                  "Possible 5%% performance win if avoided.\n");
       return false;
