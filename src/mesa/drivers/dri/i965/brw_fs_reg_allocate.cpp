@@ -282,6 +282,8 @@ fs_visitor::assign_regs()
 void
 fs_visitor::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset)
 {
+   printf("unspilling file=%d, reg=%d, type=%d, smear=%d\n",
+          dst.file, dst.reg, dst.type, dst.smear);
    fs_inst *unspill_inst = new(mem_ctx) fs_inst(FS_OPCODE_UNSPILL, dst);
    unspill_inst->offset = spill_offset;
    unspill_inst->ir = inst->ir;
@@ -317,11 +319,19 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
       for (unsigned int i = 0; i < 3; i++) {
 	 if (inst->src[i].file == GRF) {
 	    spill_costs[inst->src[i].reg] += loop_scale;
+
+            if (inst->src[i].smear >= 0) {
+               no_spill[inst->src[i].reg] = true;
+            }
 	 }
       }
 
       if (inst->dst.file == GRF) {
 	 spill_costs[inst->dst.reg] += inst->regs_written() * loop_scale;
+
+         if (inst->dst.smear >= 0) {
+            no_spill[inst->dst.reg] = true;
+         }
       }
 
       switch (inst->opcode) {
