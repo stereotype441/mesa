@@ -203,8 +203,16 @@ vec4_visitor::reg_allocate()
    }
 
    if (!ra_allocate_no_spills(g)) {
+      /* Failed to allocate registers.  Spill a reg, and the caller will
+       * loop back into here to try again.
+       */
+      int reg = choose_spill_reg(g);
+      if (reg == -1) {
+         fail("no register to spill\n");
+      } else {
+         spill_reg(reg);
+      }
       ralloc_free(g);
-      fail("No register spilling support yet\n");
       return;
    }
 
@@ -231,6 +239,104 @@ vec4_visitor::reg_allocate()
    }
 
    ralloc_free(g);
+}
+
+int
+vec4_visitor::choose_spill_reg(struct ra_graph *g)
+{
+   float loop_scale = 1.0;
+   float spill_costs[this->virtual_grf_count];
+   bool no_spill[this->virtual_grf_count];
+
+   for (int i = 0; i < this->virtual_grf_count; i++) {
+      spill_costs[i] = 0.0;
+      no_spill[i] = false;
+   }
+
+   /* Calculate costs for spilling nodes.  Call it a cost of 1 per
+    * spill/unspill we'll have to do, and guess that the insides of
+    * loops run 10 times.
+    */
+   foreach_list(node, &this->instructions) {
+      vec4_instruction *inst = (vec4_instruction *) node;
+
+      for (unsigned int i = 0; i < 3; i++) {
+	 if (inst->src[i].file == GRF) {
+	    spill_costs[inst->src[i].reg] += loop_scale;
+            if (inst->src[i].reladdr || virtual_grf_sizes[inst->src[i].reg] != 1)
+               no_spill[inst->src[i].reg] = true;
+	 }
+      }
+
+      if (inst->dst.file == GRF) {
+	 spill_costs[inst->dst.reg] += loop_scale;
+         if (inst->dst.reladdr || virtual_grf_sizes[inst->dst.reg] != 1)
+            no_spill[inst->dst.reg] = true;
+      }
+
+      switch (inst->opcode) {
+
+      case BRW_OPCODE_DO:
+	 loop_scale *= 10;
+	 break;
+
+      case BRW_OPCODE_WHILE:
+	 loop_scale /= 10;
+	 break;
+
+      case VS_OPCODE_SCRATCH_READ:
+      case VS_OPCODE_SCRATCH_WRITE:
+         for (int i = 0; i < 3; i++) {
+            if (inst->src[i].file == GRF)
+               no_spill[inst->src[i].reg] = true;
+         }
+	 if (inst->dst.file == GRF)
+	    no_spill[inst->dst.reg] = true;
+	 break;
+
+      default:
+	 break;
+      }
+   }
+
+   for (int i = 0; i < this->virtual_grf_count; i++) {
+      if (!no_spill[i])
+	 ra_set_node_spill_cost(g, i, spill_costs[i]);
+   }
+
+   return ra_get_best_spill_node(g);
+}
+
+void
+vec4_visitor::spill_reg(int spill_reg_nr)
+{
+   int size = virtual_grf_sizes[spill_reg_nr];
+   unsigned int spill_offset = c->last_scratch;
+   assert(ALIGN(spill_offset, 16) == spill_offset); /* oword read/write req. */
+   assert(size == 1);
+   c->last_scratch += size * REG_SIZE;
+
+   /* Generate spill/unspill instructions for the objects being spilled. */
+   foreach_list(node, &this->instructions) {
+      vec4_instruction *inst = (vec4_instruction *) node;
+
+      for (unsigned int i = 0; i < 3; i++) {
+	 if (inst->src[i].file == GRF && inst->src[i].reg == spill_reg_nr) {
+            src_reg spill_reg = inst->src[i];
+            inst->src[i].reg = virtual_grf_alloc(1);
+            emit_scratch_read(inst, dst_reg(inst->src[i]), spill_reg,
+                              spill_offset);
+	 }
+      }
+
+      if (inst->dst.file == GRF && inst->dst.reg == spill_reg_nr) {
+         dst_reg spill_reg = inst->dst;
+         inst->dst.reg = virtual_grf_alloc(1);
+         emit_scratch_write(inst, src_reg(inst->dst), spill_reg, spill_offset);
+      }
+   }
+
+   this->live_intervals_valid = false;
 }
 
 } /* namespace brw */
