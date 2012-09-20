@@ -241,12 +241,10 @@ vec4_visitor::reg_allocate()
    ralloc_free(g);
 }
 
-int
-vec4_visitor::choose_spill_reg(struct ra_graph *g)
+void
+vec4_visitor::evaluate_spill_costs(float *spill_costs, bool *no_spill)
 {
    float loop_scale = 1.0;
-   float spill_costs[this->virtual_grf_count];
-   bool no_spill[this->virtual_grf_count];
 
    for (int i = 0; i < this->virtual_grf_count; i++) {
       spill_costs[i] = 0.0;
@@ -298,6 +296,15 @@ vec4_visitor::choose_spill_reg(struct ra_graph *g)
 	 break;
       }
    }
+}
+
+int
+vec4_visitor::choose_spill_reg(struct ra_graph *g)
+{
+   float spill_costs[this->virtual_grf_count];
+   bool no_spill[this->virtual_grf_count];
+
+   evaluate_spill_costs(spill_costs, no_spill);
 
    for (int i = 0; i < this->virtual_grf_count; i++) {
       if (!no_spill[i])
