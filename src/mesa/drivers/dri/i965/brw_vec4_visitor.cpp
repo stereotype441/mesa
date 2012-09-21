@@ -2443,12 +2443,19 @@ vec4_visitor::get_pull_constant_offset(vec4_instruction *inst,
 /**
  * Emits an instruction before @inst to load the value named by @orig_src
  * from scratch space at @base_offset to @temp.
+ *
+ * @base_offset is measured in bytes.
  */
 void
 vec4_visitor::emit_scratch_read(vec4_instruction *inst,
 				dst_reg temp, src_reg orig_src,
 				int base_offset)
 {
+   /* Convert base_offset from bytes to a register number, since that's what
+    * get_scratch_offset() expects.
+    */
+   base_offset /= REG_SIZE;
+
    int reg_offset = base_offset + orig_src.reg_offset;
    src_reg index = get_scratch_offset(inst, orig_src.reladdr, reg_offset);
 
@@ -2458,12 +2465,19 @@ vec4_visitor::emit_scratch_read(vec4_instruction *inst,
 /**
  * Emits an instruction after @inst to store the value to be written
  * to @orig_dst to scratch space at @base_offset, from @temp.
+ *
+ * @base_offset is measured in bytes.
  */
 void
 vec4_visitor::emit_scratch_write(vec4_instruction *inst,
 				 src_reg temp, dst_reg orig_dst,
 				 int base_offset)
 {
+   /* Convert base_offset from bytes to a register number, since that's what
+    * get_scratch_offset() expects.
+    */
+   base_offset /= REG_SIZE;
+
    int reg_offset = base_offset + orig_dst.reg_offset;
    src_reg index = get_scratch_offset(inst, orig_dst.reladdr, reg_offset);
 
