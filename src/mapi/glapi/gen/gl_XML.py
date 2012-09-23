@@ -31,6 +31,14 @@ import typeexpr
 
 
 def parse_GL_API( file_name, factory = None ):
+        """Create a data structure representing the GL API information
+        contained in the given XML file.  If a factory is given, it is
+        used to create the data structure; otherwise gl_item_factory
+        is used.
+
+        This function also takes care of assigning dispatch offsets
+        for those functions marked offset="assign" in the XML.
+        """
 	doc = libxml2.readFile( file_name, None, libxml2.XML_PARSE_XINCLUDE + libxml2.XML_PARSE_NOBLANKS + libxml2.XML_PARSE_DTDVALID + libxml2.XML_PARSE_DTDATTR + libxml2.XML_PARSE_DTDLOAD + libxml2.XML_PARSE_NOENT )
 	ret = doc.xincludeProcess()
 
@@ -270,7 +278,8 @@ def real_category_name(c):
 
 
 def classify_category(name, number):
-	"""Based on the category name and number, select a numerical class for it.
+	"""Based on the category name and number, select a numerical
+	class and a sort key for it.
 	
 	Categories are divided into four classes numbered 0 through 3.  The
 	classes are:
@@ -324,6 +333,10 @@ def create_parameter_string(parameters, include_names):
 
 class gl_item:
 	def __init__(self, element, context):
+                """Construct a gl_item for the given XML element.
+
+                context is the gl_api object that this item resides in.
+                """
 		self.context = context
 		self.name = element.nsProp( "name", None )
 		self.category = real_category_name( element.parent.nsProp( "name", None ) )
@@ -595,6 +608,14 @@ class gl_parameter:
 
 
 class gl_function( gl_item ):
+        """Represents a collection of aliased functions in the API.
+
+        The first time a member of an alias set is encountered in the
+        XML, use the constructor to create a new gl_function object
+        for it.  When further members of the same alias set are
+        encountered, call process_element() to add those functions to
+        this gl_function object.
+        """
 	def __init__(self, element, context):
 		self.context = context
 		self.name = None
@@ -805,6 +826,9 @@ class gl_api:
 		self.types_by_name = {}
 
 		self.category_dict = {}
+
+                # categories is indexed first by category numerical
+                # class, then by sort key (see classify_category()).
 		self.categories = [{}, {}, {}, {}]
 
 		self.factory = factory
@@ -826,6 +850,7 @@ class gl_api:
 		self.functions_by_name = functions_by_name
 
 	def process_element(self, doc):
+                """Process an XML document object."""
 		element = doc.children
 		while element.type != "element" or element.name != "OpenGLAPI":
 			element = element.next

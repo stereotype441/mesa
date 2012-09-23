@@ -22,12 +22,26 @@
 <!ATTLIST category name                NMTOKEN #REQUIRED
                    number              NMTOKEN #IMPLIED
 		   window_system       NMTOKEN #IMPLIED>
+
+<!-- <type> represents a typedef in the API:
+     - name is the name of the typedef, without the "GL" prefix.
+     - size is the size of the type, in bytes, on 32-bit systems.
+     - float, unsinged, and pointer describe types that are floating
+       point, unsigned integer, and pointer types, respectively.
+     - glx_name is the GLX data type that is used to serialize values
+       of this type over the indirect rendering protocol. -->
 <!ATTLIST type     name                NMTOKEN #REQUIRED
                    size                NMTOKEN #REQUIRED
 		   float               (true | false) "false"
 		   unsigned            (true | false) "false"
 		   pointer             (true | false) "false"
                    glx_name            NMTOKEN #IMPLIED>
+
+<!-- <enum> represents a GLenum value in the API:
+     - name is the name of the enum, without the "GL_" prefix.
+     - value is the enum value.
+     - count, if present, is used as the default value for
+     child <size> elements. -->
 <!ATTLIST enum     name                NMTOKEN #REQUIRED
                    count               CDATA   #IMPLIED
                    value               NMTOKEN #REQUIRED>
@@ -43,6 +57,17 @@ rendering.  In most cases this will just mean adding a
                    static_dispatch     (true | false) "true"
                    vectorequiv         NMTOKEN #IMPLIED>
 
+<!-- <size> describes the behaviour of a state getter/setter function
+     when the parent enum is passed to it:
+     - name is the name of the function (without the "gl" prefix)
+       whose behaviour is being described.  "Get" is used for all the
+       standard getter functions (GetFloatv, GetIntegerv, GetBooleanv,
+       ???)
+     - mode indicates whether this function gets or sets state.
+     - count is the number of values that will be set or get by the
+       function.  For example <size name="Get" mode="get" count="4"/>
+       means that when the parent enum is passed to a function like
+       GetFloatv(), 4 values will be returned.  -->
 <!ATTLIST size     name                NMTOKEN #REQUIRED
                    count               NMTOKEN #IMPLIED
                    mode                (get | set) "set">

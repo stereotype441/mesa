@@ -28,22 +28,32 @@
 import string, copy
 
 class type_node:
+        """A portion of a C type: either a base type (e.g. "unsigned
+        int"), or a layer of indirection (a pointer).
+        """
 	def __init__(self):
 		self.pointer = 0  # bool
 		self.const = 0    # bool
-		self.signed = 1   # bool
-		self.integer = 1  # bool
+		self.signed = 1   # bool (only meaningful for integers)
+		self.integer = 1  # bool (ignored for pointers)
 
-		# If elements is set to non-zero, then field is an array.
+		# Number of array elements if this field is an
+		# array; otherwise 0.
 		self.elements = 0
 
+                # base name (e.g. "int" for "unsigned int").  None for
+                # pointers.
 		self.name = None
-		self.size = 0     # type's size in bytes
+
+		self.size = 0     # type's size in bytes.  0 for pointers.
 		return
 
 
 	def string(self):
-		"""Return string representation of this type_node."""
+		"""Return the C representation of this type_node.
+
+                Array size is ignored.
+                """
 		s = ""
 		
 		if self.pointer:
@@ -66,6 +76,7 @@ class type_node:
 
 
 class type_table:
+        """Table of types that is searchable by base name."""
 	def __init__(self):
 		self.types_by_name = {}
 		return
@@ -84,6 +95,9 @@ class type_table:
 
 
 def create_initial_types():
+        """Populate type_expression.built_in_types with the standard
+        set of GL base types.
+        """
 	tt = type_table()
 
 	basic_types = [
@@ -110,9 +124,21 @@ def create_initial_types():
 
 
 class type_expression:
+        """Represents a complete C type."""
 	built_in_types = None
 
 	def __init__(self, type_string, extra_types = None):
+                """Construct based on a C representation of the type.
+
+                extra_types, if present, is a type_table containing
+                base types that should be recognized while parsing.
+
+                Pass an empty type_string to construct an empty
+                type_expression.
+                """
+                # List of type_node objects; the first (always
+                # present) is the base type, the remaining objects (if
+                # present) represent levels of pointer indirection.
 		self.expr = []
 
 		if not type_string:
@@ -189,6 +215,10 @@ class type_expression:
 
 
 	def set_base_type(self, type_name, signed, unsigned, const, extra_types):
+                """Replace the contents of this type by looking up the
+                type having name type_name, and apply signed,
+                unsigned, and const modifiers if present.
+                """
 		te = type_expression.built_in_types.find_type( type_name )
 		if not te:
 			te = extra_types.find_type( type_name )
@@ -207,11 +237,17 @@ class type_expression:
 
 
 	def set_base_type_node(self, tn):
+                """Replace the contents of this type with the given
+                type_node.
+                """
 		self.expr = [tn]
 		return
 
 
 	def set_elements(self, count):
+                """Set the number of array elements in this type; this
+                is tracked in the first type_node object.
+                """
 		tn = self.expr[0]
 
 		tn.elements = count
@@ -219,6 +255,10 @@ class type_expression:
 
 
 	def string(self):
+                """Return the C representation of this type.
+
+                Array size is ignored.
+                """
 		s = ""
 		for t in self.expr:
 			s += t.string()
@@ -238,6 +278,9 @@ class type_expression:
 
 
 	def get_element_size(self):
+                """Get the size of the base type, accounting for array
+                size if present.
+                """
 		tn = self.expr[0]
 
 		if tn.elements:
@@ -252,6 +295,10 @@ class type_expression:
 
 
 	def get_stack_size(self):
+                """Find out how much space this type takes up on the
+                stack, assuming a 32-bit ABI, and accounting for the
+                padding necessary to align types to 32-bit boundaries.
+                """
 		tn = self.expr[ -1 ]
 
 		if tn.elements or tn.pointer:
@@ -268,6 +315,12 @@ class type_expression:
 
 
 	def format_string(self):
+                """Return a printf format string suitable for printing
+                values of this type.
+
+                Note: since GLenum is synonymous with int, this
+                returns "%d" for GLenum.
+                """
 		tn = self.expr[ -1 ]
 		if tn.pointer:
 			return "%p"
