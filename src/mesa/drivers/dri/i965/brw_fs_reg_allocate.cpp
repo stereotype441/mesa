@@ -375,6 +375,8 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
 void
 fs_visitor::spill_reg(int spill_reg)
 {
+   printf("Spilling register %d\n", spill_reg);
+
    int size = virtual_grf_sizes[spill_reg];
    unsigned int spill_offset = c->last_scratch;
    assert(ALIGN(spill_offset, 16) == spill_offset); /* oword read/write req. */
