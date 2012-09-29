@@ -125,7 +125,7 @@ fs_visitor::opt_cse_local(fs_bblock *block, exec_list *aeb)
 	     */
 	    bool no_existing_temp = entry->tmp.file == BAD_FILE;
 	    if (no_existing_temp) {
-	       entry->tmp = fs_reg(this, glsl_type::float_type);
+	       entry->tmp = fs_reg(this, glsl_type::float_type, "**CSE**");
 	       entry->tmp.type = inst->dst.type;
 
 	       fs_inst *copy = new(ralloc_parent(inst))

@@ -87,7 +87,7 @@ public:
    fs_reg(struct brw_reg fixed_hw_reg);
    fs_reg(enum register_file file, int reg);
    fs_reg(enum register_file file, int reg, uint32_t type);
-   fs_reg(class fs_visitor *v, const struct glsl_type *type);
+   fs_reg(class fs_visitor *v, const struct glsl_type *type, const char *reason);
 
    bool equals(const fs_reg &r) const;
 
@@ -191,7 +191,7 @@ public:
    ~fs_visitor();
 
    fs_reg *variable_storage(ir_variable *var);
-   int virtual_grf_alloc(int size);
+   int virtual_grf_alloc(int size, const char *reason);
    void import_uniforms(fs_visitor *v);
 
    void visit(ir_variable *ir);

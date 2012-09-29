@@ -393,7 +393,10 @@ fs_visitor::spill_reg(int spill_reg)
       for (unsigned int i = 0; i < 3; i++) {
 	 if (inst->src[i].file == GRF &&
 	     inst->src[i].reg == spill_reg) {
-	    inst->src[i].reg = virtual_grf_alloc(1);
+            char reason[256];
+            sprintf(reason, "Unspill for reg %d", spill_reg);
+
+	    inst->src[i].reg = virtual_grf_alloc(1, reason);
 	    emit_unspill(inst, inst->src[i],
                          spill_offset + REG_SIZE * inst->src[i].reg_offset);
 	 }
@@ -401,9 +404,12 @@ fs_visitor::spill_reg(int spill_reg)
 
       if (inst->dst.file == GRF &&
 	  inst->dst.reg == spill_reg) {
+         char reason[256];
+         sprintf(reason, "Spill for reg %d", spill_reg);
+
          int subset_spill_offset = (spill_offset +
                                     REG_SIZE * inst->dst.reg_offset);
-         inst->dst.reg = virtual_grf_alloc(inst->regs_written());
+         inst->dst.reg = virtual_grf_alloc(inst->regs_written(), reason);
          inst->dst.reg_offset = 0;
 
 	 /* If our write is going to affect just part of the

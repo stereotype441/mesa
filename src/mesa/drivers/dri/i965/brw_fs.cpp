@@ -423,8 +423,10 @@ fs_visitor::implied_mrf_writes(fs_inst *inst)
 }
 
 int
-fs_visitor::virtual_grf_alloc(int size)
+fs_visitor::virtual_grf_alloc(int size, const char *reason)
 {
+   printf("REG %d is %s\n", virtual_grf_count, reason);
+
    if (virtual_grf_array_size <= virtual_grf_count) {
       if (virtual_grf_array_size == 0)
 	 virtual_grf_array_size = 16;
@@ -456,12 +458,12 @@ fs_reg::fs_reg(enum register_file file, int reg, uint32_t type)
 }
 
 /** Automatic reg constructor. */
-fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type)
+fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type, const char *reason)
 {
    init();
 
    this->file = GRF;
-   this->reg = v->virtual_grf_alloc(v->type_size(type));
+   this->reg = v->virtual_grf_alloc(v->type_size(type), reason);
    this->reg_offset = 0;
    this->type = brw_type_for_base_type(type);
 }
@@ -595,7 +597,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_fragcoord_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type, "**FRAGCOORD INTERPOLATION**");
    fs_reg wpos = *reg;
    bool flip = !ir->origin_upper_left ^ c->key.render_to_fbo;
 
@@ -666,7 +668,7 @@ fs_visitor::emit_linterp(const fs_reg &attr, const fs_reg &interp,
 fs_reg *
 fs_visitor::emit_general_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type, "**GENERAL INTERPOLATION**");
    reg->type = brw_type_for_base_type(ir->type->get_scalar_type());
    fs_reg attr = *reg;
 
@@ -758,7 +760,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
 fs_reg *
 fs_visitor::emit_frontfacing_interpolation(ir_variable *ir)
 {
-   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type);
+   fs_reg *reg = new(this->mem_ctx) fs_reg(this, ir->type, "**FRONTFACING INTERPOLATION**");
 
    /* The frontfacing comes in as a bit in the thread payload. */
    if (intel->gen >= 6) {
@@ -810,7 +812,7 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src)
    if (intel->gen == 6 && (src.file == UNIFORM ||
 			   src.abs ||
 			   src.negate)) {
-      fs_reg expanded = fs_reg(this, glsl_type::float_type);
+      fs_reg expanded = fs_reg(this, glsl_type::float_type, "**EXPANDED GEN6 MATH**");
       emit(BRW_OPCODE_MOV, expanded, src);
       src = expanded;
    }
@@ -850,14 +852,14 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
        * instructions, so we also move to a temp to set those up.
        */
       if (src0.file == UNIFORM || src0.abs || src0.negate) {
-	 fs_reg expanded = fs_reg(this, glsl_type::float_type);
+	 fs_reg expanded = fs_reg(this, glsl_type::float_type, "**EXPANDED GEN6 MATH**");
 	 expanded.type = src0.type;
 	 emit(BRW_OPCODE_MOV, expanded, src0);
 	 src0 = expanded;
       }
 
       if (src1.file == UNIFORM || src1.abs || src1.negate) {
-	 fs_reg expanded = fs_reg(this, glsl_type::float_type);
+	 fs_reg expanded = fs_reg(this, glsl_type::float_type, "**EXPANDED GEN6 MATH**");
 	 expanded.type = src1.type;
 	 emit(BRW_OPCODE_MOV, expanded, src1);
 	 src1 = expanded;
@@ -1070,9 +1072,11 @@ fs_visitor::split_virtual_grfs()
     */
    for (int i = 0; i < num_vars; i++) {
       if (split_grf[i]) {
-	 new_virtual_grf[i] = virtual_grf_alloc(1);
+         char reason[256];
+         sprintf(reason, "Split of %d", i);
+	 new_virtual_grf[i] = virtual_grf_alloc(1, reason);
 	 for (int j = 2; j < this->virtual_grf_sizes[i]; j++) {
-	    int reg = virtual_grf_alloc(1);
+	    int reg = virtual_grf_alloc(1, reason);
 	    assert(reg == new_virtual_grf[i] + j - 1);
 	    (void) reg;
 	 }
@@ -1196,7 +1200,7 @@ void
 fs_visitor::setup_pull_constants()
 {
    /* Only allow 16 registers (128 uniform components) as push constants. */
-   unsigned int max_uniform_components = 16 * 8;
+   unsigned int max_uniform_components = 32 * 8;
    if (c->prog_data.nr_params <= max_uniform_components)
       return;
 
@@ -1222,7 +1226,7 @@ fs_visitor::setup_pull_constants()
 	 if (uniform_nr < pull_uniform_base)
 	    continue;
 
-	 fs_reg dst = fs_reg(this, glsl_type::float_type);
+	 fs_reg dst = fs_reg(this, glsl_type::float_type, "**PULL CONSTANT**");
 	 fs_reg index = fs_reg((unsigned)SURF_INDEX_FRAG_CONST_BUFFER);
 	 fs_reg offset = fs_reg((unsigned)(((uniform_nr -
 					     pull_uniform_base) * 4) & ~15));
@@ -2097,12 +2101,14 @@ brw_wm_fs_emit(struct brw_context *brw, struct brw_wm_compile *c,
    }
 
    if (intel->gen >= 5 && c->prog_data.nr_pull_params == 0) {
+      printf("Trying 16 wide\n");
       c->dispatch_width = 16;
       fs_visitor v2(c, prog, shader);
       v2.import_uniforms(&v);
       if (!v2.run()) {
          perf_debug("16-wide shader failed to compile, falling back to "
                     "8-wide at a 10-20%% performance cost: %s", v2.fail_msg);
+         printf("16 wide failed: %s\n", v2.fail_msg);
       }
    }
 
