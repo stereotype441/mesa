@@ -29,10 +29,20 @@
 
 #include "marshal.h"
 
+#include "api_exec.h"
+#include "dispatch.h"
+
 
 struct _glapi_table *
 _mesa_create_marshal_table(const struct gl_context *ctx)
 {
+   struct _glapi_table *table;
+
+   table = _mesa_alloc_dispatch_table(_gloffset_COUNT);
+   if (table == NULL)
+      return NULL;
+
    /* TODO: implement me! */
-   return NULL;
+
+   return table;
 }
