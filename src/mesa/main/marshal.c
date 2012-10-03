@@ -33,6 +33,12 @@
 #include "dispatch.h"
 
 
+enum dispatch_cmd_id
+{
+   DISPATCH_CMD_Viewport,
+};
+
+
 static const GLubyte *GLAPIENTRY
 marshal_GetString(GLenum name)
 {
@@ -42,12 +48,39 @@ marshal_GetString(GLenum name)
 }
 
 
+#define QUEUE_SIMPLE_COMMAND(var, cmd_name) \
+   struct cmd_##cmd_name _local_cmd; \
+   struct cmd_##cmd_name *var = &_local_cmd; \
+   var->cmd_id = DISPATCH_CMD_##cmd_name
+
+
+struct cmd_Viewport
+{
+   enum dispatch_cmd_id cmd_id;
+   GLint x;
+   GLint y;
+   GLsizei width;
+   GLsizei height;
+};
+
+
+static inline void
+unmarshal_Viewport(struct gl_context *ctx, struct cmd_Viewport *cmd)
+{
+   CALL_Viewport(ctx->Exec, (cmd->x, cmd->y, cmd->width, cmd->height));
+}
+
+
 static void GLAPIENTRY
 marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
 {
    GET_CURRENT_CONTEXT(ctx);
-
-   CALL_Viewport(ctx->Exec, (x, y, width, height));
+   QUEUE_SIMPLE_COMMAND(cmd, Viewport);
+   cmd->x = x;
+   cmd->y = y;
+   cmd->width = width;
+   cmd->height = height;
+   unmarshal_Viewport(ctx, cmd);
 }
 
 
