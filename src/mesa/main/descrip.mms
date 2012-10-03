@@ -60,6 +60,7 @@ SOURCES =accum.c \
 	imports.c \
 	light.c \
 	lines.c \
+        marshal.c \
 	matrix.c \
 	mipmap.c \
 	mm.c \
@@ -135,6 +136,7 @@ image.obj,\
 imports.obj,\
 light.obj,\
 lines.obj,\
+marshal.obj,\
 matrix.obj,\
 mipmap.obj,\
 mm.obj,\

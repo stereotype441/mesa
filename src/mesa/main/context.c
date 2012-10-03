@@ -103,6 +103,7 @@
 #include "light.h"
 #include "lines.h"
 #include "macros.h"
+#include "marshal.h"
 #include "matrix.h"
 #include "multisample.h"
 #include "pixel.h"
@@ -869,13 +870,6 @@ _mesa_alloc_dispatch_table(int size)
       }
    }
    return table;
-}
-
-
-static struct _glapi_table *_mesa_create_marshal_table(const struct gl_context *ctx)
-{
-   /* TODO: implement me and move me to my own file! */
-   return NULL;
 }
 
 
