@@ -33,6 +33,143 @@
 #include "dispatch.h"
 
 
+static const GLubyte *GLAPIENTRY
+marshal_GetString(GLenum name)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   return CALL_GetString(ctx->Exec, (name));
+}
+
+
+static void GLAPIENTRY
+marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Viewport(ctx->Exec, (x, y, width, height));
+}
+
+
+static void GLAPIENTRY
+marshal_MatrixMode(GLenum mode)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_MatrixMode(ctx->Exec, (mode));
+}
+
+
+static void GLAPIENTRY
+marshal_LoadIdentity(void)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_LoadIdentity(ctx->Exec, ());
+}
+
+
+static void GLAPIENTRY
+marshal_Ortho(GLdouble left, GLdouble right,
+              GLdouble bottom, GLdouble top, GLdouble nearval, GLdouble farval)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Ortho(ctx->Exec, (left, right, bottom, top, nearval, farval));
+}
+
+
+static void GLAPIENTRY
+marshal_PolygonMode(GLenum face, GLenum mode)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_PolygonMode(ctx->Exec, (face, mode));
+}
+
+
+static void GLAPIENTRY
+marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_ClearColor(ctx->Exec, (red, green, blue, alpha));
+}
+
+
+static void GLAPIENTRY
+marshal_Clear(GLbitfield mask)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Clear(ctx->Exec, (mask));
+}
+
+
+static void GLAPIENTRY
+marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Color4f(ctx->Exec, (x, y, z, w));
+}
+
+
+static void GLAPIENTRY
+marshal_Begin(GLenum mode)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Begin(ctx->Exec, (mode));
+}
+
+
+static void GLAPIENTRY
+marshal_EdgeFlag(GLboolean x)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_EdgeFlag(ctx->Exec, (x));
+}
+
+
+static void GLAPIENTRY
+marshal_Vertex2f(GLfloat x, GLfloat y)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Vertex2f(ctx->Exec, (x, y));
+}
+
+
+static void GLAPIENTRY
+marshal_End(void)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_End(ctx->Exec, ());
+}
+
+
+static void GLAPIENTRY
+marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
+                   GLenum format, GLenum type, GLvoid *pixels)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_ReadPixels(ctx->Exec, (x, y, width, height, format, type, pixels));
+}
+
+
+static void GLAPIENTRY
+marshal_Flush(void)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   CALL_Flush(ctx->Exec, ());
+}
+
+
 struct _glapi_table *
 _mesa_create_marshal_table(const struct gl_context *ctx)
 {
@@ -42,7 +179,22 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    if (table == NULL)
       return NULL;
 
-   /* TODO: implement me! */
+   /* TODO: implement more! */
+   SET_GetString(table, marshal_GetString);
+   SET_Viewport(table, marshal_Viewport);
+   SET_MatrixMode(table, marshal_MatrixMode);
+   SET_LoadIdentity(table, marshal_LoadIdentity);
+   SET_Ortho(table, marshal_Ortho);
+   SET_PolygonMode(table, marshal_PolygonMode);
+   SET_ClearColor(table, marshal_ClearColor);
+   SET_Clear(table, marshal_Clear);
+   SET_Color4f(table, marshal_Color4f);
+   SET_Begin(table, marshal_Begin);
+   SET_EdgeFlag(table, marshal_EdgeFlag);
+   SET_Vertex2f(table, marshal_Vertex2f);
+   SET_End(table, marshal_End);
+   SET_ReadPixels(table, marshal_ReadPixels);
+   SET_Flush(table, marshal_Flush);
 
    return table;
 }
