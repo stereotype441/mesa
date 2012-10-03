@@ -8998,8 +8998,11 @@ _mesa_NewList(GLuint name, GLenum mode)
 
    ctx->Driver.NewList(ctx, name, mode);
 
-   ctx->CurrentDispatch = ctx->Save;
-   _glapi_set_dispatch(ctx->CurrentDispatch);
+   ctx->CurrentServerDispatch = ctx->Save;
+   if (ctx->MarshalExec == NULL) {
+      ctx->CurrentClientDispatch = ctx->CurrentServerDispatch;
+      _glapi_set_dispatch(ctx->CurrentClientDispatch);
+   }
 }
 
 
@@ -9045,8 +9048,11 @@ _mesa_EndList(void)
    ctx->ExecuteFlag = GL_TRUE;
    ctx->CompileFlag = GL_FALSE;
 
-   ctx->CurrentDispatch = ctx->Exec;
-   _glapi_set_dispatch(ctx->CurrentDispatch);
+   ctx->CurrentServerDispatch = ctx->Exec;
+   if (ctx->MarshalExec == NULL) {
+      ctx->CurrentClientDispatch = ctx->CurrentServerDispatch;
+      _glapi_set_dispatch(ctx->CurrentClientDispatch);
+   }
 }
 
 
@@ -9081,8 +9087,11 @@ _mesa_CallList(GLuint list)
 
    /* also restore API function pointers to point to "save" versions */
    if (save_compile_flag) {
-      ctx->CurrentDispatch = ctx->Save;
-      _glapi_set_dispatch(ctx->CurrentDispatch);
+      ctx->CurrentServerDispatch = ctx->Save;
+      if (ctx->MarshalExec == NULL) {
+         ctx->CurrentClientDispatch = ctx->CurrentServerDispatch;
+         _glapi_set_dispatch(ctx->CurrentClientDispatch);
+      }
    }
 }
 
@@ -9133,8 +9142,11 @@ _mesa_CallLists(GLsizei n, GLenum type, const GLvoid * lists)
 
    /* also restore API function pointers to point to "save" versions */
    if (save_compile_flag) {
-      ctx->CurrentDispatch = ctx->Save;
-      _glapi_set_dispatch(ctx->CurrentDispatch);
+      ctx->CurrentServerDispatch = ctx->Save;
+      if (ctx->MarshalExec == NULL) {
+         ctx->CurrentClientDispatch = ctx->CurrentServerDispatch;
+         _glapi_set_dispatch(ctx->CurrentClientDispatch);
+      }
    }
 }
 
