@@ -36,6 +36,17 @@
 enum dispatch_cmd_id
 {
    DISPATCH_CMD_Viewport,
+   DISPATCH_CMD_MatrixMode,
+   DISPATCH_CMD_LoadIdentity,
+   DISPATCH_CMD_Ortho,
+   DISPATCH_CMD_PolygonMode,
+   DISPATCH_CMD_ClearColor,
+   DISPATCH_CMD_Clear,
+   DISPATCH_CMD_Color4f,
+   DISPATCH_CMD_Begin,
+   DISPATCH_CMD_EdgeFlag,
+   DISPATCH_CMD_Vertex2f,
+   DISPATCH_CMD_End,
 };
 
 
@@ -84,12 +95,40 @@ marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
 }
 
 
+struct cmd_MatrixMode
+{
+   enum dispatch_cmd_id cmd_id;
+   GLenum mode;
+};
+
+
+static inline void
+unmarshal_MatrixMode(struct gl_context *ctx, struct cmd_MatrixMode *cmd)
+{
+   CALL_MatrixMode(ctx->Exec, (cmd->mode));
+}
+
+
 static void GLAPIENTRY
 marshal_MatrixMode(GLenum mode)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, MatrixMode);
+   cmd->mode = mode;
+   unmarshal_MatrixMode(ctx, cmd);
+}
 
-   CALL_MatrixMode(ctx->Exec, (mode));
+
+struct cmd_LoadIdentity
+{
+   enum dispatch_cmd_id cmd_id;
+};
+
+
+static inline void
+unmarshal_LoadIdentity(struct gl_context *ctx, struct cmd_LoadIdentity *cmd)
+{
+   CALL_LoadIdentity(ctx->Exec, ());
 }
 
 
@@ -97,8 +136,27 @@ static void GLAPIENTRY
 marshal_LoadIdentity(void)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, LoadIdentity);
+   unmarshal_LoadIdentity(ctx, cmd);
+}
 
-   CALL_LoadIdentity(ctx->Exec, ());
+
+struct cmd_Ortho
+{
+   enum dispatch_cmd_id cmd_id;
+   GLdouble left;
+   GLdouble right;
+   GLdouble bottom;
+   GLdouble top;
+   GLdouble nearval;
+   GLdouble farval;
+};
+
+
+static inline void
+unmarshal_Ortho(struct gl_context *ctx, struct cmd_Ortho *cmd)
+{
+   CALL_Ortho(ctx->Exec, (cmd->left, cmd->right, cmd->bottom, cmd->top, cmd->nearval, cmd->farval));
 }
 
 
@@ -107,8 +165,29 @@ marshal_Ortho(GLdouble left, GLdouble right,
               GLdouble bottom, GLdouble top, GLdouble nearval, GLdouble farval)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Ortho);
+   cmd->left = left;
+   cmd->right = right;
+   cmd->bottom = bottom;
+   cmd->top = top;
+   cmd->nearval = nearval;
+   cmd->farval = farval;
+   unmarshal_Ortho(ctx, cmd);
+}
 
-   CALL_Ortho(ctx->Exec, (left, right, bottom, top, nearval, farval));
+
+struct cmd_PolygonMode
+{
+   enum dispatch_cmd_id cmd_id;
+   GLenum face;
+   GLenum mode;
+};
+
+
+static inline void
+unmarshal_PolygonMode(struct gl_context *ctx, struct cmd_PolygonMode *cmd)
+{
+   CALL_PolygonMode(ctx->Exec, (cmd->face, cmd->mode));
 }
 
 
@@ -116,8 +195,27 @@ static void GLAPIENTRY
 marshal_PolygonMode(GLenum face, GLenum mode)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, PolygonMode);
+   cmd->face = face;
+   cmd->mode = mode;
+   unmarshal_PolygonMode(ctx, cmd);
+}
 
-   CALL_PolygonMode(ctx->Exec, (face, mode));
+
+struct cmd_ClearColor
+{
+   enum dispatch_cmd_id cmd_id;
+   GLclampf red;
+   GLclampf green;
+   GLclampf blue;
+   GLclampf alpha;
+};
+
+
+static inline void
+unmarshal_ClearColor(struct gl_context *ctx, struct cmd_ClearColor *cmd)
+{
+   CALL_ClearColor(ctx->Exec, (cmd->red, cmd->green, cmd->blue, cmd->alpha));
 }
 
 
@@ -125,8 +223,26 @@ static void GLAPIENTRY
 marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, ClearColor);
+   cmd->red = red;
+   cmd->green = green;
+   cmd->blue = blue;
+   cmd->alpha = alpha;
+   unmarshal_ClearColor(ctx, cmd);
+}
 
-   CALL_ClearColor(ctx->Exec, (red, green, blue, alpha));
+
+struct cmd_Clear
+{
+   enum dispatch_cmd_id cmd_id;
+   GLbitfield mask;
+};
+
+
+static inline void
+unmarshal_Clear(struct gl_context *ctx, struct cmd_Clear *cmd)
+{
+   CALL_Clear(ctx->Exec, (cmd->mask));
 }
 
 
@@ -134,8 +250,26 @@ static void GLAPIENTRY
 marshal_Clear(GLbitfield mask)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Clear);
+   cmd->mask = mask;
+   unmarshal_Clear(ctx, cmd);
+}
 
-   CALL_Clear(ctx->Exec, (mask));
+
+struct cmd_Color4f
+{
+   enum dispatch_cmd_id cmd_id;
+   GLfloat x;
+   GLfloat y;
+   GLfloat z;
+   GLfloat w;
+};
+
+
+static inline void
+unmarshal_Color4f(struct gl_context *ctx, struct cmd_Color4f *cmd)
+{
+   CALL_Color4f(ctx->Exec, (cmd->x, cmd->y, cmd->z, cmd->w));
 }
 
 
@@ -143,8 +277,26 @@ static void GLAPIENTRY
 marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Color4f);
+   cmd->x = x;
+   cmd->y = y;
+   cmd->z = z;
+   cmd->w = w;
+   unmarshal_Color4f(ctx, cmd);
+}
 
-   CALL_Color4f(ctx->Exec, (x, y, z, w));
+
+struct cmd_Begin
+{
+   enum dispatch_cmd_id cmd_id;
+   GLenum mode;
+};
+
+
+static inline void
+unmarshal_Begin(struct gl_context *ctx, struct cmd_Begin *cmd)
+{
+   CALL_Begin(ctx->Exec, (cmd->mode));
 }
 
 
@@ -152,8 +304,23 @@ static void GLAPIENTRY
 marshal_Begin(GLenum mode)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Begin);
+   cmd->mode = mode;
+   unmarshal_Begin(ctx, cmd);
+}
 
-   CALL_Begin(ctx->Exec, (mode));
+
+struct cmd_EdgeFlag
+{
+   enum dispatch_cmd_id cmd_id;
+   GLboolean x;
+};
+
+
+static inline void
+unmarshal_EdgeFlag(struct gl_context *ctx, struct cmd_EdgeFlag *cmd)
+{
+   CALL_EdgeFlag(ctx->Exec, (cmd->x));
 }
 
 
@@ -161,8 +328,24 @@ static void GLAPIENTRY
 marshal_EdgeFlag(GLboolean x)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, EdgeFlag);
+   cmd->x = x;
+   unmarshal_EdgeFlag(ctx, cmd);
+}
 
-   CALL_EdgeFlag(ctx->Exec, (x));
+
+struct cmd_Vertex2f
+{
+   enum dispatch_cmd_id cmd_id;
+   GLfloat x;
+   GLfloat y;
+};
+
+
+static inline void
+unmarshal_Vertex2f(struct gl_context *ctx, struct cmd_Vertex2f *cmd)
+{
+   CALL_Vertex2f(ctx->Exec, (cmd->x, cmd->y));
 }
 
 
@@ -170,8 +353,23 @@ static void GLAPIENTRY
 marshal_Vertex2f(GLfloat x, GLfloat y)
 {
    GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Vertex2f);
+   cmd->x = x;
+   cmd->y = y;
+   unmarshal_Vertex2f(ctx, cmd);
+}
 
-   CALL_Vertex2f(ctx->Exec, (x, y));
+
+struct cmd_End
+{
+   enum dispatch_cmd_id cmd_id;
+};
+
+
+static inline void
+unmarshal_End(struct gl_context *ctx, struct cmd_End *cmd)
+{
+   CALL_End(ctx->Exec, ());
 }
 
 
@@ -179,8 +377,8 @@ static void GLAPIENTRY
 marshal_End(void)
 {
    GET_CURRENT_CONTEXT(ctx);
-
-   CALL_End(ctx->Exec, ());
+   QUEUE_SIMPLE_COMMAND(cmd, End);
+   unmarshal_End(ctx, cmd);
 }
 
 
