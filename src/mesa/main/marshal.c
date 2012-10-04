@@ -29,8 +29,13 @@
 
 #include "marshal.h"
 
+#include <stdbool.h>
+
 #include "api_exec.h"
 #include "dispatch.h"
+
+
+static bool execute_immediately = false;
 
 
 enum dispatch_cmd_id
@@ -52,15 +57,6 @@ enum dispatch_cmd_id
 
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
-
-
-static const GLubyte *GLAPIENTRY
-marshal_GetString(GLenum name)
-{
-   GET_CURRENT_CONTEXT(ctx);
-
-   return CALL_GetString(ctx->Exec, (name));
-}
 
 
 static char HACK_command_queue[65536];
@@ -99,7 +95,36 @@ consume_command_queue(struct gl_context *ctx)
 static inline void
 post_marshal_hook(struct gl_context *ctx)
 {
+   if (execute_immediately)
+      consume_command_queue(ctx);
+}
+
+
+static inline void
+synchronize_lock(struct gl_context *ctx)
+{
+   /* There is only one thread, so instead of waiting for the server thread to
+    * finish processing commands, we have to process them ourselves.
+    */
    consume_command_queue(ctx);
+}
+
+
+static inline void
+synchronize_unlock(struct gl_context *ctx)
+{
+   /* Nothing to do yet--there is only one thread. */
+}
+
+
+static const GLubyte *GLAPIENTRY
+marshal_GetString(GLenum name)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize_lock(ctx);
+   const GLubyte *result = CALL_GetString(ctx->Exec, (name));
+   synchronize_unlock(ctx);
+   return result;
 }
 
 
@@ -427,8 +452,9 @@ marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
                    GLenum format, GLenum type, GLvoid *pixels)
 {
    GET_CURRENT_CONTEXT(ctx);
-
+   synchronize_lock(ctx);
    CALL_ReadPixels(ctx->Exec, (x, y, width, height, format, type, pixels));
+   synchronize_unlock(ctx);
 }
 
 
@@ -436,8 +462,9 @@ static void GLAPIENTRY
 marshal_Flush(void)
 {
    GET_CURRENT_CONTEXT(ctx);
-
+   synchronize_lock(ctx);
    CALL_Flush(ctx->Exec, ());
+   synchronize_unlock(ctx);
 }
 
 
