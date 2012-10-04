@@ -50,6 +50,10 @@ enum dispatch_cmd_id
 };
 
 
+static size_t
+unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
+
+
 static const GLubyte *GLAPIENTRY
 marshal_GetString(GLenum name)
 {
@@ -91,7 +95,7 @@ marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
    cmd->y = y;
    cmd->width = width;
    cmd->height = height;
-   unmarshal_Viewport(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -115,7 +119,7 @@ marshal_MatrixMode(GLenum mode)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, MatrixMode);
    cmd->mode = mode;
-   unmarshal_MatrixMode(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -137,7 +141,7 @@ marshal_LoadIdentity(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, LoadIdentity);
-   unmarshal_LoadIdentity(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -172,7 +176,7 @@ marshal_Ortho(GLdouble left, GLdouble right,
    cmd->top = top;
    cmd->nearval = nearval;
    cmd->farval = farval;
-   unmarshal_Ortho(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -198,7 +202,7 @@ marshal_PolygonMode(GLenum face, GLenum mode)
    QUEUE_SIMPLE_COMMAND(cmd, PolygonMode);
    cmd->face = face;
    cmd->mode = mode;
-   unmarshal_PolygonMode(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -228,7 +232,7 @@ marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
    cmd->green = green;
    cmd->blue = blue;
    cmd->alpha = alpha;
-   unmarshal_ClearColor(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -252,7 +256,7 @@ marshal_Clear(GLbitfield mask)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, Clear);
    cmd->mask = mask;
-   unmarshal_Clear(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -282,7 +286,7 @@ marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
    cmd->y = y;
    cmd->z = z;
    cmd->w = w;
-   unmarshal_Color4f(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -306,7 +310,7 @@ marshal_Begin(GLenum mode)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, Begin);
    cmd->mode = mode;
-   unmarshal_Begin(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -330,7 +334,7 @@ marshal_EdgeFlag(GLboolean x)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, EdgeFlag);
    cmd->x = x;
-   unmarshal_EdgeFlag(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -356,7 +360,7 @@ marshal_Vertex2f(GLfloat x, GLfloat y)
    QUEUE_SIMPLE_COMMAND(cmd, Vertex2f);
    cmd->x = x;
    cmd->y = y;
-   unmarshal_Vertex2f(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -378,7 +382,7 @@ marshal_End(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, End);
-   unmarshal_End(ctx, cmd);
+   unmarshal_dispatch_cmd(ctx, cmd);
 }
 
 
@@ -398,6 +402,53 @@ marshal_Flush(void)
    GET_CURRENT_CONTEXT(ctx);
 
    CALL_Flush(ctx->Exec, ());
+}
+
+
+static size_t
+unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
+{
+   switch (*(enum dispatch_cmd_id *) cmd) {
+   case DISPATCH_CMD_Viewport:
+      unmarshal_Viewport(ctx, (struct cmd_Viewport *) cmd);
+      return sizeof(struct cmd_Viewport);
+   case DISPATCH_CMD_MatrixMode:
+      unmarshal_MatrixMode(ctx, (struct cmd_MatrixMode *) cmd);
+      return sizeof(struct cmd_MatrixMode);
+   case DISPATCH_CMD_LoadIdentity:
+      unmarshal_LoadIdentity(ctx, (struct cmd_LoadIdentity *) cmd);
+      return sizeof(struct cmd_LoadIdentity);
+   case DISPATCH_CMD_Ortho:
+      unmarshal_Ortho(ctx, (struct cmd_Ortho *) cmd);
+      return sizeof(struct cmd_Ortho);
+   case DISPATCH_CMD_PolygonMode:
+      unmarshal_PolygonMode(ctx, (struct cmd_PolygonMode *) cmd);
+      return sizeof(struct cmd_PolygonMode);
+   case DISPATCH_CMD_ClearColor:
+      unmarshal_ClearColor(ctx, (struct cmd_ClearColor *) cmd);
+      return sizeof(struct cmd_ClearColor);
+   case DISPATCH_CMD_Clear:
+      unmarshal_Clear(ctx, (struct cmd_Clear *) cmd);
+      return sizeof(struct cmd_Clear);
+   case DISPATCH_CMD_Color4f:
+      unmarshal_Color4f(ctx, (struct cmd_Color4f *) cmd);
+      return sizeof(struct cmd_Color4f);
+   case DISPATCH_CMD_Begin:
+      unmarshal_Begin(ctx, (struct cmd_Begin *) cmd);
+      return sizeof(struct cmd_Begin);
+   case DISPATCH_CMD_EdgeFlag:
+      unmarshal_EdgeFlag(ctx, (struct cmd_EdgeFlag *) cmd);
+      return sizeof(struct cmd_EdgeFlag);
+   case DISPATCH_CMD_Vertex2f:
+      unmarshal_Vertex2f(ctx, (struct cmd_Vertex2f *) cmd);
+      return sizeof(struct cmd_Vertex2f);
+   case DISPATCH_CMD_End:
+      unmarshal_End(ctx, (struct cmd_End *) cmd);
+      return sizeof(struct cmd_End);
+   default:
+      assert(!"Unrecognized command ID");
+      return 0;
+   }
 }
 
 
