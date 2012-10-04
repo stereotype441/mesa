@@ -85,6 +85,24 @@ allocate_command_in_queue(enum dispatch_cmd_id cmd_id, size_t size)
                                 sizeof(struct cmd_##cmd_name))
 
 
+static void
+consume_command_queue(struct gl_context *ctx)
+{
+   size_t pos = 0;
+   while (pos < command_queue_used)
+      pos += unmarshal_dispatch_cmd(ctx, &HACK_command_queue[pos]);
+   assert (pos == command_queue_used);
+   command_queue_used = 0;
+}
+
+
+static inline void
+post_marshal_hook(struct gl_context *ctx)
+{
+   consume_command_queue(ctx);
+}
+
+
 struct cmd_Viewport
 {
    enum dispatch_cmd_id cmd_id;
@@ -111,7 +129,7 @@ marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
    cmd->y = y;
    cmd->width = width;
    cmd->height = height;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -135,7 +153,7 @@ marshal_MatrixMode(GLenum mode)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, MatrixMode);
    cmd->mode = mode;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -157,7 +175,8 @@ marshal_LoadIdentity(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, LoadIdentity);
-   unmarshal_dispatch_cmd(ctx, cmd);
+   (void) cmd;
+   post_marshal_hook(ctx);
 }
 
 
@@ -192,7 +211,7 @@ marshal_Ortho(GLdouble left, GLdouble right,
    cmd->top = top;
    cmd->nearval = nearval;
    cmd->farval = farval;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -218,7 +237,7 @@ marshal_PolygonMode(GLenum face, GLenum mode)
    QUEUE_SIMPLE_COMMAND(cmd, PolygonMode);
    cmd->face = face;
    cmd->mode = mode;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -248,7 +267,7 @@ marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
    cmd->green = green;
    cmd->blue = blue;
    cmd->alpha = alpha;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -272,7 +291,7 @@ marshal_Clear(GLbitfield mask)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, Clear);
    cmd->mask = mask;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -302,7 +321,7 @@ marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
    cmd->y = y;
    cmd->z = z;
    cmd->w = w;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -326,7 +345,7 @@ marshal_Begin(GLenum mode)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, Begin);
    cmd->mode = mode;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -350,7 +369,7 @@ marshal_EdgeFlag(GLboolean x)
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, EdgeFlag);
    cmd->x = x;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -376,7 +395,7 @@ marshal_Vertex2f(GLfloat x, GLfloat y)
    QUEUE_SIMPLE_COMMAND(cmd, Vertex2f);
    cmd->x = x;
    cmd->y = y;
-   unmarshal_dispatch_cmd(ctx, cmd);
+   post_marshal_hook(ctx);
 }
 
 
@@ -398,7 +417,8 @@ marshal_End(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    QUEUE_SIMPLE_COMMAND(cmd, End);
-   unmarshal_dispatch_cmd(ctx, cmd);
+   (void) cmd;
+   post_marshal_hook(ctx);
 }
 
 
