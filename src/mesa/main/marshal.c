@@ -63,10 +63,26 @@ marshal_GetString(GLenum name)
 }
 
 
+static char HACK_command_queue[65536];
+static size_t command_queue_used = 0;
+
+
+static void *
+allocate_command_in_queue(enum dispatch_cmd_id cmd_id, size_t size)
+{
+   enum dispatch_cmd_id *cmd =
+      (enum dispatch_cmd_id *) &HACK_command_queue[command_queue_used];
+   assert(command_queue_used + size < sizeof(HACK_command_queue));
+   command_queue_used += size;
+   *cmd = cmd_id;
+   return cmd;
+}
+
+
 #define QUEUE_SIMPLE_COMMAND(var, cmd_name) \
-   struct cmd_##cmd_name _local_cmd; \
-   struct cmd_##cmd_name *var = &_local_cmd; \
-   var->cmd_id = DISPATCH_CMD_##cmd_name
+   struct cmd_##cmd_name *var = \
+      allocate_command_in_queue(DISPATCH_CMD_##cmd_name, \
+                                sizeof(struct cmd_##cmd_name))
 
 
 struct cmd_Viewport
