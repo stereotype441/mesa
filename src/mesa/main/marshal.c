@@ -33,9 +33,11 @@
 
 #include "api_exec.h"
 #include "dispatch.h"
+#include "threadpool.h"
 
 
 static bool execute_immediately = false;
+static bool use_actual_threads = true;
 
 
 enum dispatch_cmd_id
@@ -100,8 +102,17 @@ submit_batch(struct gl_context *ctx)
    ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.BatchPrep->Next;
    ctx->Marshal.BatchPrep = NULL;
 
-   /* If we aren't using actual threads, execute the commands immediately. */
-   consume_command_queue(ctx);
+   if (use_actual_threads) {
+      struct threadpool_task *task =
+         _mesa_threadpool_queue_task(ctx->Shared->MarshalThreadPool,
+                                     consume_command_queue, ctx);
+      _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool, &task);
+   } else {
+      /* If we aren't using actual threads, execute the commands
+       * immediately.
+       */
+      consume_command_queue(ctx);
+   }
 }
 
 
