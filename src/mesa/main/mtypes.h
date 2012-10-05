@@ -2561,6 +2561,11 @@ struct gl_shared_state
    GLuint TextureStateStamp;	        /**< state notification for shared tex */
    /*@}*/
 
+   /**
+    * Thread pool for deferred execution of GL commands.
+    */
+   struct threadpool *MarshalThreadPool;
+
    /** Default buffer object for vertex arrays that aren't in VBOs */
    struct gl_buffer_object *NullBufferObj;
 
