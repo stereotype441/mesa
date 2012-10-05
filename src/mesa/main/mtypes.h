@@ -3401,6 +3401,11 @@ struct gl_context_marshal
     * Shared.BatchQueue.  NULL if there are no such commands.
     */
    struct gl_context_marshal_batch *BatchPrep;
+
+   /**
+    * Task that is currently executing commands, if any.
+    */
+   struct threadpool_task *Task;
 };
 
 /**

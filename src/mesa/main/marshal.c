@@ -107,10 +107,11 @@ submit_batch(struct gl_context *ctx)
    _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
 
    if (use_actual_threads) {
-      struct threadpool_task *task =
+      ctx->Marshal.Task =
          _mesa_threadpool_queue_task(ctx->Shared->MarshalThreadPool,
                                      consume_command_queue, ctx);
-      _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool, &task);
+      _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool,
+                                     &ctx->Marshal.Task);
    } else {
       /* If we aren't using actual threads, execute the commands
        * immediately.
