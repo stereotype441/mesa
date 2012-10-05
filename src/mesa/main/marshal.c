@@ -134,8 +134,6 @@ submit_batch(struct gl_context *ctx)
       ctx->Marshal.Task =
          _mesa_threadpool_queue_task(ctx->Shared->MarshalThreadPool,
                                      consume_command_queue, ctx);
-      _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool,
-                                     &ctx->Marshal.Task);
    } else {
       /* If we aren't using actual threads, execute the commands
        * immediately.
@@ -222,10 +220,12 @@ post_marshal_hook(struct gl_context *ctx)
 static inline void
 synchronize_lock(struct gl_context *ctx)
 {
-   /* There is only one thread, so instead of waiting for the server thread to
-    * finish processing commands, we have to process them ourselves.
-    */
    submit_batch(ctx);
+
+   if (ctx->Marshal.Task != NULL) {
+      _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool,
+                                     &ctx->Marshal.Task);
+   }
 }
 
 
