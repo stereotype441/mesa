@@ -218,7 +218,7 @@ post_marshal_hook(struct gl_context *ctx)
 
 
 static inline void
-synchronize_lock(struct gl_context *ctx)
+synchronize(struct gl_context *ctx)
 {
    submit_batch(ctx);
 
@@ -229,21 +229,12 @@ synchronize_lock(struct gl_context *ctx)
 }
 
 
-static inline void
-synchronize_unlock(struct gl_context *ctx)
-{
-   /* Nothing to do yet--there is only one thread. */
-}
-
-
 static const GLubyte *GLAPIENTRY
 marshal_GetString(GLenum name)
 {
    GET_CURRENT_CONTEXT(ctx);
-   synchronize_lock(ctx);
-   const GLubyte *result = CALL_GetString(ctx->Exec, (name));
-   synchronize_unlock(ctx);
-   return result;
+   synchronize(ctx);
+   return CALL_GetString(ctx->Exec, (name));
 }
 
 
@@ -571,9 +562,8 @@ marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
                    GLenum format, GLenum type, GLvoid *pixels)
 {
    GET_CURRENT_CONTEXT(ctx);
-   synchronize_lock(ctx);
+   synchronize(ctx);
    CALL_ReadPixels(ctx->Exec, (x, y, width, height, format, type, pixels));
-   synchronize_unlock(ctx);
 }
 
 
@@ -581,9 +571,8 @@ static void GLAPIENTRY
 marshal_Flush(void)
 {
    GET_CURRENT_CONTEXT(ctx);
-   synchronize_lock(ctx);
+   synchronize(ctx);
    CALL_Flush(ctx->Exec, ());
-   synchronize_unlock(ctx);
 }
 
 
