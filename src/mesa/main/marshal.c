@@ -104,7 +104,31 @@ submit_batch(struct gl_context *ctx)
    ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.BatchPrep->Next;
    ctx->Marshal.BatchPrep = NULL;
 
-   _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
+   if (ctx->Marshal.Task != NULL) {
+      if (ctx->Marshal.Shared.TaskComplete) {
+         /* The task has already started to exit (or has already exited), so
+          * it won't pick up the new batch.  We'll need to start a new task,
+          * so tell the thread pool we're done with this one.
+          */
+         _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
+         _mesa_threadpool_wait_for_task(ctx->Shared->MarshalThreadPool,
+                                        &ctx->Marshal.Task);
+      } else {
+         /* The task is still running, so it will pick up the new batch.
+          * Nothing more we need to do.
+          */
+         _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
+         return;
+      }
+   } else {
+      _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
+   }
+
+   /* Now ctx->Marshal.Task is NULL, so it is safe to set
+    * ctx->Marshal.Shared.TaskComplete without re-acquiring the mutex, because
+    * there is no background task to contend with.
+    */
+   ctx->Marshal.Shared.TaskComplete = GL_FALSE;
 
    if (use_actual_threads) {
       ctx->Marshal.Task =
@@ -180,6 +204,8 @@ consume_command_queue(void *data)
 
       _glthread_LOCK_MUTEX(ctx->Marshal.Mutex);
    }
+
+   ctx->Marshal.Shared.TaskComplete = GL_TRUE;
 
    _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
 }

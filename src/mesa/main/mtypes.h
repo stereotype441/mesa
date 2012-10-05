@@ -3394,6 +3394,19 @@ struct gl_context_marshal
        */
       struct gl_context_marshal_batch **BatchQueueTail;
 
+      /**
+       * If Task is non-null, this boolean indicates whether the task has
+       * decided to exit its execution loop.  If this value is GL_FALSE, then
+       * the task is guaranteed to notice any batches added to BatchQueue.
+       * Undefined if Task is null.
+       *
+       * Note that we can't use Task->finished, since that doesn't get set to
+       * GL_TRUE until *after* the task exits, so there is a brief period
+       * where it is GL_FALSE but the task won't notice any batches added to
+       * BatchQueue.
+       */
+      GLboolean TaskComplete;
+
    } Shared;
 
    /**
