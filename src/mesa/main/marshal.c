@@ -59,17 +59,70 @@ static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
 
 
-static char HACK_command_queue[65536];
-static size_t command_queue_used = 0;
+/**
+ * A single batch of commands queued up for later execution by a thread pool
+ * task.
+ */
+struct gl_context_marshal_batch
+{
+   /**
+    * Next batch of commands to execute after this batch, or NULL if this is
+    * the last set of commands queued.  Protected by ctx->Marshal.Mutex.
+    */
+   struct gl_context_marshal_batch *Next;
+
+   /**
+    * Points to the first command in the batch.
+    */
+   char *Buffer;
+
+   /**
+    * Number of bytes used by batch commands.
+    */
+   size_t BytesUsed;
+};
+
+
+#define BUFFER_SIZE 65536
+
+
+static void
+submit_batch(struct gl_context *ctx)
+{
+   if (ctx->Marshal.BatchPrep == NULL)
+      return;
+
+   /* TODO: wait if the queue is full. */
+
+   *ctx->Marshal.Shared.BatchQueueTail = ctx->Marshal.BatchPrep;
+   ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.BatchPrep->Next;
+   ctx->Marshal.BatchPrep = NULL;
+}
 
 
 static void *
-allocate_command_in_queue(enum dispatch_cmd_id cmd_id, size_t size)
+allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
+                          size_t size)
 {
-   enum dispatch_cmd_id *cmd =
-      (enum dispatch_cmd_id *) &HACK_command_queue[command_queue_used];
-   assert(command_queue_used + size < sizeof(HACK_command_queue));
-   command_queue_used += size;
+   enum dispatch_cmd_id *cmd;
+
+   assert(size <= BUFFER_SIZE);
+
+   if (ctx->Marshal.BatchPrep != NULL &&
+       ctx->Marshal.BatchPrep->BytesUsed + size > BUFFER_SIZE) {
+      submit_batch(ctx);
+   }
+
+   if (ctx->Marshal.BatchPrep == NULL) {
+      /* TODO: how to handle memory allocation failure? */
+      ctx->Marshal.BatchPrep =
+         calloc(1, sizeof(struct gl_context_marshal_batch));
+      ctx->Marshal.BatchPrep->Buffer = malloc(BUFFER_SIZE);
+   }
+
+   cmd = (enum dispatch_cmd_id *)
+      &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->BytesUsed];
+   ctx->Marshal.BatchPrep->BytesUsed += size;
    *cmd = cmd_id;
    return cmd;
 }
@@ -77,18 +130,39 @@ allocate_command_in_queue(enum dispatch_cmd_id cmd_id, size_t size)
 
 #define QUEUE_SIMPLE_COMMAND(var, cmd_name) \
    struct cmd_##cmd_name *var = \
-      allocate_command_in_queue(DISPATCH_CMD_##cmd_name, \
+      allocate_command_in_queue(ctx, DISPATCH_CMD_##cmd_name,    \
                                 sizeof(struct cmd_##cmd_name))
 
 
 static void
 consume_command_queue(struct gl_context *ctx)
 {
-   size_t pos = 0;
-   while (pos < command_queue_used)
-      pos += unmarshal_dispatch_cmd(ctx, &HACK_command_queue[pos]);
-   assert (pos == command_queue_used);
-   command_queue_used = 0;
+   size_t pos;
+
+   while (ctx->Marshal.Shared.BatchQueue != NULL) {
+      /* Remove the first batch from the queue. */
+      struct gl_context_marshal_batch *batch = ctx->Marshal.Shared.BatchQueue;
+      ctx->Marshal.Shared.BatchQueue = batch->Next;
+      if (ctx->Marshal.Shared.BatchQueue == NULL)
+         ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.Shared.BatchQueue;
+
+      /* Execute it. */
+      for (pos = 0; pos < batch->BytesUsed; )
+         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
+      assert(pos == batch->BytesUsed);
+
+      /* Free it. */
+      free(batch->Buffer);
+      free(batch);
+   }
+}
+
+
+static void
+process_commands_synchronously(struct gl_context *ctx)
+{
+   submit_batch(ctx);
+   consume_command_queue(ctx);
 }
 
 
@@ -96,7 +170,7 @@ static inline void
 post_marshal_hook(struct gl_context *ctx)
 {
    if (execute_immediately)
-      consume_command_queue(ctx);
+      process_commands_synchronously(ctx);
 }
 
 
@@ -106,7 +180,7 @@ synchronize_lock(struct gl_context *ctx)
    /* There is only one thread, so instead of waiting for the server thread to
     * finish processing commands, we have to process them ourselves.
     */
-   consume_command_queue(ctx);
+   process_commands_synchronously(ctx);
 }
 
 

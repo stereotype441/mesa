@@ -3374,6 +3374,30 @@ struct gl_uniform_buffer_binding
    GLboolean AutomaticSize;
 };
 
+struct gl_context_marshal
+{
+   struct {
+      /**
+       * Singly-linked list of command batches that are awaiting execution by
+       * a thread pool task.  NULL if empty.
+       */
+      struct gl_context_marshal_batch *BatchQueue;
+
+      /**
+       * Tail pointer for appending batches to the end of BatchQueue.  If the
+       * queue is empty, this points to BatchQueue.
+       */
+      struct gl_context_marshal_batch **BatchQueueTail;
+
+   } Shared;
+
+   /**
+    * Batch containing commands that are being prepared for insertion into
+    * Shared.BatchQueue.  NULL if there are no such commands.
+    */
+   struct gl_context_marshal_batch *BatchPrep;
+};
+
 /**
  * Mesa rendering context.
  *
@@ -3416,6 +3440,8 @@ struct gl_context
    struct _glapi_table *CurrentClientDispatch;
 
    /*@}*/
+
+   struct gl_context_marshal Marshal;
 
    struct gl_config Visual;
    struct gl_framebuffer *DrawBuffer;	/**< buffer for writing */

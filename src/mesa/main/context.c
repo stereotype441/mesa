@@ -955,6 +955,11 @@ _mesa_initialize_context(struct gl_context *ctx,
       return GL_FALSE;
    }
 
+   /* Setup thread marshalling data structures.  TODO: can we rely on
+    * uninitialized members being zero-initialized?
+    */
+   ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.Shared.BatchQueue;
+
    /* setup the API dispatch tables */
    switch (ctx->API) {
 #if FEATURE_GL || FEATURE_ES2
