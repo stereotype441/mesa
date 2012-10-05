@@ -96,11 +96,15 @@ submit_batch(struct gl_context *ctx)
    if (ctx->Marshal.BatchPrep == NULL)
       return;
 
+   _glthread_LOCK_MUTEX(ctx->Marshal.Mutex);
+
    /* TODO: wait if the queue is full. */
 
    *ctx->Marshal.Shared.BatchQueueTail = ctx->Marshal.BatchPrep;
    ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.BatchPrep->Next;
    ctx->Marshal.BatchPrep = NULL;
+
+   _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
 
    if (use_actual_threads) {
       struct threadpool_task *task =
@@ -156,6 +160,8 @@ consume_command_queue(void *data)
    struct gl_context *ctx = (struct gl_context *) data;
    size_t pos;
 
+   _glthread_LOCK_MUTEX(ctx->Marshal.Mutex);
+
    while (ctx->Marshal.Shared.BatchQueue != NULL) {
       /* Remove the first batch from the queue. */
       struct gl_context_marshal_batch *batch = ctx->Marshal.Shared.BatchQueue;
@@ -163,15 +169,18 @@ consume_command_queue(void *data)
       if (ctx->Marshal.Shared.BatchQueue == NULL)
          ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.Shared.BatchQueue;
 
-      /* Execute it. */
+      /* Drop the mutex, execute it, and free it. */
+      _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
       for (pos = 0; pos < batch->BytesUsed; )
          pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
       assert(pos == batch->BytesUsed);
-
-      /* Free it. */
       free(batch->Buffer);
       free(batch);
+
+      _glthread_LOCK_MUTEX(ctx->Marshal.Mutex);
    }
+
+   _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
 }
 
 

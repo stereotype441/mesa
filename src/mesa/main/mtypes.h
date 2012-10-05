@@ -3376,6 +3376,11 @@ struct gl_uniform_buffer_binding
 
 struct gl_context_marshal
 {
+   /**
+    * Mutex protecting the contents of Shared.
+    */
+   _glthread_Mutex Mutex;
+
    struct {
       /**
        * Singly-linked list of command batches that are awaiting execution by
