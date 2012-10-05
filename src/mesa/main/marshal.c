@@ -54,6 +54,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_EdgeFlag,
    DISPATCH_CMD_Vertex2f,
    DISPATCH_CMD_End,
+   DISPATCH_CMD_Flush,
 };
 
 
@@ -567,12 +568,27 @@ marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
 }
 
 
+struct cmd_Flush
+{
+   enum dispatch_cmd_id cmd_id;
+};
+
+
+static inline void
+unmarshal_Flush(struct gl_context *ctx, struct cmd_Flush *cmd)
+{
+   CALL_Flush(ctx->Exec, ());
+}
+
+
 static void GLAPIENTRY
 marshal_Flush(void)
 {
    GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   CALL_Flush(ctx->Exec, ());
+   QUEUE_SIMPLE_COMMAND(cmd, Flush);
+   (void) cmd;
+   post_marshal_hook(ctx);
+   synchronize(ctx); /* TODO: HACK to avoid problems with SwapBuffers */
 }
 
 
@@ -616,6 +632,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_End:
       unmarshal_End(ctx, (struct cmd_End *) cmd);
       return sizeof(struct cmd_End);
+   case DISPATCH_CMD_Flush:
+      unmarshal_Flush(ctx, (struct cmd_Flush *) cmd);
+      return sizeof(struct cmd_Flush);
    default:
       assert(!"Unrecognized command ID");
       return 0;
