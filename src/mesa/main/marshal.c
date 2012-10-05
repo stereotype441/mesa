@@ -57,6 +57,8 @@ enum dispatch_cmd_id
 
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
+static void
+consume_command_queue(struct gl_context *ctx);
 
 
 /**
@@ -97,6 +99,9 @@ submit_batch(struct gl_context *ctx)
    *ctx->Marshal.Shared.BatchQueueTail = ctx->Marshal.BatchPrep;
    ctx->Marshal.Shared.BatchQueueTail = &ctx->Marshal.BatchPrep->Next;
    ctx->Marshal.BatchPrep = NULL;
+
+   /* If we aren't using actual threads, execute the commands immediately. */
+   consume_command_queue(ctx);
 }
 
 
@@ -158,19 +163,11 @@ consume_command_queue(struct gl_context *ctx)
 }
 
 
-static void
-process_commands_synchronously(struct gl_context *ctx)
-{
-   submit_batch(ctx);
-   consume_command_queue(ctx);
-}
-
-
 static inline void
 post_marshal_hook(struct gl_context *ctx)
 {
    if (execute_immediately)
-      process_commands_synchronously(ctx);
+      submit_batch(ctx);
 }
 
 
@@ -180,7 +177,7 @@ synchronize_lock(struct gl_context *ctx)
    /* There is only one thread, so instead of waiting for the server thread to
     * finish processing commands, we have to process them ourselves.
     */
-   process_commands_synchronously(ctx);
+   submit_batch(ctx);
 }
 
 
