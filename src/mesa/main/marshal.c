@@ -58,7 +58,7 @@ enum dispatch_cmd_id
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
 static void
-consume_command_queue(struct gl_context *ctx);
+consume_command_queue(void *ctx);
 
 
 /**
@@ -140,8 +140,9 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
 
 
 static void
-consume_command_queue(struct gl_context *ctx)
+consume_command_queue(void *data)
 {
+   struct gl_context *ctx = (struct gl_context *) data;
    size_t pos;
 
    while (ctx->Marshal.Shared.BatchQueue != NULL) {
