@@ -59,6 +59,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_End,
    DISPATCH_CMD_Flush,
    DISPATCH_CMD_ShaderSourceARB,
+   DISPATCH_CMD_CompileShaderARB,
 };
 
 
@@ -721,6 +722,31 @@ marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
 }
 
 
+struct cmd_CompileShaderARB
+{
+   struct cmd_base cmd_base;
+   GLhandleARB shaderObj;
+};
+
+
+static inline void
+unmarshal_CompileShaderARB(struct gl_context *ctx,
+                           struct cmd_CompileShaderARB *cmd)
+{
+   CALL_CompileShaderARB(ctx->Exec, (cmd->shaderObj));
+}
+
+
+static void GLAPIENTRY
+marshal_CompileShaderARB(GLhandleARB shaderObj)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, CompileShaderARB);
+   cmd->shaderObj = shaderObj;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -768,6 +794,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_ShaderSourceARB:
       unmarshal_ShaderSourceARB(ctx, (struct cmd_ShaderSourceARB *) cmd);
       break;
+   case DISPATCH_CMD_CompileShaderARB:
+      unmarshal_CompileShaderARB(ctx, (struct cmd_CompileShaderARB *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -805,6 +834,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetIntegerv(table, marshal_GetIntegerv);
    SET_CreateShader(table, marshal_CreateShader);
    SET_ShaderSourceARB(table, marshal_ShaderSourceARB);
+   SET_CompileShaderARB(table, marshal_CompileShaderARB);
 
    return table;
 }
