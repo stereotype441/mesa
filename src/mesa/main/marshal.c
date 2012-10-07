@@ -887,6 +887,15 @@ marshal_GetError(void)
 }
 
 
+static const GLubyte * GLAPIENTRY
+marshal_GetStringi(GLenum name, GLuint index)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   return CALL_GetStringi(ctx->Exec, (name, index));
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -996,6 +1005,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetProgramiv(table, marshal_GetProgramiv);
    SET_UseProgramObjectARB(table, marshal_UseProgramObjectARB);
    SET_GetError(table, marshal_GetError);
+   SET_GetStringi(table, marshal_GetStringi);
 
    return table;
 }
