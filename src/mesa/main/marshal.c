@@ -843,6 +843,15 @@ marshal_DeleteShader(GLuint shader)
 }
 
 
+static void GLAPIENTRY
+marshal_GetProgramiv(GLuint program, GLenum pname, GLint *params)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   return CALL_GetProgramiv(ctx->Exec, (program, pname, params));
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -945,6 +954,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_AttachShader(table, marshal_AttachShader);
    SET_LinkProgramARB(table, marshal_LinkProgramARB);
    SET_DeleteShader(table, marshal_DeleteShader);
+   SET_GetProgramiv(table, marshal_GetProgramiv);
 
    return table;
 }
