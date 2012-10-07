@@ -62,6 +62,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_CompileShaderARB,
    DISPATCH_CMD_AttachShader,
    DISPATCH_CMD_LinkProgramARB,
+   DISPATCH_CMD_DeleteShader,
 };
 
 
@@ -818,6 +819,30 @@ marshal_LinkProgramARB(GLuint programObj)
 }
 
 
+struct cmd_DeleteShader
+{
+   struct cmd_base cmd_base;
+   GLuint shader;
+};
+
+
+static inline void
+unmarshal_DeleteShader(struct gl_context *ctx, struct cmd_DeleteShader *cmd)
+{
+   CALL_DeleteShader(ctx->Exec, (cmd->shader));
+}
+
+
+static void GLAPIENTRY
+marshal_DeleteShader(GLuint shader)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, DeleteShader);
+   cmd->shader = shader;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -874,6 +899,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_LinkProgramARB:
       unmarshal_LinkProgramARB(ctx, (struct cmd_LinkProgramARB *) cmd);
       break;
+   case DISPATCH_CMD_DeleteShader:
+      unmarshal_DeleteShader(ctx, (struct cmd_DeleteShader *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -916,6 +944,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_CreateProgram(table, marshal_CreateProgram);
    SET_AttachShader(table, marshal_AttachShader);
    SET_LinkProgramARB(table, marshal_LinkProgramARB);
+   SET_DeleteShader(table, marshal_DeleteShader);
 
    return table;
 }
