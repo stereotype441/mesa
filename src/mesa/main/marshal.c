@@ -85,9 +85,9 @@ struct gl_context_marshal_batch
    char *Buffer;
 
    /**
-    * Number of bytes used by batch commands.
+    * Amount of data used by batch commands, in multiples of 32 bits.
     */
-   size_t BytesUsed;
+   size_t DwordsUsed;
 };
 
 
@@ -105,7 +105,7 @@ struct cmd_base
 };
 
 
-#define BUFFER_SIZE 65536
+#define BUFFER_SIZE_DWORDS 65536
 
 
 static void
@@ -169,10 +169,10 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
    size_t size_dwords = ALIGN(size_bytes, 4) / 4;
 
    assert(size_dwords <= 65535);
-   assert(size_dwords <= BUFFER_SIZE * 4);
+   assert(size_dwords <= BUFFER_SIZE_DWORDS);
 
    if (ctx->Marshal.BatchPrep != NULL &&
-       ctx->Marshal.BatchPrep->BytesUsed + size_dwords * 4 > BUFFER_SIZE) {
+       ctx->Marshal.BatchPrep->DwordsUsed + size_dwords > BUFFER_SIZE_DWORDS) {
       submit_batch(ctx);
    }
 
@@ -180,12 +180,12 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
       /* TODO: how to handle memory allocation failure? */
       ctx->Marshal.BatchPrep =
          calloc(1, sizeof(struct gl_context_marshal_batch));
-      ctx->Marshal.BatchPrep->Buffer = malloc(BUFFER_SIZE);
+      ctx->Marshal.BatchPrep->Buffer = malloc(BUFFER_SIZE_DWORDS * 4);
    }
 
    cmd_base = (struct cmd_base *)
-      &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->BytesUsed];
-   ctx->Marshal.BatchPrep->BytesUsed += size_dwords * 4;
+      &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->DwordsUsed * 4];
+   ctx->Marshal.BatchPrep->DwordsUsed += size_dwords;
    cmd_base->cmd_id = cmd_id;
    cmd_base->cmd_size = size_dwords;
    return cmd_base;
@@ -215,9 +215,9 @@ consume_command_queue(void *data)
 
       /* Drop the mutex, execute it, and free it. */
       _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
-      for (pos = 0; pos < batch->BytesUsed; )
+      for (pos = 0; pos < batch->DwordsUsed * 4; )
          pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
-      assert(pos == batch->BytesUsed);
+      assert(pos == batch->DwordsUsed * 4);
       free(batch->Buffer);
       free(batch);
 
