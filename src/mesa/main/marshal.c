@@ -58,6 +58,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_Vertex2f,
    DISPATCH_CMD_End,
    DISPATCH_CMD_Flush,
+   DISPATCH_CMD_ShaderSourceARB,
 };
 
 
@@ -106,6 +107,7 @@ struct cmd_base
 
 
 #define BUFFER_SIZE_DWORDS 65536
+#define MAX_CMD_SIZE 65535
 
 
 static void
@@ -612,6 +614,113 @@ marshal_Flush(void)
 }
 
 
+static void GLAPIENTRY
+marshal_GetIntegerv(GLenum pname, GLint *params)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   CALL_GetIntegerv(ctx->Exec, (pname, params));
+}
+
+
+static GLuint GLAPIENTRY
+marshal_CreateShader(GLenum type)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   return CALL_CreateShader(ctx->Exec, (type));
+}
+
+
+struct cmd_ShaderSourceARB
+{
+   struct cmd_base cmd_base;
+   GLhandleARB shaderObj;
+   GLsizei count;
+   /* Followed by GLint length[count], then the contents of all strings,
+    * concatenated.
+    */
+};
+
+
+static inline void
+unmarshal_ShaderSourceARB(struct gl_context *ctx,
+                          struct cmd_ShaderSourceARB *cmd)
+{
+   const GLint *cmd_length = (const GLint *) (cmd + 1);
+   const GLcharARB *cmd_strings = (const GLchar *) (cmd_length + cmd->count);
+   /* TODO: how to deal with malloc failure? */
+   const GLcharARB * *string = malloc(cmd->count * sizeof(const GLcharARB *));
+   int i;
+
+   for (i = 0; i < cmd->count; ++i) {
+      string[i] = cmd_strings;
+      cmd_strings += cmd_length[i];
+   }
+   CALL_ShaderSourceARB(ctx->Exec,
+                        (cmd->shaderObj, cmd->count, string, cmd_length));
+   free(string);
+}
+
+
+static size_t
+measure_ShaderSource_strings(GLsizei count, const GLcharARB **string,
+                             const GLint *length_in, GLint *length_out)
+{
+   int i;
+   size_t total_string_length = 0;
+
+   for (i = 0; i < count; ++i) {
+      if (length_in == NULL || length_in[i] < 0)
+         length_out[i] = strlen(string[i]);
+      else
+         length_out[i] = length_in[i];
+      total_string_length += length_out[i];
+   }
+   return total_string_length;
+}
+
+
+static void GLAPIENTRY
+marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
+                        const GLcharARB **string, const GLint *length)
+{
+   /* TODO: how to report an error if count < 0? */
+
+   GET_CURRENT_CONTEXT(ctx);
+   /* TODO: how to deal with malloc failure? */
+   const size_t fixed_cmd_size = sizeof(struct cmd_ShaderSourceARB);
+   STATIC_ASSERT(fixed_cmd_size % sizeof(GLint) == 0);
+   size_t length_size = count * sizeof(GLint);
+   GLint *length_tmp = malloc(length_size);
+   size_t total_string_length =
+      measure_ShaderSource_strings(count, string, length, length_tmp);
+   size_t total_cmd_size = fixed_cmd_size + length_size + total_string_length;
+
+   if (total_cmd_size <= MAX_CMD_SIZE) {
+      struct cmd_ShaderSourceARB *cmd =
+         allocate_command_in_queue(ctx, DISPATCH_CMD_ShaderSourceARB,
+                                   total_cmd_size);
+      GLint *cmd_length = (GLint *) (cmd + 1);
+      GLcharARB *cmd_strings = (GLcharARB *) (cmd_length + count);
+      int i;
+
+      cmd->shaderObj = shaderObj;
+      cmd->count = count;
+      memcpy(cmd_length, length_tmp, length_size);
+      for (i = 0; i < count; ++i) {
+         memcpy(cmd_strings, string[i], cmd_length[i]);
+         cmd_strings += cmd_length[i];
+      }
+      post_marshal_hook(ctx);
+   } else {
+      synchronize(ctx);
+      CALL_ShaderSourceARB(ctx->Exec, (shaderObj, count, string, length_tmp));
+   }
+   free(length_tmp);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -656,6 +765,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_Flush:
       unmarshal_Flush(ctx, (struct cmd_Flush *) cmd);
       break;
+   case DISPATCH_CMD_ShaderSourceARB:
+      unmarshal_ShaderSourceARB(ctx, (struct cmd_ShaderSourceARB *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -690,6 +802,9 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_End(table, marshal_End);
    SET_ReadPixels(table, marshal_ReadPixels);
    SET_Flush(table, marshal_Flush);
+   SET_GetIntegerv(table, marshal_GetIntegerv);
+   SET_CreateShader(table, marshal_CreateShader);
+   SET_ShaderSourceARB(table, marshal_ShaderSourceARB);
 
    return table;
 }
