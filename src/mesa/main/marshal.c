@@ -36,6 +36,9 @@
 #include "threadpool.h"
 
 
+#define ALIGN(value, alignment)  (((value) + alignment - 1) & ~(alignment - 1))
+
+
 static bool execute_immediately = false;
 static bool use_actual_threads = true;
 
@@ -85,6 +88,20 @@ struct gl_context_marshal_batch
     * Number of bytes used by batch commands.
     */
    size_t BytesUsed;
+};
+
+
+struct cmd_base
+{
+   /**
+    * Type of command.  See enum dispatch_cmd_id.
+    */
+   uint16_t cmd_id;
+
+   /**
+    * Size of command, in multiples of 4 bytes, including cmd_base.
+    */
+   uint16_t cmd_size;
 };
 
 
@@ -146,14 +163,16 @@ submit_batch(struct gl_context *ctx)
 
 static void *
 allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
-                          size_t size)
+                          size_t size_bytes)
 {
-   enum dispatch_cmd_id *cmd;
+   struct cmd_base *cmd_base;
+   size_t size_dwords = ALIGN(size_bytes, 4) / 4;
 
-   assert(size <= BUFFER_SIZE);
+   assert(size_dwords <= 65535);
+   assert(size_dwords <= BUFFER_SIZE * 4);
 
    if (ctx->Marshal.BatchPrep != NULL &&
-       ctx->Marshal.BatchPrep->BytesUsed + size > BUFFER_SIZE) {
+       ctx->Marshal.BatchPrep->BytesUsed + size_dwords * 4 > BUFFER_SIZE) {
       submit_batch(ctx);
    }
 
@@ -164,11 +183,12 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
       ctx->Marshal.BatchPrep->Buffer = malloc(BUFFER_SIZE);
    }
 
-   cmd = (enum dispatch_cmd_id *)
+   cmd_base = (struct cmd_base *)
       &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->BytesUsed];
-   ctx->Marshal.BatchPrep->BytesUsed += size;
-   *cmd = cmd_id;
-   return cmd;
+   ctx->Marshal.BatchPrep->BytesUsed += size_dwords * 4;
+   cmd_base->cmd_id = cmd_id;
+   cmd_base->cmd_size = size_dwords;
+   return cmd_base;
 }
 
 
@@ -241,7 +261,7 @@ marshal_GetString(GLenum name)
 
 struct cmd_Viewport
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLint x;
    GLint y;
    GLsizei width;
@@ -271,7 +291,7 @@ marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
 
 struct cmd_MatrixMode
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLenum mode;
 };
 
@@ -295,7 +315,7 @@ marshal_MatrixMode(GLenum mode)
 
 struct cmd_LoadIdentity
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
 };
 
 
@@ -318,7 +338,7 @@ marshal_LoadIdentity(void)
 
 struct cmd_Ortho
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLdouble left;
    GLdouble right;
    GLdouble bottom;
@@ -353,7 +373,7 @@ marshal_Ortho(GLdouble left, GLdouble right,
 
 struct cmd_PolygonMode
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLenum face;
    GLenum mode;
 };
@@ -379,7 +399,7 @@ marshal_PolygonMode(GLenum face, GLenum mode)
 
 struct cmd_ClearColor
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLclampf red;
    GLclampf green;
    GLclampf blue;
@@ -409,7 +429,7 @@ marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 
 struct cmd_Clear
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLbitfield mask;
 };
 
@@ -433,7 +453,7 @@ marshal_Clear(GLbitfield mask)
 
 struct cmd_Color4f
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLfloat x;
    GLfloat y;
    GLfloat z;
@@ -463,7 +483,7 @@ marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 
 struct cmd_Begin
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLenum mode;
 };
 
@@ -487,7 +507,7 @@ marshal_Begin(GLenum mode)
 
 struct cmd_EdgeFlag
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLboolean x;
 };
 
@@ -511,7 +531,7 @@ marshal_EdgeFlag(GLboolean x)
 
 struct cmd_Vertex2f
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
    GLfloat x;
    GLfloat y;
 };
@@ -537,7 +557,7 @@ marshal_Vertex2f(GLfloat x, GLfloat y)
 
 struct cmd_End
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
 };
 
 
@@ -570,7 +590,7 @@ marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
 
 struct cmd_Flush
 {
-   enum dispatch_cmd_id cmd_id;
+   struct cmd_base cmd_base;
 };
 
 
@@ -595,50 +615,53 @@ marshal_Flush(void)
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
-   switch (*(enum dispatch_cmd_id *) cmd) {
+   struct cmd_base *cmd_base = (struct cmd_base *) cmd;
+   switch (cmd_base->cmd_id) {
    case DISPATCH_CMD_Viewport:
       unmarshal_Viewport(ctx, (struct cmd_Viewport *) cmd);
-      return sizeof(struct cmd_Viewport);
+      break;
    case DISPATCH_CMD_MatrixMode:
       unmarshal_MatrixMode(ctx, (struct cmd_MatrixMode *) cmd);
-      return sizeof(struct cmd_MatrixMode);
+      break;
    case DISPATCH_CMD_LoadIdentity:
       unmarshal_LoadIdentity(ctx, (struct cmd_LoadIdentity *) cmd);
-      return sizeof(struct cmd_LoadIdentity);
+      break;
    case DISPATCH_CMD_Ortho:
       unmarshal_Ortho(ctx, (struct cmd_Ortho *) cmd);
-      return sizeof(struct cmd_Ortho);
+      break;
    case DISPATCH_CMD_PolygonMode:
       unmarshal_PolygonMode(ctx, (struct cmd_PolygonMode *) cmd);
-      return sizeof(struct cmd_PolygonMode);
+      break;
    case DISPATCH_CMD_ClearColor:
       unmarshal_ClearColor(ctx, (struct cmd_ClearColor *) cmd);
-      return sizeof(struct cmd_ClearColor);
+      break;
    case DISPATCH_CMD_Clear:
       unmarshal_Clear(ctx, (struct cmd_Clear *) cmd);
-      return sizeof(struct cmd_Clear);
+      break;
    case DISPATCH_CMD_Color4f:
       unmarshal_Color4f(ctx, (struct cmd_Color4f *) cmd);
-      return sizeof(struct cmd_Color4f);
+      break;
    case DISPATCH_CMD_Begin:
       unmarshal_Begin(ctx, (struct cmd_Begin *) cmd);
-      return sizeof(struct cmd_Begin);
+      break;
    case DISPATCH_CMD_EdgeFlag:
       unmarshal_EdgeFlag(ctx, (struct cmd_EdgeFlag *) cmd);
-      return sizeof(struct cmd_EdgeFlag);
+      break;
    case DISPATCH_CMD_Vertex2f:
       unmarshal_Vertex2f(ctx, (struct cmd_Vertex2f *) cmd);
-      return sizeof(struct cmd_Vertex2f);
+      break;
    case DISPATCH_CMD_End:
       unmarshal_End(ctx, (struct cmd_End *) cmd);
-      return sizeof(struct cmd_End);
+      break;
    case DISPATCH_CMD_Flush:
       unmarshal_Flush(ctx, (struct cmd_Flush *) cmd);
-      return sizeof(struct cmd_Flush);
+      break;
    default:
       assert(!"Unrecognized command ID");
-      return 0;
+      break;
    }
+
+   return cmd_base->cmd_size * 4;
 }
 
 
