@@ -896,6 +896,15 @@ marshal_GetStringi(GLenum name, GLuint index)
 }
 
 
+static GLint GLAPIENTRY
+marshal_GetUniformLocationARB(GLhandleARB programObj, const GLcharARB *name)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   return CALL_GetUniformLocationARB(ctx->Exec, (programObj, name));
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -1006,6 +1015,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_UseProgramObjectARB(table, marshal_UseProgramObjectARB);
    SET_GetError(table, marshal_GetError);
    SET_GetStringi(table, marshal_GetStringi);
+   SET_GetUniformLocationARB(table, marshal_GetUniformLocationARB);
 
    return table;
 }
