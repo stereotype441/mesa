@@ -82,7 +82,7 @@ struct gl_context_marshal_batch
    /**
     * Points to the first command in the batch.
     */
-   char *Buffer;
+   uint32_t *Buffer;
 
    /**
     * Amount of data used by batch commands, in multiples of 32 bits.
@@ -184,7 +184,7 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
    }
 
    cmd_base = (struct cmd_base *)
-      &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->DwordsUsed * 4];
+      &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->DwordsUsed];
    ctx->Marshal.BatchPrep->DwordsUsed += size_dwords;
    cmd_base->cmd_id = cmd_id;
    cmd_base->cmd_size = size_dwords;
@@ -216,7 +216,7 @@ consume_command_queue(void *data)
       /* Drop the mutex, execute it, and free it. */
       _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
       for (pos = 0; pos < batch->DwordsUsed * 4; )
-         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
+         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos / 4]);
       assert(pos == batch->DwordsUsed * 4);
       free(batch->Buffer);
       free(batch);
