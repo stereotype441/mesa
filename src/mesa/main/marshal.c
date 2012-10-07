@@ -216,7 +216,7 @@ consume_command_queue(void *data)
       /* Drop the mutex, execute it, and free it. */
       _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
       for (pos = 0; pos < batch->DwordsUsed; )
-         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]) / 4;
+         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
       assert(pos == batch->DwordsUsed);
       free(batch->Buffer);
       free(batch);
@@ -661,7 +661,7 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
       break;
    }
 
-   return cmd_base->cmd_size * 4;
+   return cmd_base->cmd_size;
 }
 
 
