@@ -747,6 +747,15 @@ marshal_CompileShaderARB(GLhandleARB shaderObj)
 }
 
 
+static void GLAPIENTRY
+marshal_GetShaderiv(GLuint shader, GLenum pname, GLint *params)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   CALL_GetShaderiv(ctx->Exec, (shader, pname, params));
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -835,6 +844,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_CreateShader(table, marshal_CreateShader);
    SET_ShaderSourceARB(table, marshal_ShaderSourceARB);
    SET_CompileShaderARB(table, marshal_CompileShaderARB);
+   SET_GetShaderiv(table, marshal_GetShaderiv);
 
    return table;
 }
