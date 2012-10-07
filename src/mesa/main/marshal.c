@@ -215,9 +215,9 @@ consume_command_queue(void *data)
 
       /* Drop the mutex, execute it, and free it. */
       _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
-      for (pos = 0; pos < batch->DwordsUsed * 4; )
-         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos / 4]);
-      assert(pos == batch->DwordsUsed * 4);
+      for (pos = 0; pos < batch->DwordsUsed; )
+         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]) / 4;
+      assert(pos == batch->DwordsUsed);
       free(batch->Buffer);
       free(batch);
 
