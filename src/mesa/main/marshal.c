@@ -61,6 +61,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_ShaderSourceARB,
    DISPATCH_CMD_CompileShaderARB,
    DISPATCH_CMD_AttachShader,
+   DISPATCH_CMD_LinkProgramARB,
 };
 
 
@@ -792,6 +793,31 @@ marshal_AttachShader(GLuint program, GLuint shader)
 }
 
 
+struct cmd_LinkProgramARB
+{
+   struct cmd_base cmd_base;
+   GLhandleARB programObj;
+};
+
+
+static inline void
+unmarshal_LinkProgramARB(struct gl_context *ctx,
+                         struct cmd_LinkProgramARB *cmd)
+{
+   CALL_LinkProgramARB(ctx->Exec, (cmd->programObj));
+}
+
+
+static void GLAPIENTRY
+marshal_LinkProgramARB(GLuint programObj)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, LinkProgramARB);
+   cmd->programObj = programObj;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -845,6 +871,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_AttachShader:
       unmarshal_AttachShader(ctx, (struct cmd_AttachShader *) cmd);
       break;
+   case DISPATCH_CMD_LinkProgramARB:
+      unmarshal_LinkProgramARB(ctx, (struct cmd_LinkProgramARB *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -886,6 +915,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetShaderiv(table, marshal_GetShaderiv);
    SET_CreateProgram(table, marshal_CreateProgram);
    SET_AttachShader(table, marshal_AttachShader);
+   SET_LinkProgramARB(table, marshal_LinkProgramARB);
 
    return table;
 }
