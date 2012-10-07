@@ -878,6 +878,15 @@ marshal_UseProgramObjectARB(GLhandleARB program)
 }
 
 
+static GLenum GLAPIENTRY
+marshal_GetError(void)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   return CALL_GetError(ctx->Exec, ());
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -986,6 +995,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_DeleteShader(table, marshal_DeleteShader);
    SET_GetProgramiv(table, marshal_GetProgramiv);
    SET_UseProgramObjectARB(table, marshal_UseProgramObjectARB);
+   SET_GetError(table, marshal_GetError);
 
    return table;
 }
