@@ -73,7 +73,7 @@ enum dispatch_cmd_id
 
 
 static size_t
-unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd);
+unmarshal_dispatch_cmd(struct gl_context *ctx, const void *cmd);
 static void
 consume_command_queue(void *ctx);
 
@@ -284,7 +284,7 @@ struct cmd_Viewport
 
 
 static inline void
-unmarshal_Viewport(struct gl_context *ctx, struct cmd_Viewport *cmd)
+unmarshal_Viewport(struct gl_context *ctx, const struct cmd_Viewport *cmd)
 {
    CALL_Viewport(ctx->Exec, (cmd->x, cmd->y, cmd->width, cmd->height));
 }
@@ -311,7 +311,7 @@ struct cmd_MatrixMode
 
 
 static inline void
-unmarshal_MatrixMode(struct gl_context *ctx, struct cmd_MatrixMode *cmd)
+unmarshal_MatrixMode(struct gl_context *ctx, const struct cmd_MatrixMode *cmd)
 {
    CALL_MatrixMode(ctx->Exec, (cmd->mode));
 }
@@ -334,7 +334,8 @@ struct cmd_LoadIdentity
 
 
 static inline void
-unmarshal_LoadIdentity(struct gl_context *ctx, struct cmd_LoadIdentity *cmd)
+unmarshal_LoadIdentity(struct gl_context *ctx,
+                       const struct cmd_LoadIdentity *cmd)
 {
    CALL_LoadIdentity(ctx->Exec, ());
 }
@@ -363,7 +364,7 @@ struct cmd_Ortho
 
 
 static inline void
-unmarshal_Ortho(struct gl_context *ctx, struct cmd_Ortho *cmd)
+unmarshal_Ortho(struct gl_context *ctx, const struct cmd_Ortho *cmd)
 {
    CALL_Ortho(ctx->Exec, (cmd->left, cmd->right, cmd->bottom, cmd->top, cmd->nearval, cmd->farval));
 }
@@ -394,7 +395,8 @@ struct cmd_PolygonMode
 
 
 static inline void
-unmarshal_PolygonMode(struct gl_context *ctx, struct cmd_PolygonMode *cmd)
+unmarshal_PolygonMode(struct gl_context *ctx,
+                      const struct cmd_PolygonMode *cmd)
 {
    CALL_PolygonMode(ctx->Exec, (cmd->face, cmd->mode));
 }
@@ -422,7 +424,7 @@ struct cmd_ClearColor
 
 
 static inline void
-unmarshal_ClearColor(struct gl_context *ctx, struct cmd_ClearColor *cmd)
+unmarshal_ClearColor(struct gl_context *ctx, const struct cmd_ClearColor *cmd)
 {
    CALL_ClearColor(ctx->Exec, (cmd->red, cmd->green, cmd->blue, cmd->alpha));
 }
@@ -449,7 +451,7 @@ struct cmd_Clear
 
 
 static inline void
-unmarshal_Clear(struct gl_context *ctx, struct cmd_Clear *cmd)
+unmarshal_Clear(struct gl_context *ctx, const struct cmd_Clear *cmd)
 {
    CALL_Clear(ctx->Exec, (cmd->mask));
 }
@@ -476,7 +478,7 @@ struct cmd_Color4f
 
 
 static inline void
-unmarshal_Color4f(struct gl_context *ctx, struct cmd_Color4f *cmd)
+unmarshal_Color4f(struct gl_context *ctx, const struct cmd_Color4f *cmd)
 {
    CALL_Color4f(ctx->Exec, (cmd->x, cmd->y, cmd->z, cmd->w));
 }
@@ -503,7 +505,7 @@ struct cmd_Begin
 
 
 static inline void
-unmarshal_Begin(struct gl_context *ctx, struct cmd_Begin *cmd)
+unmarshal_Begin(struct gl_context *ctx, const struct cmd_Begin *cmd)
 {
    CALL_Begin(ctx->Exec, (cmd->mode));
 }
@@ -527,7 +529,7 @@ struct cmd_EdgeFlag
 
 
 static inline void
-unmarshal_EdgeFlag(struct gl_context *ctx, struct cmd_EdgeFlag *cmd)
+unmarshal_EdgeFlag(struct gl_context *ctx, const struct cmd_EdgeFlag *cmd)
 {
    CALL_EdgeFlag(ctx->Exec, (cmd->x));
 }
@@ -552,7 +554,7 @@ struct cmd_Vertex2f
 
 
 static inline void
-unmarshal_Vertex2f(struct gl_context *ctx, struct cmd_Vertex2f *cmd)
+unmarshal_Vertex2f(struct gl_context *ctx, const struct cmd_Vertex2f *cmd)
 {
    CALL_Vertex2f(ctx->Exec, (cmd->x, cmd->y));
 }
@@ -576,7 +578,7 @@ struct cmd_End
 
 
 static inline void
-unmarshal_End(struct gl_context *ctx, struct cmd_End *cmd)
+unmarshal_End(struct gl_context *ctx, const struct cmd_End *cmd)
 {
    CALL_End(ctx->Exec, ());
 }
@@ -609,7 +611,7 @@ struct cmd_Flush
 
 
 static inline void
-unmarshal_Flush(struct gl_context *ctx, struct cmd_Flush *cmd)
+unmarshal_Flush(struct gl_context *ctx, const struct cmd_Flush *cmd)
 {
    CALL_Flush(ctx->Exec, ());
 }
@@ -657,7 +659,7 @@ struct cmd_ShaderSourceARB
 
 static inline void
 unmarshal_ShaderSourceARB(struct gl_context *ctx,
-                          struct cmd_ShaderSourceARB *cmd)
+                          const struct cmd_ShaderSourceARB *cmd)
 {
    const GLint *cmd_length = (const GLint *) (cmd + 1);
    const GLcharARB *cmd_strings = (const GLchar *) (cmd_length + cmd->count);
@@ -742,7 +744,7 @@ struct cmd_CompileShaderARB
 
 static inline void
 unmarshal_CompileShaderARB(struct gl_context *ctx,
-                           struct cmd_CompileShaderARB *cmd)
+                           const struct cmd_CompileShaderARB *cmd)
 {
    CALL_CompileShaderARB(ctx->Exec, (cmd->shaderObj));
 }
@@ -785,7 +787,8 @@ struct cmd_AttachShader
 
 
 static inline void
-unmarshal_AttachShader(struct gl_context *ctx, struct cmd_AttachShader *cmd)
+unmarshal_AttachShader(struct gl_context *ctx,
+                       const struct cmd_AttachShader *cmd)
 {
    CALL_AttachShader(ctx->Exec, (cmd->program, cmd->shader));
 }
@@ -811,7 +814,7 @@ struct cmd_LinkProgramARB
 
 static inline void
 unmarshal_LinkProgramARB(struct gl_context *ctx,
-                         struct cmd_LinkProgramARB *cmd)
+                         const struct cmd_LinkProgramARB *cmd)
 {
    CALL_LinkProgramARB(ctx->Exec, (cmd->programObj));
 }
@@ -835,7 +838,8 @@ struct cmd_DeleteShader
 
 
 static inline void
-unmarshal_DeleteShader(struct gl_context *ctx, struct cmd_DeleteShader *cmd)
+unmarshal_DeleteShader(struct gl_context *ctx,
+                       const struct cmd_DeleteShader *cmd)
 {
    CALL_DeleteShader(ctx->Exec, (cmd->shader));
 }
@@ -869,7 +873,7 @@ struct cmd_UseProgramObjectARB
 
 static inline void
 unmarshal_UseProgramObjectARB(struct gl_context *ctx,
-                              struct cmd_UseProgramObjectARB *cmd)
+                              const struct cmd_UseProgramObjectARB *cmd)
 {
    CALL_UseProgramObjectARB(ctx->Exec, (cmd->program));
 }
@@ -922,7 +926,8 @@ struct cmd_Uniform1fvARB
 
 
 static inline void
-unmarshal_Uniform1fvARB(struct gl_context *ctx, struct cmd_Uniform1fvARB *cmd)
+unmarshal_Uniform1fvARB(struct gl_context *ctx,
+                        const struct cmd_Uniform1fvARB *cmd)
 {
    const GLfloat *cmd_value = (const GLfloat *) (cmd + 1);
    CALL_Uniform1fvARB(ctx->Exec, (cmd->location, cmd->count, cmd_value));
@@ -962,7 +967,8 @@ struct cmd_Uniform1iARB
 
 
 static inline void
-unmarshal_Uniform1iARB(struct gl_context *ctx, struct cmd_Uniform1iARB *cmd)
+unmarshal_Uniform1iARB(struct gl_context *ctx,
+                       const struct cmd_Uniform1iARB *cmd)
 {
    CALL_Uniform1iARB(ctx->Exec, (cmd->location, cmd->v0));
 }
@@ -990,7 +996,8 @@ struct cmd_VertexPointer
 
 
 static inline void
-unmarshal_VertexPointer(struct gl_context *ctx, struct cmd_VertexPointer *cmd)
+unmarshal_VertexPointer(struct gl_context *ctx,
+                        const struct cmd_VertexPointer *cmd)
 {
    CALL_VertexPointer(ctx->Exec, (cmd->size, cmd->type, cmd->stride, cmd->pointer));
 }
@@ -1018,7 +1025,8 @@ struct cmd_EnableClientState
 
 
 static inline void
-unmarshal_EnableClientState(struct gl_context *ctx, struct cmd_EnableClientState *cmd)
+unmarshal_EnableClientState(struct gl_context *ctx,
+                            const struct cmd_EnableClientState *cmd)
 {
    CALL_EnableClientState(ctx->Exec, (cmd->array));
 }
@@ -1052,7 +1060,7 @@ struct cmd_DisableClientState
 
 static inline void
 unmarshal_DisableClientState(struct gl_context *ctx,
-                             struct cmd_DisableClientState *cmd)
+                             const struct cmd_DisableClientState *cmd)
 {
    CALL_DisableClientState(ctx->Exec, (cmd->array));
 }
@@ -1069,82 +1077,81 @@ marshal_DisableClientState(GLenum array)
 
 
 static size_t
-unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
+unmarshal_dispatch_cmd(struct gl_context *ctx, const void *cmd)
 {
-   struct cmd_base *cmd_base = (struct cmd_base *) cmd;
+   const struct cmd_base *cmd_base = (const struct cmd_base *) cmd;
    switch (cmd_base->cmd_id) {
    case DISPATCH_CMD_Viewport:
-      unmarshal_Viewport(ctx, (struct cmd_Viewport *) cmd);
+      unmarshal_Viewport(ctx, (const struct cmd_Viewport *) cmd);
       break;
    case DISPATCH_CMD_MatrixMode:
-      unmarshal_MatrixMode(ctx, (struct cmd_MatrixMode *) cmd);
+      unmarshal_MatrixMode(ctx, (const struct cmd_MatrixMode *) cmd);
       break;
    case DISPATCH_CMD_LoadIdentity:
-      unmarshal_LoadIdentity(ctx, (struct cmd_LoadIdentity *) cmd);
+      unmarshal_LoadIdentity(ctx, (const struct cmd_LoadIdentity *) cmd);
       break;
    case DISPATCH_CMD_Ortho:
-      unmarshal_Ortho(ctx, (struct cmd_Ortho *) cmd);
+      unmarshal_Ortho(ctx, (const struct cmd_Ortho *) cmd);
       break;
    case DISPATCH_CMD_PolygonMode:
-      unmarshal_PolygonMode(ctx, (struct cmd_PolygonMode *) cmd);
+      unmarshal_PolygonMode(ctx, (const struct cmd_PolygonMode *) cmd);
       break;
    case DISPATCH_CMD_ClearColor:
-      unmarshal_ClearColor(ctx, (struct cmd_ClearColor *) cmd);
+      unmarshal_ClearColor(ctx, (const struct cmd_ClearColor *) cmd);
       break;
    case DISPATCH_CMD_Clear:
-      unmarshal_Clear(ctx, (struct cmd_Clear *) cmd);
+      unmarshal_Clear(ctx, (const struct cmd_Clear *) cmd);
       break;
    case DISPATCH_CMD_Color4f:
-      unmarshal_Color4f(ctx, (struct cmd_Color4f *) cmd);
+      unmarshal_Color4f(ctx, (const struct cmd_Color4f *) cmd);
       break;
    case DISPATCH_CMD_Begin:
-      unmarshal_Begin(ctx, (struct cmd_Begin *) cmd);
+      unmarshal_Begin(ctx, (const struct cmd_Begin *) cmd);
       break;
    case DISPATCH_CMD_EdgeFlag:
-      unmarshal_EdgeFlag(ctx, (struct cmd_EdgeFlag *) cmd);
+      unmarshal_EdgeFlag(ctx, (const struct cmd_EdgeFlag *) cmd);
       break;
    case DISPATCH_CMD_Vertex2f:
-      unmarshal_Vertex2f(ctx, (struct cmd_Vertex2f *) cmd);
+      unmarshal_Vertex2f(ctx, (const struct cmd_Vertex2f *) cmd);
       break;
    case DISPATCH_CMD_End:
-      unmarshal_End(ctx, (struct cmd_End *) cmd);
+      unmarshal_End(ctx, (const struct cmd_End *) cmd);
       break;
    case DISPATCH_CMD_Flush:
-      unmarshal_Flush(ctx, (struct cmd_Flush *) cmd);
+      unmarshal_Flush(ctx, (const struct cmd_Flush *) cmd);
       break;
    case DISPATCH_CMD_ShaderSourceARB:
-      unmarshal_ShaderSourceARB(ctx, (struct cmd_ShaderSourceARB *) cmd);
+      unmarshal_ShaderSourceARB(ctx, (const struct cmd_ShaderSourceARB *) cmd);
       break;
    case DISPATCH_CMD_CompileShaderARB:
-      unmarshal_CompileShaderARB(ctx, (struct cmd_CompileShaderARB *) cmd);
+      unmarshal_CompileShaderARB(ctx, (const struct cmd_CompileShaderARB *) cmd);
       break;
    case DISPATCH_CMD_AttachShader:
-      unmarshal_AttachShader(ctx, (struct cmd_AttachShader *) cmd);
+      unmarshal_AttachShader(ctx, (const struct cmd_AttachShader *) cmd);
       break;
    case DISPATCH_CMD_LinkProgramARB:
-      unmarshal_LinkProgramARB(ctx, (struct cmd_LinkProgramARB *) cmd);
+      unmarshal_LinkProgramARB(ctx, (const struct cmd_LinkProgramARB *) cmd);
       break;
    case DISPATCH_CMD_DeleteShader:
-      unmarshal_DeleteShader(ctx, (struct cmd_DeleteShader *) cmd);
+      unmarshal_DeleteShader(ctx, (const struct cmd_DeleteShader *) cmd);
       break;
    case DISPATCH_CMD_UseProgramObjectARB:
-      unmarshal_UseProgramObjectARB(ctx,
-                                    (struct cmd_UseProgramObjectARB *) cmd);
+      unmarshal_UseProgramObjectARB(ctx, (const struct cmd_UseProgramObjectARB *) cmd);
       break;
    case DISPATCH_CMD_Uniform1fvARB:
-      unmarshal_Uniform1fvARB(ctx, (struct cmd_Uniform1fvARB *) cmd);
+      unmarshal_Uniform1fvARB(ctx, (const struct cmd_Uniform1fvARB *) cmd);
       break;
    case DISPATCH_CMD_Uniform1iARB:
-      unmarshal_Uniform1iARB(ctx, (struct cmd_Uniform1iARB *) cmd);
+      unmarshal_Uniform1iARB(ctx, (const struct cmd_Uniform1iARB *) cmd);
       break;
    case DISPATCH_CMD_VertexPointer:
-      unmarshal_VertexPointer(ctx, (struct cmd_VertexPointer *) cmd);
+      unmarshal_VertexPointer(ctx, (const struct cmd_VertexPointer *) cmd);
       break;
    case DISPATCH_CMD_EnableClientState:
-      unmarshal_EnableClientState(ctx, (struct cmd_EnableClientState *) cmd);
+      unmarshal_EnableClientState(ctx, (const struct cmd_EnableClientState *) cmd);
       break;
    case DISPATCH_CMD_DisableClientState:
-      unmarshal_DisableClientState(ctx, (struct cmd_DisableClientState *) cmd);
+      unmarshal_DisableClientState(ctx, (const struct cmd_DisableClientState *) cmd);
       break;
    default:
       assert(!"Unrecognized command ID");
