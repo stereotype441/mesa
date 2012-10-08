@@ -75,6 +75,11 @@ class PrintCode(gl_XML.gl_print_base):
 
         def classify_function(self, f):
                 # TODO: should go into function class
+                if f.name == 'Flush':
+                        # TODO: since we don't have any hook into
+                        # SwapBuffers, we have to do a synchronous
+                        # flush.
+                        return 'sync'
                 if f.return_type != 'void':
                         return 'sync'
                 if any([p.is_pointer() for p in f.parameters]):
