@@ -67,6 +67,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_Uniform1fvARB,
    DISPATCH_CMD_Uniform1iARB,
    DISPATCH_CMD_VertexPointer,
+   DISPATCH_CMD_EnableClientState,
 };
 
 
@@ -1006,6 +1007,30 @@ marshal_VertexPointer(GLint size, GLenum type, GLsizei stride,
 }
 
 
+struct cmd_EnableClientState
+{
+   struct cmd_base cmd_base;
+   GLenum array;
+};
+
+
+static inline void
+unmarshal_EnableClientState(struct gl_context *ctx, struct cmd_EnableClientState *cmd)
+{
+   CALL_EnableClientState(ctx->Exec, (cmd->array));
+}
+
+
+static void GLAPIENTRY
+marshal_EnableClientState(GLenum array)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, EnableClientState);
+   cmd->array = array;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -1078,6 +1103,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_VertexPointer:
       unmarshal_VertexPointer(ctx, (struct cmd_VertexPointer *) cmd);
       break;
+   case DISPATCH_CMD_EnableClientState:
+      unmarshal_EnableClientState(ctx, (struct cmd_EnableClientState *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -1129,6 +1157,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_Uniform1fvARB(table, marshal_Uniform1fvARB);
    SET_Uniform1iARB(table, marshal_Uniform1iARB);
    SET_VertexPointer(table, marshal_VertexPointer);
+   SET_EnableClientState(table, marshal_EnableClientState);
 
    return table;
 }
