@@ -65,6 +65,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_DeleteShader,
    DISPATCH_CMD_UseProgramObjectARB,
    DISPATCH_CMD_Uniform1fvARB,
+   DISPATCH_CMD_Uniform1iARB,
 };
 
 
@@ -947,6 +948,32 @@ marshal_Uniform1fvARB(GLint location, GLsizei count, const GLfloat *value)
 }
 
 
+struct cmd_Uniform1iARB
+{
+   struct cmd_base cmd_base;
+   GLint location;
+   GLint v0;
+};
+
+
+static inline void
+unmarshal_Uniform1iARB(struct gl_context *ctx, struct cmd_Uniform1iARB *cmd)
+{
+   CALL_Uniform1iARB(ctx->Exec, (cmd->location, cmd->v0));
+}
+
+
+static void GLAPIENTRY
+marshal_Uniform1iARB(GLint location, GLint v0)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, Uniform1iARB);
+   cmd->location = location;
+   cmd->v0 = v0;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -1013,6 +1040,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_Uniform1fvARB:
       unmarshal_Uniform1fvARB(ctx, (struct cmd_Uniform1fvARB *) cmd);
       break;
+   case DISPATCH_CMD_Uniform1iARB:
+      unmarshal_Uniform1iARB(ctx, (struct cmd_Uniform1iARB *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -1062,6 +1092,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetStringi(table, marshal_GetStringi);
    SET_GetUniformLocationARB(table, marshal_GetUniformLocationARB);
    SET_Uniform1fvARB(table, marshal_Uniform1fvARB);
+   SET_Uniform1iARB(table, marshal_Uniform1iARB);
 
    return table;
 }
