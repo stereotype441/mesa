@@ -66,6 +66,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_UseProgramObjectARB,
    DISPATCH_CMD_Uniform1fvARB,
    DISPATCH_CMD_Uniform1iARB,
+   DISPATCH_CMD_VertexPointer,
 };
 
 
@@ -974,6 +975,37 @@ marshal_Uniform1iARB(GLint location, GLint v0)
 }
 
 
+struct cmd_VertexPointer
+{
+   struct cmd_base cmd_base;
+   GLint size;
+   GLenum type;
+   GLsizei stride;
+   const GLvoid *pointer;
+};
+
+
+static inline void
+unmarshal_VertexPointer(struct gl_context *ctx, struct cmd_VertexPointer *cmd)
+{
+   CALL_VertexPointer(ctx->Exec, (cmd->size, cmd->type, cmd->stride, cmd->pointer));
+}
+
+
+static void GLAPIENTRY
+marshal_VertexPointer(GLint size, GLenum type, GLsizei stride,
+                      const GLvoid *pointer)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   QUEUE_SIMPLE_COMMAND(cmd, VertexPointer);
+   cmd->size = size;
+   cmd->type = type;
+   cmd->stride = stride;
+   cmd->pointer = pointer;
+   post_marshal_hook(ctx);
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -1043,6 +1075,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
    case DISPATCH_CMD_Uniform1iARB:
       unmarshal_Uniform1iARB(ctx, (struct cmd_Uniform1iARB *) cmd);
       break;
+   case DISPATCH_CMD_VertexPointer:
+      unmarshal_VertexPointer(ctx, (struct cmd_VertexPointer *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -1093,6 +1128,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetUniformLocationARB(table, marshal_GetUniformLocationARB);
    SET_Uniform1fvARB(table, marshal_Uniform1fvARB);
    SET_Uniform1iARB(table, marshal_Uniform1iARB);
+   SET_VertexPointer(table, marshal_VertexPointer);
 
    return table;
 }
