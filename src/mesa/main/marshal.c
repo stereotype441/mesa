@@ -216,6 +216,8 @@ consume_command_queue(void *data)
    struct gl_context *ctx = (struct gl_context *) data;
    size_t pos;
 
+   _glapi_set_context(ctx);
+
    _glthread_LOCK_MUTEX(ctx->Marshal.Mutex);
 
    while (ctx->Marshal.Shared.BatchQueue != NULL) {
