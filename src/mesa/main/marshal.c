@@ -64,6 +64,7 @@ enum dispatch_cmd_id
    DISPATCH_CMD_LinkProgramARB,
    DISPATCH_CMD_DeleteShader,
    DISPATCH_CMD_UseProgramObjectARB,
+   DISPATCH_CMD_Uniform1fvARB,
 };
 
 
@@ -905,6 +906,47 @@ marshal_GetUniformLocationARB(GLhandleARB programObj, const GLcharARB *name)
 }
 
 
+struct cmd_Uniform1fvARB
+{
+   struct cmd_base cmd_base;
+   GLint location;
+   GLsizei count;
+   /* Followed by GLfloat value[count] */
+};
+
+
+static inline void
+unmarshal_Uniform1fvARB(struct gl_context *ctx, struct cmd_Uniform1fvARB *cmd)
+{
+   const GLfloat *cmd_value = (const GLfloat *) (cmd + 1);
+   CALL_Uniform1fvARB(ctx->Exec, (cmd->location, cmd->count, cmd_value));
+}
+
+
+static void GLAPIENTRY
+marshal_Uniform1fvARB(GLint location, GLsizei count, const GLfloat *value)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   const size_t fixed_cmd_size = sizeof(struct cmd_Uniform1fvARB);
+   STATIC_ASSERT(fixed_cmd_size % sizeof(GLfloat) == 0);
+   size_t value_size = count * sizeof(GLfloat);
+   size_t total_cmd_size = fixed_cmd_size + value_size;
+   if (total_cmd_size <= MAX_CMD_SIZE) {
+      struct cmd_Uniform1fvARB *cmd =
+         allocate_command_in_queue(ctx, DISPATCH_CMD_Uniform1fvARB,
+                                   total_cmd_size);
+      GLfloat *cmd_value = (GLfloat *) (cmd + 1);
+      cmd->location = location;
+      cmd->count = count;
+      memcpy(cmd_value, value, value_size);
+      post_marshal_hook(ctx);
+   } else {
+      synchronize(ctx);
+      CALL_Uniform1fvARB(ctx->Exec, (location, count, value));
+   }
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -968,6 +1010,9 @@ unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
       unmarshal_UseProgramObjectARB(ctx,
                                     (struct cmd_UseProgramObjectARB *) cmd);
       break;
+   case DISPATCH_CMD_Uniform1fvARB:
+      unmarshal_Uniform1fvARB(ctx, (struct cmd_Uniform1fvARB *) cmd);
+      break;
    default:
       assert(!"Unrecognized command ID");
       break;
@@ -1016,6 +1061,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_GetError(table, marshal_GetError);
    SET_GetStringi(table, marshal_GetStringi);
    SET_GetUniformLocationARB(table, marshal_GetUniformLocationARB);
+   SET_Uniform1fvARB(table, marshal_Uniform1fvARB);
 
    return table;
 }
