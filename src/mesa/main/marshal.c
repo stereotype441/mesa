@@ -238,7 +238,7 @@ _mesa_unmarshal_ShaderSourceARB(struct gl_context *ctx,
       string[i] = cmd_strings;
       cmd_strings += cmd_length[i];
    }
-   CALL_ShaderSourceARB(ctx->Exec,
+   CALL_ShaderSourceARB(ctx->CurrentServerDispatch,
                         (cmd->shaderObj, cmd->count, string, cmd_length));
    free(string);
 }
@@ -296,7 +296,7 @@ _mesa_marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
       _mesa_post_marshal_hook(ctx);
    } else {
       _mesa_marshal_synchronize(ctx);
-      CALL_ShaderSourceARB(ctx->Exec, (shaderObj, count, string, length_tmp));
+      CALL_ShaderSourceARB(ctx->CurrentServerDispatch, (shaderObj, count, string, length_tmp));
    }
    free(length_tmp);
 }

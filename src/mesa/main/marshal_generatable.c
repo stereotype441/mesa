@@ -41,7 +41,7 @@ marshal_GetString(GLenum name)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_GetString(ctx->Exec, (name));
+   return CALL_GetString(ctx->CurrentServerDispatch, (name));
 }
 
 
@@ -58,7 +58,7 @@ struct marshal_cmd_Viewport
 static inline void
 unmarshal_Viewport(struct gl_context *ctx, const struct marshal_cmd_Viewport *cmd)
 {
-   CALL_Viewport(ctx->Exec, (cmd->x, cmd->y, cmd->width, cmd->height));
+   CALL_Viewport(ctx->CurrentServerDispatch, (cmd->x, cmd->y, cmd->width, cmd->height));
 }
 
 
@@ -85,7 +85,7 @@ struct marshal_cmd_MatrixMode
 static inline void
 unmarshal_MatrixMode(struct gl_context *ctx, const struct marshal_cmd_MatrixMode *cmd)
 {
-   CALL_MatrixMode(ctx->Exec, (cmd->mode));
+   CALL_MatrixMode(ctx->CurrentServerDispatch, (cmd->mode));
 }
 
 
@@ -109,7 +109,7 @@ static inline void
 unmarshal_LoadIdentity(struct gl_context *ctx,
                        const struct marshal_cmd_LoadIdentity *cmd)
 {
-   CALL_LoadIdentity(ctx->Exec, ());
+   CALL_LoadIdentity(ctx->CurrentServerDispatch, ());
 }
 
 
@@ -138,7 +138,7 @@ struct marshal_cmd_Ortho
 static inline void
 unmarshal_Ortho(struct gl_context *ctx, const struct marshal_cmd_Ortho *cmd)
 {
-   CALL_Ortho(ctx->Exec, (cmd->left, cmd->right, cmd->bottom, cmd->top, cmd->nearval, cmd->farval));
+   CALL_Ortho(ctx->CurrentServerDispatch, (cmd->left, cmd->right, cmd->bottom, cmd->top, cmd->nearval, cmd->farval));
 }
 
 
@@ -170,7 +170,7 @@ static inline void
 unmarshal_PolygonMode(struct gl_context *ctx,
                       const struct marshal_cmd_PolygonMode *cmd)
 {
-   CALL_PolygonMode(ctx->Exec, (cmd->face, cmd->mode));
+   CALL_PolygonMode(ctx->CurrentServerDispatch, (cmd->face, cmd->mode));
 }
 
 
@@ -198,7 +198,7 @@ struct marshal_cmd_ClearColor
 static inline void
 unmarshal_ClearColor(struct gl_context *ctx, const struct marshal_cmd_ClearColor *cmd)
 {
-   CALL_ClearColor(ctx->Exec, (cmd->red, cmd->green, cmd->blue, cmd->alpha));
+   CALL_ClearColor(ctx->CurrentServerDispatch, (cmd->red, cmd->green, cmd->blue, cmd->alpha));
 }
 
 
@@ -225,7 +225,7 @@ struct marshal_cmd_Clear
 static inline void
 unmarshal_Clear(struct gl_context *ctx, const struct marshal_cmd_Clear *cmd)
 {
-   CALL_Clear(ctx->Exec, (cmd->mask));
+   CALL_Clear(ctx->CurrentServerDispatch, (cmd->mask));
 }
 
 
@@ -252,7 +252,7 @@ struct marshal_cmd_Color4f
 static inline void
 unmarshal_Color4f(struct gl_context *ctx, const struct marshal_cmd_Color4f *cmd)
 {
-   CALL_Color4f(ctx->Exec, (cmd->x, cmd->y, cmd->z, cmd->w));
+   CALL_Color4f(ctx->CurrentServerDispatch, (cmd->x, cmd->y, cmd->z, cmd->w));
 }
 
 
@@ -279,7 +279,7 @@ struct marshal_cmd_Begin
 static inline void
 unmarshal_Begin(struct gl_context *ctx, const struct marshal_cmd_Begin *cmd)
 {
-   CALL_Begin(ctx->Exec, (cmd->mode));
+   CALL_Begin(ctx->CurrentServerDispatch, (cmd->mode));
 }
 
 
@@ -303,7 +303,7 @@ struct marshal_cmd_EdgeFlag
 static inline void
 unmarshal_EdgeFlag(struct gl_context *ctx, const struct marshal_cmd_EdgeFlag *cmd)
 {
-   CALL_EdgeFlag(ctx->Exec, (cmd->x));
+   CALL_EdgeFlag(ctx->CurrentServerDispatch, (cmd->x));
 }
 
 
@@ -328,7 +328,7 @@ struct marshal_cmd_Vertex2f
 static inline void
 unmarshal_Vertex2f(struct gl_context *ctx, const struct marshal_cmd_Vertex2f *cmd)
 {
-   CALL_Vertex2f(ctx->Exec, (cmd->x, cmd->y));
+   CALL_Vertex2f(ctx->CurrentServerDispatch, (cmd->x, cmd->y));
 }
 
 
@@ -352,7 +352,7 @@ struct marshal_cmd_End
 static inline void
 unmarshal_End(struct gl_context *ctx, const struct marshal_cmd_End *cmd)
 {
-   CALL_End(ctx->Exec, ());
+   CALL_End(ctx->CurrentServerDispatch, ());
 }
 
 
@@ -372,7 +372,7 @@ marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   CALL_ReadPixels(ctx->Exec, (x, y, width, height, format, type, pixels));
+   CALL_ReadPixels(ctx->CurrentServerDispatch, (x, y, width, height, format, type, pixels));
 }
 
 
@@ -385,7 +385,7 @@ struct marshal_cmd_Flush
 static inline void
 unmarshal_Flush(struct gl_context *ctx, const struct marshal_cmd_Flush *cmd)
 {
-   CALL_Flush(ctx->Exec, ());
+   CALL_Flush(ctx->CurrentServerDispatch, ());
 }
 
 
@@ -405,7 +405,7 @@ marshal_GetIntegerv(GLenum pname, GLint *params)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   CALL_GetIntegerv(ctx->Exec, (pname, params));
+   CALL_GetIntegerv(ctx->CurrentServerDispatch, (pname, params));
 }
 
 
@@ -414,7 +414,7 @@ marshal_CreateShader(GLenum type)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_CreateShader(ctx->Exec, (type));
+   return CALL_CreateShader(ctx->CurrentServerDispatch, (type));
 }
 
 
@@ -429,7 +429,7 @@ static inline void
 unmarshal_CompileShaderARB(struct gl_context *ctx,
                            const struct marshal_cmd_CompileShaderARB *cmd)
 {
-   CALL_CompileShaderARB(ctx->Exec, (cmd->shaderObj));
+   CALL_CompileShaderARB(ctx->CurrentServerDispatch, (cmd->shaderObj));
 }
 
 
@@ -448,7 +448,7 @@ marshal_GetShaderiv(GLuint shader, GLenum pname, GLint *params)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   CALL_GetShaderiv(ctx->Exec, (shader, pname, params));
+   CALL_GetShaderiv(ctx->CurrentServerDispatch, (shader, pname, params));
 }
 
 
@@ -457,7 +457,7 @@ marshal_CreateProgram(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_CreateProgram(ctx->Exec, ());
+   return CALL_CreateProgram(ctx->CurrentServerDispatch, ());
 }
 
 
@@ -473,7 +473,7 @@ static inline void
 unmarshal_AttachShader(struct gl_context *ctx,
                        const struct marshal_cmd_AttachShader *cmd)
 {
-   CALL_AttachShader(ctx->Exec, (cmd->program, cmd->shader));
+   CALL_AttachShader(ctx->CurrentServerDispatch, (cmd->program, cmd->shader));
 }
 
 
@@ -499,7 +499,7 @@ static inline void
 unmarshal_LinkProgramARB(struct gl_context *ctx,
                          const struct marshal_cmd_LinkProgramARB *cmd)
 {
-   CALL_LinkProgramARB(ctx->Exec, (cmd->programObj));
+   CALL_LinkProgramARB(ctx->CurrentServerDispatch, (cmd->programObj));
 }
 
 
@@ -524,7 +524,7 @@ static inline void
 unmarshal_DeleteShader(struct gl_context *ctx,
                        const struct marshal_cmd_DeleteShader *cmd)
 {
-   CALL_DeleteShader(ctx->Exec, (cmd->shader));
+   CALL_DeleteShader(ctx->CurrentServerDispatch, (cmd->shader));
 }
 
 
@@ -543,7 +543,7 @@ marshal_GetProgramiv(GLuint program, GLenum pname, GLint *params)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_GetProgramiv(ctx->Exec, (program, pname, params));
+   return CALL_GetProgramiv(ctx->CurrentServerDispatch, (program, pname, params));
 }
 
 
@@ -558,7 +558,7 @@ static inline void
 unmarshal_UseProgramObjectARB(struct gl_context *ctx,
                               const struct marshal_cmd_UseProgramObjectARB *cmd)
 {
-   CALL_UseProgramObjectARB(ctx->Exec, (cmd->program));
+   CALL_UseProgramObjectARB(ctx->CurrentServerDispatch, (cmd->program));
 }
 
 
@@ -577,7 +577,7 @@ marshal_GetError(void)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_GetError(ctx->Exec, ());
+   return CALL_GetError(ctx->CurrentServerDispatch, ());
 }
 
 
@@ -586,7 +586,7 @@ marshal_GetStringi(GLenum name, GLuint index)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_GetStringi(ctx->Exec, (name, index));
+   return CALL_GetStringi(ctx->CurrentServerDispatch, (name, index));
 }
 
 
@@ -595,7 +595,7 @@ marshal_GetUniformLocationARB(GLhandleARB programObj, const GLcharARB *name)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   return CALL_GetUniformLocationARB(ctx->Exec, (programObj, name));
+   return CALL_GetUniformLocationARB(ctx->CurrentServerDispatch, (programObj, name));
 }
 
 
@@ -613,7 +613,7 @@ unmarshal_Uniform1fvARB(struct gl_context *ctx,
                         const struct marshal_cmd_Uniform1fvARB *cmd)
 {
    const GLfloat *cmd_value = (const GLfloat *) (cmd + 1);
-   CALL_Uniform1fvARB(ctx->Exec, (cmd->location, cmd->count, cmd_value));
+   CALL_Uniform1fvARB(ctx->CurrentServerDispatch, (cmd->location, cmd->count, cmd_value));
 }
 
 
@@ -636,7 +636,7 @@ marshal_Uniform1fvARB(GLint location, GLsizei count, const GLfloat *value)
       _mesa_post_marshal_hook(ctx);
    } else {
       _mesa_marshal_synchronize(ctx);
-      CALL_Uniform1fvARB(ctx->Exec, (location, count, value));
+      CALL_Uniform1fvARB(ctx->CurrentServerDispatch, (location, count, value));
    }
 }
 
@@ -653,7 +653,7 @@ static inline void
 unmarshal_Uniform1iARB(struct gl_context *ctx,
                        const struct marshal_cmd_Uniform1iARB *cmd)
 {
-   CALL_Uniform1iARB(ctx->Exec, (cmd->location, cmd->v0));
+   CALL_Uniform1iARB(ctx->CurrentServerDispatch, (cmd->location, cmd->v0));
 }
 
 
@@ -682,7 +682,7 @@ static inline void
 unmarshal_VertexPointer(struct gl_context *ctx,
                         const struct marshal_cmd_VertexPointer *cmd)
 {
-   CALL_VertexPointer(ctx->Exec, (cmd->size, cmd->type, cmd->stride, cmd->pointer));
+   CALL_VertexPointer(ctx->CurrentServerDispatch, (cmd->size, cmd->type, cmd->stride, cmd->pointer));
 }
 
 
@@ -711,7 +711,7 @@ static inline void
 unmarshal_EnableClientState(struct gl_context *ctx,
                             const struct marshal_cmd_EnableClientState *cmd)
 {
-   CALL_EnableClientState(ctx->Exec, (cmd->array));
+   CALL_EnableClientState(ctx->CurrentServerDispatch, (cmd->array));
 }
 
 
@@ -730,7 +730,7 @@ marshal_DrawArrays(GLenum mode, GLint first, GLsizei count)
 {
    GET_CURRENT_CONTEXT(ctx);
    _mesa_marshal_synchronize(ctx);
-   CALL_DrawArrays(ctx->Exec, (mode, first, count));
+   CALL_DrawArrays(ctx->CurrentServerDispatch, (mode, first, count));
 }
 
 
@@ -745,7 +745,7 @@ static inline void
 unmarshal_DisableClientState(struct gl_context *ctx,
                              const struct marshal_cmd_DisableClientState *cmd)
 {
-   CALL_DisableClientState(ctx->Exec, (cmd->array));
+   CALL_DisableClientState(ctx->CurrentServerDispatch, (cmd->array));
 }
 
 
