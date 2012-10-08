@@ -1031,6 +1031,15 @@ marshal_EnableClientState(GLenum array)
 }
 
 
+static void GLAPIENTRY
+marshal_DrawArrays(GLenum mode, GLint first, GLsizei count)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   synchronize(ctx);
+   CALL_DrawArrays(ctx->Exec, (mode, first, count));
+}
+
+
 static size_t
 unmarshal_dispatch_cmd(struct gl_context *ctx, void *cmd)
 {
@@ -1158,6 +1167,7 @@ _mesa_create_marshal_table(const struct gl_context *ctx)
    SET_Uniform1iARB(table, marshal_Uniform1iARB);
    SET_VertexPointer(table, marshal_VertexPointer);
    SET_EnableClientState(table, marshal_EnableClientState);
+   SET_DrawArrays(table, marshal_DrawArrays);
 
    return table;
 }
