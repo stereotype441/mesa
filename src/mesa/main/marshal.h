@@ -33,8 +33,52 @@
 #include "main/context.h"
 
 
+enum marshal_dispatch_cmd_id;
+
+
+#define MARSHAL_MAX_CMD_SIZE 65535
+
+
+struct marshal_cmd_base
+{
+   /**
+    * Type of command.  See enum marshal_dispatch_cmd_id.
+    */
+   uint16_t cmd_id;
+
+   /**
+    * Size of command, in multiples of 4 bytes, including cmd_base.
+    */
+   uint16_t cmd_size;
+};
+
+struct marshal_cmd_ShaderSourceARB;
+
+
 struct _glapi_table *
 _mesa_create_marshal_table(const struct gl_context *ctx);
+
+size_t
+_mesa_unmarshal_dispatch_cmd(struct gl_context *ctx, const void *cmd);
+
+void GLAPIENTRY
+_mesa_marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
+                              const GLcharARB **string, const GLint *length);
+
+void
+_mesa_marshal_synchronize(struct gl_context *ctx);
+
+void
+_mesa_post_marshal_hook(struct gl_context *ctx);
+
+void *
+_mesa_allocate_command_in_queue(struct gl_context *ctx,
+                                enum marshal_dispatch_cmd_id cmd_id,
+                                size_t size_bytes);
+
+void
+_mesa_unmarshal_ShaderSourceARB(struct gl_context *ctx,
+                                const struct marshal_cmd_ShaderSourceARB *cmd);
 
 
 #endif /* MARSHAL_H */

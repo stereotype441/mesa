@@ -57,6 +57,7 @@ MAIN_FILES = \
 	$(SRCDIR)main/light.c \
 	$(SRCDIR)main/lines.c \
         $(SRCDIR)main/marshal.c \
+        $(SRCDIR)main/marshal_generatable.c \
 	$(SRCDIR)main/matrix.c \
 	$(SRCDIR)main/mipmap.c \
 	$(SRCDIR)main/mm.c \

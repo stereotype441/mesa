@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-/** \file marshal.h
+/** \file marshal.c
  *
  * Functions related to marshalling GL calls from a client thread to a server
  * thread.
@@ -31,8 +31,8 @@
 
 #include <stdbool.h>
 
-#include "api_exec.h"
 #include "dispatch.h"
+#include "marshal_generatable.h"
 #include "threadpool.h"
 
 
@@ -43,37 +43,6 @@ static bool execute_immediately = false;
 static bool use_actual_threads = true;
 
 
-enum dispatch_cmd_id
-{
-   DISPATCH_CMD_Viewport,
-   DISPATCH_CMD_MatrixMode,
-   DISPATCH_CMD_LoadIdentity,
-   DISPATCH_CMD_Ortho,
-   DISPATCH_CMD_PolygonMode,
-   DISPATCH_CMD_ClearColor,
-   DISPATCH_CMD_Clear,
-   DISPATCH_CMD_Color4f,
-   DISPATCH_CMD_Begin,
-   DISPATCH_CMD_EdgeFlag,
-   DISPATCH_CMD_Vertex2f,
-   DISPATCH_CMD_End,
-   DISPATCH_CMD_Flush,
-   DISPATCH_CMD_ShaderSourceARB,
-   DISPATCH_CMD_CompileShaderARB,
-   DISPATCH_CMD_AttachShader,
-   DISPATCH_CMD_LinkProgramARB,
-   DISPATCH_CMD_DeleteShader,
-   DISPATCH_CMD_UseProgramObjectARB,
-   DISPATCH_CMD_Uniform1fvARB,
-   DISPATCH_CMD_Uniform1iARB,
-   DISPATCH_CMD_VertexPointer,
-   DISPATCH_CMD_EnableClientState,
-   DISPATCH_CMD_DisableClientState,
-};
-
-
-static size_t
-unmarshal_dispatch_cmd(struct gl_context *ctx, const void *cmd);
 static void
 consume_command_queue(void *ctx);
 
@@ -102,22 +71,7 @@ struct gl_context_marshal_batch
 };
 
 
-struct cmd_base
-{
-   /**
-    * Type of command.  See enum dispatch_cmd_id.
-    */
-   uint16_t cmd_id;
-
-   /**
-    * Size of command, in multiples of 4 bytes, including cmd_base.
-    */
-   uint16_t cmd_size;
-};
-
-
 #define BUFFER_SIZE_DWORDS 65536
-#define MAX_CMD_SIZE 65535
 
 
 static void
@@ -173,11 +127,12 @@ submit_batch(struct gl_context *ctx)
 }
 
 
-static void *
-allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
-                          size_t size_bytes)
+void *
+_mesa_allocate_command_in_queue(struct gl_context *ctx,
+                                enum marshal_dispatch_cmd_id cmd_id,
+                                size_t size_bytes)
 {
-   struct cmd_base *cmd_base;
+   struct marshal_cmd_base *cmd_base;
    size_t size_dwords = ALIGN(size_bytes, 4) / 4;
 
    assert(size_dwords <= 65535);
@@ -195,19 +150,13 @@ allocate_command_in_queue(struct gl_context *ctx, enum dispatch_cmd_id cmd_id,
       ctx->Marshal.BatchPrep->Buffer = malloc(BUFFER_SIZE_DWORDS * 4);
    }
 
-   cmd_base = (struct cmd_base *)
+   cmd_base = (struct marshal_cmd_base *)
       &ctx->Marshal.BatchPrep->Buffer[ctx->Marshal.BatchPrep->DwordsUsed];
    ctx->Marshal.BatchPrep->DwordsUsed += size_dwords;
    cmd_base->cmd_id = cmd_id;
    cmd_base->cmd_size = size_dwords;
    return cmd_base;
 }
-
-
-#define QUEUE_SIMPLE_COMMAND(var, cmd_name) \
-   struct cmd_##cmd_name *var = \
-      allocate_command_in_queue(ctx, DISPATCH_CMD_##cmd_name,    \
-                                sizeof(struct cmd_##cmd_name))
 
 
 static void
@@ -230,7 +179,7 @@ consume_command_queue(void *data)
       /* Drop the mutex, execute it, and free it. */
       _glthread_UNLOCK_MUTEX(ctx->Marshal.Mutex);
       for (pos = 0; pos < batch->DwordsUsed; )
-         pos += unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
+         pos += _mesa_unmarshal_dispatch_cmd(ctx, &batch->Buffer[pos]);
       assert(pos == batch->DwordsUsed);
       free(batch->Buffer);
       free(batch);
@@ -244,16 +193,16 @@ consume_command_queue(void *data)
 }
 
 
-static inline void
-post_marshal_hook(struct gl_context *ctx)
+void
+_mesa_post_marshal_hook(struct gl_context *ctx)
 {
    if (execute_immediately)
       submit_batch(ctx);
 }
 
 
-static inline void
-synchronize(struct gl_context *ctx)
+void
+_mesa_marshal_synchronize(struct gl_context *ctx)
 {
    submit_batch(ctx);
 
@@ -264,391 +213,9 @@ synchronize(struct gl_context *ctx)
 }
 
 
-static const GLubyte *GLAPIENTRY
-marshal_GetString(GLenum name)
+struct marshal_cmd_ShaderSourceARB
 {
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_GetString(ctx->Exec, (name));
-}
-
-
-struct cmd_Viewport
-{
-   struct cmd_base cmd_base;
-   GLint x;
-   GLint y;
-   GLsizei width;
-   GLsizei height;
-};
-
-
-static inline void
-unmarshal_Viewport(struct gl_context *ctx, const struct cmd_Viewport *cmd)
-{
-   CALL_Viewport(ctx->Exec, (cmd->x, cmd->y, cmd->width, cmd->height));
-}
-
-
-static void GLAPIENTRY
-marshal_Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Viewport);
-   cmd->x = x;
-   cmd->y = y;
-   cmd->width = width;
-   cmd->height = height;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_MatrixMode
-{
-   struct cmd_base cmd_base;
-   GLenum mode;
-};
-
-
-static inline void
-unmarshal_MatrixMode(struct gl_context *ctx, const struct cmd_MatrixMode *cmd)
-{
-   CALL_MatrixMode(ctx->Exec, (cmd->mode));
-}
-
-
-static void GLAPIENTRY
-marshal_MatrixMode(GLenum mode)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, MatrixMode);
-   cmd->mode = mode;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_LoadIdentity
-{
-   struct cmd_base cmd_base;
-};
-
-
-static inline void
-unmarshal_LoadIdentity(struct gl_context *ctx,
-                       const struct cmd_LoadIdentity *cmd)
-{
-   CALL_LoadIdentity(ctx->Exec, ());
-}
-
-
-static void GLAPIENTRY
-marshal_LoadIdentity(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, LoadIdentity);
-   (void) cmd;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_Ortho
-{
-   struct cmd_base cmd_base;
-   GLdouble left;
-   GLdouble right;
-   GLdouble bottom;
-   GLdouble top;
-   GLdouble nearval;
-   GLdouble farval;
-};
-
-
-static inline void
-unmarshal_Ortho(struct gl_context *ctx, const struct cmd_Ortho *cmd)
-{
-   CALL_Ortho(ctx->Exec, (cmd->left, cmd->right, cmd->bottom, cmd->top, cmd->nearval, cmd->farval));
-}
-
-
-static void GLAPIENTRY
-marshal_Ortho(GLdouble left, GLdouble right,
-              GLdouble bottom, GLdouble top, GLdouble nearval, GLdouble farval)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Ortho);
-   cmd->left = left;
-   cmd->right = right;
-   cmd->bottom = bottom;
-   cmd->top = top;
-   cmd->nearval = nearval;
-   cmd->farval = farval;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_PolygonMode
-{
-   struct cmd_base cmd_base;
-   GLenum face;
-   GLenum mode;
-};
-
-
-static inline void
-unmarshal_PolygonMode(struct gl_context *ctx,
-                      const struct cmd_PolygonMode *cmd)
-{
-   CALL_PolygonMode(ctx->Exec, (cmd->face, cmd->mode));
-}
-
-
-static void GLAPIENTRY
-marshal_PolygonMode(GLenum face, GLenum mode)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, PolygonMode);
-   cmd->face = face;
-   cmd->mode = mode;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_ClearColor
-{
-   struct cmd_base cmd_base;
-   GLclampf red;
-   GLclampf green;
-   GLclampf blue;
-   GLclampf alpha;
-};
-
-
-static inline void
-unmarshal_ClearColor(struct gl_context *ctx, const struct cmd_ClearColor *cmd)
-{
-   CALL_ClearColor(ctx->Exec, (cmd->red, cmd->green, cmd->blue, cmd->alpha));
-}
-
-
-static void GLAPIENTRY
-marshal_ClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, ClearColor);
-   cmd->red = red;
-   cmd->green = green;
-   cmd->blue = blue;
-   cmd->alpha = alpha;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_Clear
-{
-   struct cmd_base cmd_base;
-   GLbitfield mask;
-};
-
-
-static inline void
-unmarshal_Clear(struct gl_context *ctx, const struct cmd_Clear *cmd)
-{
-   CALL_Clear(ctx->Exec, (cmd->mask));
-}
-
-
-static void GLAPIENTRY
-marshal_Clear(GLbitfield mask)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Clear);
-   cmd->mask = mask;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_Color4f
-{
-   struct cmd_base cmd_base;
-   GLfloat x;
-   GLfloat y;
-   GLfloat z;
-   GLfloat w;
-};
-
-
-static inline void
-unmarshal_Color4f(struct gl_context *ctx, const struct cmd_Color4f *cmd)
-{
-   CALL_Color4f(ctx->Exec, (cmd->x, cmd->y, cmd->z, cmd->w));
-}
-
-
-static void GLAPIENTRY
-marshal_Color4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Color4f);
-   cmd->x = x;
-   cmd->y = y;
-   cmd->z = z;
-   cmd->w = w;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_Begin
-{
-   struct cmd_base cmd_base;
-   GLenum mode;
-};
-
-
-static inline void
-unmarshal_Begin(struct gl_context *ctx, const struct cmd_Begin *cmd)
-{
-   CALL_Begin(ctx->Exec, (cmd->mode));
-}
-
-
-static void GLAPIENTRY
-marshal_Begin(GLenum mode)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Begin);
-   cmd->mode = mode;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_EdgeFlag
-{
-   struct cmd_base cmd_base;
-   GLboolean x;
-};
-
-
-static inline void
-unmarshal_EdgeFlag(struct gl_context *ctx, const struct cmd_EdgeFlag *cmd)
-{
-   CALL_EdgeFlag(ctx->Exec, (cmd->x));
-}
-
-
-static void GLAPIENTRY
-marshal_EdgeFlag(GLboolean x)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, EdgeFlag);
-   cmd->x = x;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_Vertex2f
-{
-   struct cmd_base cmd_base;
-   GLfloat x;
-   GLfloat y;
-};
-
-
-static inline void
-unmarshal_Vertex2f(struct gl_context *ctx, const struct cmd_Vertex2f *cmd)
-{
-   CALL_Vertex2f(ctx->Exec, (cmd->x, cmd->y));
-}
-
-
-static void GLAPIENTRY
-marshal_Vertex2f(GLfloat x, GLfloat y)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Vertex2f);
-   cmd->x = x;
-   cmd->y = y;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_End
-{
-   struct cmd_base cmd_base;
-};
-
-
-static inline void
-unmarshal_End(struct gl_context *ctx, const struct cmd_End *cmd)
-{
-   CALL_End(ctx->Exec, ());
-}
-
-
-static void GLAPIENTRY
-marshal_End(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, End);
-   (void) cmd;
-   post_marshal_hook(ctx);
-}
-
-
-static void GLAPIENTRY
-marshal_ReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
-                   GLenum format, GLenum type, GLvoid *pixels)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   CALL_ReadPixels(ctx->Exec, (x, y, width, height, format, type, pixels));
-}
-
-
-struct cmd_Flush
-{
-   struct cmd_base cmd_base;
-};
-
-
-static inline void
-unmarshal_Flush(struct gl_context *ctx, const struct cmd_Flush *cmd)
-{
-   CALL_Flush(ctx->Exec, ());
-}
-
-
-static void GLAPIENTRY
-marshal_Flush(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Flush);
-   (void) cmd;
-   post_marshal_hook(ctx);
-   synchronize(ctx); /* TODO: HACK to avoid problems with SwapBuffers */
-}
-
-
-static void GLAPIENTRY
-marshal_GetIntegerv(GLenum pname, GLint *params)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   CALL_GetIntegerv(ctx->Exec, (pname, params));
-}
-
-
-static GLuint GLAPIENTRY
-marshal_CreateShader(GLenum type)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_CreateShader(ctx->Exec, (type));
-}
-
-
-struct cmd_ShaderSourceARB
-{
-   struct cmd_base cmd_base;
+   struct marshal_cmd_base cmd_base;
    GLhandleARB shaderObj;
    GLsizei count;
    /* Followed by GLint length[count], then the contents of all strings,
@@ -657,9 +224,9 @@ struct cmd_ShaderSourceARB
 };
 
 
-static inline void
-unmarshal_ShaderSourceARB(struct gl_context *ctx,
-                          const struct cmd_ShaderSourceARB *cmd)
+void
+_mesa_unmarshal_ShaderSourceARB(struct gl_context *ctx,
+                                const struct marshal_cmd_ShaderSourceARB *cmd)
 {
    const GLint *cmd_length = (const GLint *) (cmd + 1);
    const GLcharARB *cmd_strings = (const GLchar *) (cmd_length + cmd->count);
@@ -695,15 +262,15 @@ measure_ShaderSource_strings(GLsizei count, const GLcharARB **string,
 }
 
 
-static void GLAPIENTRY
-marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
-                        const GLcharARB **string, const GLint *length)
+void GLAPIENTRY
+_mesa_marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
+                              const GLcharARB **string, const GLint *length)
 {
    /* TODO: how to report an error if count < 0? */
 
    GET_CURRENT_CONTEXT(ctx);
    /* TODO: how to deal with malloc failure? */
-   const size_t fixed_cmd_size = sizeof(struct cmd_ShaderSourceARB);
+   const size_t fixed_cmd_size = sizeof(struct marshal_cmd_ShaderSourceARB);
    STATIC_ASSERT(fixed_cmd_size % sizeof(GLint) == 0);
    size_t length_size = count * sizeof(GLint);
    GLint *length_tmp = malloc(length_size);
@@ -711,10 +278,10 @@ marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
       measure_ShaderSource_strings(count, string, length, length_tmp);
    size_t total_cmd_size = fixed_cmd_size + length_size + total_string_length;
 
-   if (total_cmd_size <= MAX_CMD_SIZE) {
-      struct cmd_ShaderSourceARB *cmd =
-         allocate_command_in_queue(ctx, DISPATCH_CMD_ShaderSourceARB,
-                                   total_cmd_size);
+   if (total_cmd_size <= MARSHAL_MAX_CMD_SIZE) {
+      struct marshal_cmd_ShaderSourceARB *cmd =
+         _mesa_allocate_command_in_queue(ctx, DISPATCH_CMD_ShaderSourceARB,
+                                         total_cmd_size);
       GLint *cmd_length = (GLint *) (cmd + 1);
       GLcharARB *cmd_strings = (GLcharARB *) (cmd_length + count);
       int i;
@@ -726,487 +293,10 @@ marshal_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
          memcpy(cmd_strings, string[i], cmd_length[i]);
          cmd_strings += cmd_length[i];
       }
-      post_marshal_hook(ctx);
+      _mesa_post_marshal_hook(ctx);
    } else {
-      synchronize(ctx);
+      _mesa_marshal_synchronize(ctx);
       CALL_ShaderSourceARB(ctx->Exec, (shaderObj, count, string, length_tmp));
    }
    free(length_tmp);
-}
-
-
-struct cmd_CompileShaderARB
-{
-   struct cmd_base cmd_base;
-   GLhandleARB shaderObj;
-};
-
-
-static inline void
-unmarshal_CompileShaderARB(struct gl_context *ctx,
-                           const struct cmd_CompileShaderARB *cmd)
-{
-   CALL_CompileShaderARB(ctx->Exec, (cmd->shaderObj));
-}
-
-
-static void GLAPIENTRY
-marshal_CompileShaderARB(GLhandleARB shaderObj)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, CompileShaderARB);
-   cmd->shaderObj = shaderObj;
-   post_marshal_hook(ctx);
-}
-
-
-static void GLAPIENTRY
-marshal_GetShaderiv(GLuint shader, GLenum pname, GLint *params)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   CALL_GetShaderiv(ctx->Exec, (shader, pname, params));
-}
-
-
-static GLuint GLAPIENTRY
-marshal_CreateProgram(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_CreateProgram(ctx->Exec, ());
-}
-
-
-struct cmd_AttachShader
-{
-   struct cmd_base cmd_base;
-   GLuint program;
-   GLuint shader;
-};
-
-
-static inline void
-unmarshal_AttachShader(struct gl_context *ctx,
-                       const struct cmd_AttachShader *cmd)
-{
-   CALL_AttachShader(ctx->Exec, (cmd->program, cmd->shader));
-}
-
-
-static void GLAPIENTRY
-marshal_AttachShader(GLuint program, GLuint shader)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, AttachShader);
-   cmd->program = program;
-   cmd->shader = shader;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_LinkProgramARB
-{
-   struct cmd_base cmd_base;
-   GLhandleARB programObj;
-};
-
-
-static inline void
-unmarshal_LinkProgramARB(struct gl_context *ctx,
-                         const struct cmd_LinkProgramARB *cmd)
-{
-   CALL_LinkProgramARB(ctx->Exec, (cmd->programObj));
-}
-
-
-static void GLAPIENTRY
-marshal_LinkProgramARB(GLuint programObj)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, LinkProgramARB);
-   cmd->programObj = programObj;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_DeleteShader
-{
-   struct cmd_base cmd_base;
-   GLuint shader;
-};
-
-
-static inline void
-unmarshal_DeleteShader(struct gl_context *ctx,
-                       const struct cmd_DeleteShader *cmd)
-{
-   CALL_DeleteShader(ctx->Exec, (cmd->shader));
-}
-
-
-static void GLAPIENTRY
-marshal_DeleteShader(GLuint shader)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, DeleteShader);
-   cmd->shader = shader;
-   post_marshal_hook(ctx);
-}
-
-
-static void GLAPIENTRY
-marshal_GetProgramiv(GLuint program, GLenum pname, GLint *params)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_GetProgramiv(ctx->Exec, (program, pname, params));
-}
-
-
-struct cmd_UseProgramObjectARB
-{
-   struct cmd_base cmd_base;
-   GLhandleARB program;
-};
-
-
-static inline void
-unmarshal_UseProgramObjectARB(struct gl_context *ctx,
-                              const struct cmd_UseProgramObjectARB *cmd)
-{
-   CALL_UseProgramObjectARB(ctx->Exec, (cmd->program));
-}
-
-
-static void GLAPIENTRY
-marshal_UseProgramObjectARB(GLhandleARB program)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, UseProgramObjectARB);
-   cmd->program = program;
-   post_marshal_hook(ctx);
-}
-
-
-static GLenum GLAPIENTRY
-marshal_GetError(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_GetError(ctx->Exec, ());
-}
-
-
-static const GLubyte * GLAPIENTRY
-marshal_GetStringi(GLenum name, GLuint index)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_GetStringi(ctx->Exec, (name, index));
-}
-
-
-static GLint GLAPIENTRY
-marshal_GetUniformLocationARB(GLhandleARB programObj, const GLcharARB *name)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   return CALL_GetUniformLocationARB(ctx->Exec, (programObj, name));
-}
-
-
-struct cmd_Uniform1fvARB
-{
-   struct cmd_base cmd_base;
-   GLint location;
-   GLsizei count;
-   /* Followed by GLfloat value[count] */
-};
-
-
-static inline void
-unmarshal_Uniform1fvARB(struct gl_context *ctx,
-                        const struct cmd_Uniform1fvARB *cmd)
-{
-   const GLfloat *cmd_value = (const GLfloat *) (cmd + 1);
-   CALL_Uniform1fvARB(ctx->Exec, (cmd->location, cmd->count, cmd_value));
-}
-
-
-static void GLAPIENTRY
-marshal_Uniform1fvARB(GLint location, GLsizei count, const GLfloat *value)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   const size_t fixed_cmd_size = sizeof(struct cmd_Uniform1fvARB);
-   STATIC_ASSERT(fixed_cmd_size % sizeof(GLfloat) == 0);
-   size_t value_size = count * sizeof(GLfloat);
-   size_t total_cmd_size = fixed_cmd_size + value_size;
-   if (total_cmd_size <= MAX_CMD_SIZE) {
-      struct cmd_Uniform1fvARB *cmd =
-         allocate_command_in_queue(ctx, DISPATCH_CMD_Uniform1fvARB,
-                                   total_cmd_size);
-      GLfloat *cmd_value = (GLfloat *) (cmd + 1);
-      cmd->location = location;
-      cmd->count = count;
-      memcpy(cmd_value, value, value_size);
-      post_marshal_hook(ctx);
-   } else {
-      synchronize(ctx);
-      CALL_Uniform1fvARB(ctx->Exec, (location, count, value));
-   }
-}
-
-
-struct cmd_Uniform1iARB
-{
-   struct cmd_base cmd_base;
-   GLint location;
-   GLint v0;
-};
-
-
-static inline void
-unmarshal_Uniform1iARB(struct gl_context *ctx,
-                       const struct cmd_Uniform1iARB *cmd)
-{
-   CALL_Uniform1iARB(ctx->Exec, (cmd->location, cmd->v0));
-}
-
-
-static void GLAPIENTRY
-marshal_Uniform1iARB(GLint location, GLint v0)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, Uniform1iARB);
-   cmd->location = location;
-   cmd->v0 = v0;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_VertexPointer
-{
-   struct cmd_base cmd_base;
-   GLint size;
-   GLenum type;
-   GLsizei stride;
-   const GLvoid *pointer;
-};
-
-
-static inline void
-unmarshal_VertexPointer(struct gl_context *ctx,
-                        const struct cmd_VertexPointer *cmd)
-{
-   CALL_VertexPointer(ctx->Exec, (cmd->size, cmd->type, cmd->stride, cmd->pointer));
-}
-
-
-static void GLAPIENTRY
-marshal_VertexPointer(GLint size, GLenum type, GLsizei stride,
-                      const GLvoid *pointer)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, VertexPointer);
-   cmd->size = size;
-   cmd->type = type;
-   cmd->stride = stride;
-   cmd->pointer = pointer;
-   post_marshal_hook(ctx);
-}
-
-
-struct cmd_EnableClientState
-{
-   struct cmd_base cmd_base;
-   GLenum array;
-};
-
-
-static inline void
-unmarshal_EnableClientState(struct gl_context *ctx,
-                            const struct cmd_EnableClientState *cmd)
-{
-   CALL_EnableClientState(ctx->Exec, (cmd->array));
-}
-
-
-static void GLAPIENTRY
-marshal_EnableClientState(GLenum array)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, EnableClientState);
-   cmd->array = array;
-   post_marshal_hook(ctx);
-}
-
-
-static void GLAPIENTRY
-marshal_DrawArrays(GLenum mode, GLint first, GLsizei count)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   synchronize(ctx);
-   CALL_DrawArrays(ctx->Exec, (mode, first, count));
-}
-
-
-struct cmd_DisableClientState
-{
-   struct cmd_base cmd_base;
-   GLenum array;
-};
-
-
-static inline void
-unmarshal_DisableClientState(struct gl_context *ctx,
-                             const struct cmd_DisableClientState *cmd)
-{
-   CALL_DisableClientState(ctx->Exec, (cmd->array));
-}
-
-
-static void GLAPIENTRY
-marshal_DisableClientState(GLenum array)
-{
-   GET_CURRENT_CONTEXT(ctx);
-   QUEUE_SIMPLE_COMMAND(cmd, DisableClientState);
-   cmd->array = array;
-   post_marshal_hook(ctx);
-}
-
-
-static size_t
-unmarshal_dispatch_cmd(struct gl_context *ctx, const void *cmd)
-{
-   const struct cmd_base *cmd_base = (const struct cmd_base *) cmd;
-   switch (cmd_base->cmd_id) {
-   case DISPATCH_CMD_Viewport:
-      unmarshal_Viewport(ctx, (const struct cmd_Viewport *) cmd);
-      break;
-   case DISPATCH_CMD_MatrixMode:
-      unmarshal_MatrixMode(ctx, (const struct cmd_MatrixMode *) cmd);
-      break;
-   case DISPATCH_CMD_LoadIdentity:
-      unmarshal_LoadIdentity(ctx, (const struct cmd_LoadIdentity *) cmd);
-      break;
-   case DISPATCH_CMD_Ortho:
-      unmarshal_Ortho(ctx, (const struct cmd_Ortho *) cmd);
-      break;
-   case DISPATCH_CMD_PolygonMode:
-      unmarshal_PolygonMode(ctx, (const struct cmd_PolygonMode *) cmd);
-      break;
-   case DISPATCH_CMD_ClearColor:
-      unmarshal_ClearColor(ctx, (const struct cmd_ClearColor *) cmd);
-      break;
-   case DISPATCH_CMD_Clear:
-      unmarshal_Clear(ctx, (const struct cmd_Clear *) cmd);
-      break;
-   case DISPATCH_CMD_Color4f:
-      unmarshal_Color4f(ctx, (const struct cmd_Color4f *) cmd);
-      break;
-   case DISPATCH_CMD_Begin:
-      unmarshal_Begin(ctx, (const struct cmd_Begin *) cmd);
-      break;
-   case DISPATCH_CMD_EdgeFlag:
-      unmarshal_EdgeFlag(ctx, (const struct cmd_EdgeFlag *) cmd);
-      break;
-   case DISPATCH_CMD_Vertex2f:
-      unmarshal_Vertex2f(ctx, (const struct cmd_Vertex2f *) cmd);
-      break;
-   case DISPATCH_CMD_End:
-      unmarshal_End(ctx, (const struct cmd_End *) cmd);
-      break;
-   case DISPATCH_CMD_Flush:
-      unmarshal_Flush(ctx, (const struct cmd_Flush *) cmd);
-      break;
-   case DISPATCH_CMD_ShaderSourceARB:
-      unmarshal_ShaderSourceARB(ctx, (const struct cmd_ShaderSourceARB *) cmd);
-      break;
-   case DISPATCH_CMD_CompileShaderARB:
-      unmarshal_CompileShaderARB(ctx, (const struct cmd_CompileShaderARB *) cmd);
-      break;
-   case DISPATCH_CMD_AttachShader:
-      unmarshal_AttachShader(ctx, (const struct cmd_AttachShader *) cmd);
-      break;
-   case DISPATCH_CMD_LinkProgramARB:
-      unmarshal_LinkProgramARB(ctx, (const struct cmd_LinkProgramARB *) cmd);
-      break;
-   case DISPATCH_CMD_DeleteShader:
-      unmarshal_DeleteShader(ctx, (const struct cmd_DeleteShader *) cmd);
-      break;
-   case DISPATCH_CMD_UseProgramObjectARB:
-      unmarshal_UseProgramObjectARB(ctx, (const struct cmd_UseProgramObjectARB *) cmd);
-      break;
-   case DISPATCH_CMD_Uniform1fvARB:
-      unmarshal_Uniform1fvARB(ctx, (const struct cmd_Uniform1fvARB *) cmd);
-      break;
-   case DISPATCH_CMD_Uniform1iARB:
-      unmarshal_Uniform1iARB(ctx, (const struct cmd_Uniform1iARB *) cmd);
-      break;
-   case DISPATCH_CMD_VertexPointer:
-      unmarshal_VertexPointer(ctx, (const struct cmd_VertexPointer *) cmd);
-      break;
-   case DISPATCH_CMD_EnableClientState:
-      unmarshal_EnableClientState(ctx, (const struct cmd_EnableClientState *) cmd);
-      break;
-   case DISPATCH_CMD_DisableClientState:
-      unmarshal_DisableClientState(ctx, (const struct cmd_DisableClientState *) cmd);
-      break;
-   default:
-      assert(!"Unrecognized command ID");
-      break;
-   }
-
-   return cmd_base->cmd_size;
-}
-
-
-struct _glapi_table *
-_mesa_create_marshal_table(const struct gl_context *ctx)
-{
-   struct _glapi_table *table;
-
-   table = _mesa_alloc_dispatch_table(_gloffset_COUNT);
-   if (table == NULL)
-      return NULL;
-
-   /* TODO: implement more! */
-   SET_GetString(table, marshal_GetString);
-   SET_Viewport(table, marshal_Viewport);
-   SET_MatrixMode(table, marshal_MatrixMode);
-   SET_LoadIdentity(table, marshal_LoadIdentity);
-   SET_Ortho(table, marshal_Ortho);
-   SET_PolygonMode(table, marshal_PolygonMode);
-   SET_ClearColor(table, marshal_ClearColor);
-   SET_Clear(table, marshal_Clear);
-   SET_Color4f(table, marshal_Color4f);
-   SET_Begin(table, marshal_Begin);
-   SET_EdgeFlag(table, marshal_EdgeFlag);
-   SET_Vertex2f(table, marshal_Vertex2f);
-   SET_End(table, marshal_End);
-   SET_ReadPixels(table, marshal_ReadPixels);
-   SET_Flush(table, marshal_Flush);
-   SET_GetIntegerv(table, marshal_GetIntegerv);
-   SET_CreateShader(table, marshal_CreateShader);
-   SET_ShaderSourceARB(table, marshal_ShaderSourceARB);
-   SET_CompileShaderARB(table, marshal_CompileShaderARB);
-   SET_GetShaderiv(table, marshal_GetShaderiv);
-   SET_CreateProgram(table, marshal_CreateProgram);
-   SET_AttachShader(table, marshal_AttachShader);
-   SET_LinkProgramARB(table, marshal_LinkProgramARB);
-   SET_DeleteShader(table, marshal_DeleteShader);
-   SET_GetProgramiv(table, marshal_GetProgramiv);
-   SET_UseProgramObjectARB(table, marshal_UseProgramObjectARB);
-   SET_GetError(table, marshal_GetError);
-   SET_GetStringi(table, marshal_GetStringi);
-   SET_GetUniformLocationARB(table, marshal_GetUniformLocationARB);
-   SET_Uniform1fvARB(table, marshal_Uniform1fvARB);
-   SET_Uniform1iARB(table, marshal_Uniform1iARB);
-   SET_VertexPointer(table, marshal_VertexPointer);
-   SET_EnableClientState(table, marshal_EnableClientState);
-   SET_DrawArrays(table, marshal_DrawArrays);
-   SET_DisableClientState(table, marshal_DisableClientState);
-
-   return table;
 }

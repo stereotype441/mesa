@@ -61,6 +61,7 @@ SOURCES =accum.c \
 	light.c \
 	lines.c \
         marshal.c \
+        marshal_generatable.c \
 	matrix.c \
 	mipmap.c \
 	mm.c \
