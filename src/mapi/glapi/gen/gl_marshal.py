@@ -21,6 +21,7 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+import contextlib
 import getopt
 import gl_XML
 import license
@@ -40,6 +41,24 @@ footer = """/* FOOTER */
 """
 
 
+current_indent = 0
+
+
+def out(str):
+    if str:
+        print ' '*current_indent + str
+    else:
+        print ''
+
+
+@contextlib.contextmanager
+def indent(delta = 3):
+    global current_indent
+    current_indent += delta
+    yield
+    current_indent -= delta
+
+
 class PrintCode(gl_XML.gl_print_base):
     def __init__(self):
         gl_XML.gl_print_base.__init__(self)
@@ -54,149 +73,154 @@ class PrintCode(gl_XML.gl_print_base):
     def printRealFooter(self):
         print footer
 
-    def print_sync_call(self, func, indent):
+    def print_sync_call(self, func):
         call = 'CALL_{0}(ctx->CurrentServerDispatch, ({1}))'.format(
             func.name, func.get_called_parameter_string())
         if func.return_type == 'void':
-            print indent + '{0};'.format(call)
+            out('{0};'.format(call))
         else:
-            print indent + 'return {0};'
+            out('return {0};')
 
-    def print_sync_dispatch(self, func, indent):
-        print indent + '_mesa_marshal_synchronize(ctx);'
-        self.print_sync_call(func, indent)
+    def print_sync_dispatch(self, func):
+        out('_mesa_marshal_synchronize(ctx);')
+        self.print_sync_call(func)
 
     def print_sync_body(self, func):
-        print '/* {0}: marshalled synchronously */'.format(func.name)
-        print 'static {0} GLAPIENTRY'.format(func.return_type)
-        print 'marshal_{0}({1})'.format(func.name, func.get_parameter_string())
-        print '{'
-        print '   GET_CURRENT_CONTEXT(ctx);'
-        self.print_sync_call(func, '   ')
-        print '}'
-        print ''
-        print ''
+        out('/* {0}: marshalled synchronously */'.format(func.name))
+        out('static {0} GLAPIENTRY'.format(func.return_type))
+        out('marshal_{0}({1})'.format(func.name, func.get_parameter_string()))
+        out('{')
+        with indent():
+            out('GET_CURRENT_CONTEXT(ctx);')
+            self.print_sync_call(func)
+        out('}')
+        out('')
+        out('')
 
-    def print_async_dispatch(self, func, struct, indent):
-        def pr(s):
-            print indent + s
-        pr('{0} *cmd ='.format(struct))
-        pr(('   _mesa_allocate_command_in_queue(ctx, '
+    def print_async_dispatch(self, func, struct):
+        out('{0} *cmd ='.format(struct))
+        out(('   _mesa_allocate_command_in_queue(ctx, '
             'DISPATCH_CMD_{0}, cmd_size);').format(func.name))
         for p in func.fixed_params:
-            pr('cmd->{0} = {0};'.format(p.name))
+            out('cmd->{0} = {0};'.format(p.name))
         if func.variable_params:
-            pr('char *variable_data = (char *) (cmd + 1);')
+            out('char *variable_data = (char *) (cmd + 1);')
             for p in func.variable_params:
-                pr(('memcpy(variable_data, {0}, {1});').format(
+                out(('memcpy(variable_data, {0}, {1});').format(
                         p.name, p.size_string(False)))
-                pr('variable_data += {0};'.format(
+                out('variable_data += {0};'.format(
                         p.size_string(False)))
         if not func.fixed_params and not func.variable_params:
-            pr('(void) cmd;\n')
-        pr('_mesa_post_marshal_hook(ctx);')
+            out('(void) cmd;\n')
+        out('_mesa_post_marshal_hook(ctx);')
 
     def print_async_struct(self, func):
-        print 'struct marshal_cmd_{0}'.format(func.name)
-        print '{'
-        print '   struct marshal_cmd_base cmd_base;'
-        for p in func.fixed_params:
-            if p.count:
-                print '   {0} {1}[{2}];'.format(
-                    p.get_base_type_string(), p.name, p.count)
-            else:
-                print '   {0} {1};'.format(p.type_string(), p.name)
-        # TODO: when there are variable parameters, insert padding if
-        # necessary for alignment.
-        for p in func.variable_params:
-            if p.count_scale != 1:
-                print ('   /* Next {0} bytes are '
-                       '{1} {2}[{3}][{4}] */').format(
-                    p.size_string(), p.get_base_type_string(),
-                    p.name, p.counter, p.count_scale)
-            else:
-                print ('   /* Next {0} bytes are '
-                       '{1} {2}[{3}] */').format(
-                    p.size_string(), p.get_base_type_string(),
-                    p.name, p.counter)
-        print '};'
+        out('struct marshal_cmd_{0}'.format(func.name))
+        out('{')
+        with indent():
+            out('struct marshal_cmd_base cmd_base;')
+            for p in func.fixed_params:
+                if p.count:
+                    out('{0} {1}[{2}];'.format(
+                            p.get_base_type_string(), p.name, p.count))
+                else:
+                    out('{0} {1};'.format(p.type_string(), p.name))
+            for p in func.variable_params:
+                if p.count_scale != 1:
+                    out(('/* Next {0} bytes are '
+                         '{1} {2}[{3}][{4}] */').format(
+                            p.size_string(), p.get_base_type_string(),
+                            p.name, p.counter, p.count_scale))
+                else:
+                    out(('/* Next {0} bytes are '
+                         '{1} {2}[{3}] */').format(
+                            p.size_string(), p.get_base_type_string(),
+                            p.name, p.counter))
+        out('};')
 
     def print_async_unmarshal(self, func):
-        print 'static inline void'
-        print ('unmarshal_{0}(struct gl_context *ctx, '
-               'const struct marshal_cmd_{0} *cmd)').format(func.name)
-        print '{'
-        for p in func.fixed_params:
-            if p.count:
-                print '   const {0} * {1} = cmd->{1};'.format(
-                    p.get_base_type_string(), p.name)
-            else:
-                print '   const {0} {1} = cmd->{1};'.format(
-                    p.type_string(), p.name)
-        if func.variable_params:
-            for p in func.variable_params:
-                print '   const {0} * {1};'.format(
-                    p.get_base_type_string(), p.name)
-            print '   const char *variable_data = (const char *) (cmd + 1);'
-            for p in func.variable_params:
-                print '   {0} = (const {1} *) variable_data;'.format(
-                    p.name, p.get_base_type_string())
-                print '   variable_data += {0};'.format(p.size_string(False))
-        self.print_sync_call(func, '   ')
-        print '}'
+        out('static inline void')
+        out(('unmarshal_{0}(struct gl_context *ctx, '
+             'const struct marshal_cmd_{0} *cmd)').format(func.name))
+        out('{')
+        with indent():
+            for p in func.fixed_params:
+                if p.count:
+                    out('const {0} * {1} = cmd->{1};'.format(
+                            p.get_base_type_string(), p.name))
+                else:
+                    out('const {0} {1} = cmd->{1};'.format(
+                            p.type_string(), p.name))
+            if func.variable_params:
+                for p in func.variable_params:
+                    out('const {0} * {1};'.format(
+                            p.get_base_type_string(), p.name))
+                out('const char *variable_data = (const char *) (cmd + 1);')
+                for p in func.variable_params:
+                    out('{0} = (const {1} *) variable_data;'.format(
+                            p.name, p.get_base_type_string()))
+                    out('variable_data += {0};'.format(p.size_string(False)))
+            self.print_sync_call(func)
+        out('}')
 
     def print_async_marshal(self, func):
-        print 'static void GLAPIENTRY'
-        print 'marshal_{0}({1})'.format(
-            func.name, func.get_parameter_string())
-        print '{'
-        print '   GET_CURRENT_CONTEXT(ctx);'
-        struct = 'struct marshal_cmd_{0}'.format(func.name)
-        size_terms = ['sizeof({0})'.format(struct)]
-        for p in func.variable_params:
-            size_terms.append(p.size_string())
-        print '   size_t cmd_size = {0};'.format(' + '.join(size_terms))
-        if func.variable_params:
-            print '   if (cmd_size <= MARSHAL_MAX_CMD_SIZE) {'
-            self.print_async_dispatch(func, struct, '      ')
-            print '   } else {'
-            self.print_sync_dispatch(func, '      ')
-            print '   }'
-        else:
-            self.print_async_dispatch(func, struct, '   ')
-        print '}'
+        out('static void GLAPIENTRY')
+        out('marshal_{0}({1})'.format(
+                func.name, func.get_parameter_string()))
+        out('{')
+        with indent():
+            out('GET_CURRENT_CONTEXT(ctx);')
+            struct = 'struct marshal_cmd_{0}'.format(func.name)
+            size_terms = ['sizeof({0})'.format(struct)]
+            for p in func.variable_params:
+                size_terms.append(p.size_string())
+            out('size_t cmd_size = {0};'.format(' + '.join(size_terms)))
+            if func.variable_params:
+                out('if (cmd_size <= MARSHAL_MAX_CMD_SIZE) {')
+                with indent():
+                    self.print_async_dispatch(func, struct)
+                out('} else {')
+                with indent():
+                    self.print_sync_dispatch(func)
+                out('}')
+            else:
+                self.print_async_dispatch(func, struct)
+        out('}')
 
     def print_async_body(self, func):
-        print '/* {0}: marshalled asynchronously */'.format(func.name)
+        out('/* {0}: marshalled asynchronously */'.format(func.name))
         self.print_async_struct(func)
         self.print_async_unmarshal(func)
         self.print_async_marshal(func)
-        print ''
-        print ''
+        out('')
+        out('')
 
     def print_unmarshal_dispatch_cmd(self, api):
-        print 'size_t'
-        print ('_mesa_unmarshal_dispatch_cmd(struct gl_context *ctx, '
-               'const void *cmd)')
-        print '{'
-        print '   const struct marshal_cmd_base *cmd_base = cmd;'
-        print '   switch (cmd_base->cmd_id) {'
-        for func in api.functionIterateAll():
-            if not func.is_async():
-                continue
-            print '   case DISPATCH_CMD_{0}:'.format(func.name)
-            print ('      unmarshal_{0}(ctx, (const struct marshal_cmd_{0} *)'
-                   ' cmd);').format(func.name)
-            print '      break;'
-        print '   default:'
-        print '      assert(!"Unrecognized command ID");'
-        print '      break;'
-        print '   }'
-        print ''
-        print '   return cmd_base->cmd_size;'
-        print '}'
-        print ''
-        print ''
+        out('size_t')
+        out('_mesa_unmarshal_dispatch_cmd(struct gl_context *ctx, '
+            'const void *cmd)')
+        out('{')
+        with indent():
+            out('const struct marshal_cmd_base *cmd_base = cmd;')
+            out('switch (cmd_base->cmd_id) {')
+            for func in api.functionIterateAll():
+                if not func.is_async():
+                    continue
+                out('case DISPATCH_CMD_{0}:'.format(func.name))
+                with indent():
+                    out(('unmarshal_{0}(ctx, (const struct marshal_cmd_{0} *)'
+                         ' cmd);').format(func.name))
+                    out('break;')
+            out('default:')
+            with indent():
+                out('assert(!"Unrecognized command ID");')
+                out('break;')
+            out('}')
+            out('')
+            out('return cmd_base->cmd_size;')
+        out('}')
+        out('')
+        out('')
 
     def printBody(self, api):
         async_funcs = []
