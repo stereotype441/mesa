@@ -37,9 +37,6 @@ header = """
 #include "marshal.h"
 """
 
-footer = """/* FOOTER */
-"""
-
 
 current_indent = 0
 
@@ -71,7 +68,7 @@ class PrintCode(gl_XML.gl_print_base):
         print header
 
     def printRealFooter(self):
-        print footer
+        pass
 
     def print_sync_call(self, func):
         call = 'CALL_{0}(ctx->CurrentServerDispatch, ({1}))'.format(
@@ -222,6 +219,26 @@ class PrintCode(gl_XML.gl_print_base):
         out('')
         out('')
 
+    def print_create_marshal_table(self, api):
+        out('struct _glapi_table *')
+        out('_mesa_create_marshal_table(const struct gl_context *ctx)')
+        out('{')
+        with indent():
+            out('struct _glapi_table *table;')
+            out('')
+            out('table = _mesa_alloc_dispatch_table(_gloffset_COUNT);')
+            out('if (table == NULL)')
+            with indent():
+                out('return NULL;')
+            out('')
+            for func in api.functionIterateAll():
+                out('SET_{0}(table, marshal_{0});'.format(func.name))
+            out('')
+            out('return table;')
+        out('}')
+        out('')
+        out('')
+
     def printBody(self, api):
         async_funcs = []
         for func in api.functionIterateAll():
@@ -231,6 +248,7 @@ class PrintCode(gl_XML.gl_print_base):
             else:
                 self.print_sync_body(func)
         self.print_unmarshal_dispatch_cmd(api)
+        self.print_create_marshal_table(api)
 
 
 def show_usage():
