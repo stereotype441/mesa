@@ -56,7 +56,7 @@ rendering.  In most cases this will just mean adding a
                    offset              CDATA   #IMPLIED
                    static_dispatch     (true | false) "true"
                    vectorequiv         NMTOKEN #IMPLIED
-                   marshal             (sync | async) #IMPLIED>
+                   marshal             (sync | async | draw) #IMPLIED>
 
 <!-- <size> describes the behaviour of a state getter/setter function
      when the parent enum is passed to it:

@@ -3134,7 +3134,7 @@
     <enum name="ALL_CLIENT_ATTRIB_BITS"                   value="0xFFFFFFFF"/>
     <enum name="CLIENT_ALL_ATTRIB_BITS"                   value="0xFFFFFFFF"/>
 
-    <function name="ArrayElement" offset="306">
+    <function name="ArrayElement" offset="306" marshal="draw">
         <param name="i" type="GLint"/>
         <glx handcode="true"/>
     </function>
@@ -3152,14 +3152,14 @@
         <glx handcode="true"/>
     </function>
 
-    <function name="DrawArrays" offset="310">
+    <function name="DrawArrays" offset="310" marshal="draw">
         <param name="mode" type="GLenum"/>
         <param name="first" type="GLint"/>
         <param name="count" type="GLsizei"/>
         <glx rop="193" handcode="true"/>
     </function>
 
-    <function name="DrawElements" offset="311">
+    <function name="DrawElements" offset="311" marshal="draw">
         <param name="mode" type="GLenum"/>
         <param name="count" type="GLsizei"/>
         <param name="type" type="GLenum"/>
@@ -3716,7 +3716,7 @@
         <glx rop="4097"/>
     </function>
 
-    <function name="DrawRangeElements" offset="338">
+    <function name="DrawRangeElements" offset="338" marshal="draw">
         <param name="mode" type="GLenum"/>
         <param name="start" type="GLuint"/>
         <param name="end" type="GLuint"/>
@@ -8018,7 +8018,7 @@
   <enum name="MAX_TRANSFORM_FEEDBACK_BUFFERS" value="0x8E70"/>
   <enum name="MAX_VERTEX_STREAMS"             value="0x8E71"/>
 
-  <function name="DrawTransformFeedbackStream" offset="assign">
+  <function name="DrawTransformFeedbackStream" offset="assign" marshal="draw">
     <param name="mode" type="GLenum"/>
     <param name="id" type="GLuint"/>
     <param name="stream" type="GLuint"/>
@@ -8054,13 +8054,15 @@
 <!-- ARB extensions #106...#108 -->
 
 <category name="GL_ARB_transform_feedback_instanced" number="109">
-  <function name="DrawTransformFeedbackInstanced" offset="assign">
+  <function name="DrawTransformFeedbackInstanced" offset="assign"
+            marshal="draw">
     <param name="mode" type="GLenum"/>
     <param name="id" type="GLuint"/>
     <param name="primcount" type="GLsizei"/>
   </function>
 
-  <function name="DrawTransformFeedbackStreamInstanced" offset="assign">
+  <function name="DrawTransformFeedbackStreamInstanced" offset="assign"
+            marshal="draw">
     <param name="mode" type="GLenum"/>
     <param name="id" type="GLuint"/>
     <param name="stream" type="GLuint"/>
@@ -9906,7 +9908,7 @@
 </category>
 
 <category name="GL_EXT_multi_draw_arrays" number="148">
-    <function name="MultiDrawArraysEXT" offset="assign">
+    <function name="MultiDrawArraysEXT" offset="assign" marshal="draw">
         <param name="mode" type="GLenum"/>
         <param name="first" type="const GLint *"/>
         <param name="count" type="const GLsizei *"/>
@@ -9914,7 +9916,7 @@
         <glx handcode="true"/>
     </function>
 
-    <function name="MultiDrawElementsEXT" offset="assign">
+    <function name="MultiDrawElementsEXT" offset="assign" marshal="draw">
         <param name="mode" type="GLenum"/>
         <param name="count" type="const GLsizei *"/>
         <param name="type" type="GLenum"/>
@@ -10935,7 +10937,8 @@
 </category>
 
 <category name="GL_IBM_multimode_draw_arrays" number="200">
-    <function name="MultiModeDrawArraysIBM" offset="assign" static_dispatch="false">
+    <function name="MultiModeDrawArraysIBM" offset="assign"
+              static_dispatch="false" marshal="draw">
         <param name="mode" type="const GLenum *"/>
         <param name="first" type="const GLint *"/>
         <param name="count" type="const GLsizei *"/>
@@ -10944,7 +10947,8 @@
         <glx handcode="true" ignore="true"/>
     </function>
 
-    <function name="MultiModeDrawElementsIBM" offset="assign" static_dispatch="false">
+    <function name="MultiModeDrawElementsIBM" offset="assign"
+              static_dispatch="false" marshal="draw">
         <param name="mode" type="const GLenum *"/>
         <param name="count" type="const GLsizei *"/>
         <param name="type" type="GLenum"/>

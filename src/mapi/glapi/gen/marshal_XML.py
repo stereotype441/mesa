@@ -72,6 +72,11 @@ class marshal_function(gl_XML.gl_function):
             return False
         elif self.marshal == 'async':
             return True
+        elif self.marshal == 'draw':
+            # TODO: as a temporary measure, do draw functions
+            # synchronously, since they may access client memory via
+            # vertex attribute pointers.
+            return False
 
         if self.return_type != 'void':
             return False
