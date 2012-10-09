@@ -2352,11 +2352,18 @@
         <glx rop="139" handcode="client"/>
     </function>
 
-    <function name="Finish" offset="216">
+    <function name="Finish" offset="216" marshal="sync">
         <glx sop="108" handcode="true"/>
     </function>
 
-    <function name="Flush" offset="217">
+    <!-- TODO: Flush is marshalled synchronously as a temporary hack
+    since we don't yet have a hook into SwapBuffers.
+
+    NOTE: when we remove this hack, we'll still have to handle Flush
+    specially to ensure that it causes all previous commands to get
+    delivered to the server thread.
+    -->
+    <function name="Flush" offset="217" marshal="sync">
         <glx sop="142" handcode="true"/>
     </function>
 

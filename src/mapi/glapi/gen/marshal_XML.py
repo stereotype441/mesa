@@ -60,16 +60,18 @@ class marshal_function(gl_XML.gl_function):
             else:
                 self.fixed_params.append(p)
 
+        # Store the "marshal" attribute, if present.
+        self.marshal = element.nsProp('marshal', None)
+
     def is_async(self):
         """Find out whether this function can be dispatched
         asynchronously."""
-        # TODO: move logic based on function name into XML.
-        if self.name == 'Flush':
-            # TODO: since we don't have any hook into SwapBuffers, we
-            # have to do a synchronous flush.
+        # If a "marshal" attribute was present, that overrides any
+        # determination that would otherwise be made by this function.
+        if self.marshal == 'sync':
             return False
-        if self.name == 'Finish':
-            return False
+        elif self.marshal == 'async':
+            return True
 
         if self.return_type != 'void':
             return False
