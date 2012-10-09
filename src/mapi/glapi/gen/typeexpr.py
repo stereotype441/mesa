@@ -27,7 +27,7 @@
 
 import string, copy
 
-class type_node:
+class type_node(object):
         """A portion of a C type: either a base type (e.g. "unsigned
         int"), or a layer of indirection (a pointer).
         """
@@ -75,7 +75,7 @@ class type_node:
 		return s
 
 
-class type_table:
+class type_table(object):
         """Table of types that is searchable by base name."""
 	def __init__(self):
 		self.types_by_name = {}
@@ -123,7 +123,7 @@ def create_initial_types():
 	return
 
 
-class type_expression:
+class type_expression(object):
         """Represents a complete C type."""
 	built_in_types = None
 

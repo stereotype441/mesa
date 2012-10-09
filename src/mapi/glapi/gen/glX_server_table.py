@@ -49,7 +49,7 @@ def round_down_to_power_of_two(n):
 	return -1
 
 
-class function_table:
+class function_table(object):
 	def __init__(self, name, do_size_check):
 		self.name_base = name
 		self.do_size_check = do_size_check
