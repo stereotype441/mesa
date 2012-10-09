@@ -54,27 +54,6 @@ class PrintCode(gl_XML.gl_print_base):
     def printRealFooter(self):
         print footer
 
-    def classify_function(self, f):
-        # TODO: should go into function class
-        if f.name == 'Flush':
-            # TODO: since we don't have any hook into SwapBuffers, we
-            # have to do a synchronous flush.
-            return 'sync'
-        if f.name == 'Finish':
-            return 'sync'
-        if f.return_type != 'void':
-            return 'sync'
-        for p in f.parameters:
-            if p.is_output:
-                return 'sync'
-            if p.is_pointer() and not (p.count or p.counter):
-                return 'sync'
-            if p.count_parameter_list:
-                # Parameter size is determined by enums; don't know
-                # how to do this yet.
-                return 'sync'
-        return 'async'
-
     def print_sync_call(self, func, indent):
         call = 'CALL_{0}(ctx->CurrentServerDispatch, ({1}))'.format(
             func.name, func.get_called_parameter_string())
@@ -186,14 +165,16 @@ class PrintCode(gl_XML.gl_print_base):
         print ''
         print ''
 
-    def print_unmarshal_dispatch_cmd(self, funcs):
+    def print_unmarshal_dispatch_cmd(self, api):
         print 'size_t'
         print ('_mesa_unmarshal_dispatch_cmd(struct gl_context *ctx, '
                'const void *cmd)')
         print '{'
         print '   const struct marshal_cmd_base *cmd_base = cmd;'
         print '   switch (cmd_base->cmd_id) {'
-        for func in funcs:
+        for func in api.functionIterateAll():
+            if not func.is_async():
+                continue
             print '   case DISPATCH_CMD_{0}:'.format(func.name)
             print ('      unmarshal_{0}(ctx, (const struct marshal_cmd_{0} *)'
                    ' cmd);').format(func.name)
@@ -211,16 +192,12 @@ class PrintCode(gl_XML.gl_print_base):
     def printBody(self, api):
         async_funcs = []
         for func in api.functionIterateAll():
-            classification = self.classify_function(func)
-            if classification == 'sync':
-                self.print_sync_body(func)
-            elif classification == 'async':
+            if func.is_async():
                 self.print_async_body(func)
                 async_funcs.append(func)
             else:
-                raise Exception(
-                    'Unexpected classification {0}'.format(classification))
-        self.print_unmarshal_dispatch_cmd(async_funcs)
+                self.print_sync_body(func)
+        self.print_unmarshal_dispatch_cmd(api)
 
 
 def show_usage():
