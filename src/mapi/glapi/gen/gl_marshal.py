@@ -96,8 +96,7 @@ class PrintCode(gl_XML.gl_print_base):
             pr('(void) cmd;\n')
         pr('_mesa_post_marshal_hook(ctx);')
 
-    def print_async_body(self, func):
-        print '/* {0}: marshalled asynchronously */'.format(func.name)
+    def print_async_struct(self, func):
         print 'struct marshal_cmd_{0}'.format(func.name)
         print '{'
         print '   struct marshal_cmd_base cmd_base;'
@@ -121,6 +120,8 @@ class PrintCode(gl_XML.gl_print_base):
                     p.size_string(), p.get_base_type_string(),
                     p.name, p.counter)
         print '};'
+
+    def print_async_unmarshal(self, func):
         print 'static inline void'
         print ('unmarshal_{0}(struct gl_context *ctx, '
                'const struct marshal_cmd_{0} *cmd)').format(func.name)
@@ -143,6 +144,8 @@ class PrintCode(gl_XML.gl_print_base):
                 print '   variable_data += {0};'.format(p.size_string(False))
         self.print_sync_call(func, '   ')
         print '}'
+
+    def print_async_marshal(self, func):
         print 'static void GLAPIENTRY'
         print 'marshal_{0}({1})'.format(
             func.name, func.get_parameter_string())
@@ -162,6 +165,12 @@ class PrintCode(gl_XML.gl_print_base):
         else:
             self.print_async_dispatch(func, struct, '   ')
         print '}'
+
+    def print_async_body(self, func):
+        print '/* {0}: marshalled asynchronously */'.format(func.name)
+        self.print_async_struct(func)
+        self.print_async_unmarshal(func)
+        self.print_async_marshal(func)
         print ''
         print ''
 
