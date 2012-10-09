@@ -61,11 +61,11 @@ def indent(delta = 3):
 
 class PrintCode(gl_XML.gl_print_base):
     def __init__(self):
-        gl_XML.gl_print_base.__init__(self)
+        super(PrintCode, self).__init__()
 
-        self.name = "gl_marshal.py (from Mesa)"
+        self.name = 'gl_marshal.py'
         self.license = license.bsd_license_template % (
-            "Copyright (C) 2012 Intel Corporation", "INTEL CORPORATION")
+            'Copyright (C) 2012 Intel Corporation', 'INTEL CORPORATION')
 
     def printRealHeader(self):
         print header
@@ -234,20 +234,20 @@ class PrintCode(gl_XML.gl_print_base):
 
 
 def show_usage():
-    print "Usage: %s [-f input_file_name]" % sys.argv[0]
+    print 'Usage: %s [-f input_file_name]' % sys.argv[0]
     sys.exit(1)
 
 
 if __name__ == '__main__':
-    file_name = "gl_API.xml"
+    file_name = 'gl_API.xml'
 
     try:
-        (args, trail) = getopt.getopt(sys.argv[1:], "m:f:")
+        (args, trail) = getopt.getopt(sys.argv[1:], 'm:f:')
     except Exception,e:
         show_usage()
 
     for (arg,val) in args:
-        if arg == "-f":
+        if arg == '-f':
             file_name = val
 
     printer = PrintCode()
