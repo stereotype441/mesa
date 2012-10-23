@@ -72,13 +72,9 @@ struct function {
    int offset;
 };
 
+extern const struct function gles11_functions_possible[];
 extern const struct function gles2_functions_possible[];
 extern const struct function gles3_functions_possible[];
-
-#if FEATURE_ES1
-extern "C" _glapi_table *_mesa_create_exec_table_es1(void);
-extern const struct function gles11_functions_possible[];
-#endif /* FEATURE_ES1 */
 
 class DispatchSanity_test : public ::testing::Test {
 public:
@@ -144,14 +140,23 @@ validate_nops(const _glapi_proc *table)
    }
 }
 
-#if FEATURE_ES1
 TEST_F(DispatchSanity_test, GLES11)
 {
-   _glapi_proc *exec = (_glapi_proc *) _mesa_create_exec_table_es1();
-   validate_functions(exec, gles11_functions_possible);
-   validate_nops(exec);
+   ctx.Version = 11;
+   _mesa_initialize_context(&ctx,
+                            API_OPENGLES,
+                            &visual,
+                            NULL /* share_list */,
+                            &driver_functions);
+
+   _swrast_CreateContext(&ctx);
+   _vbo_CreateContext(&ctx);
+   _tnl_CreateContext(&ctx);
+   _swsetup_CreateContext(&ctx);
+
+   validate_functions((_glapi_proc *) ctx.Exec, gles11_functions_possible);
+   validate_nops((_glapi_proc *) ctx.Exec);
 }
-#endif /* FEATURE_ES1 */
 
 TEST_F(DispatchSanity_test, GLES2)
 {
@@ -190,7 +195,6 @@ TEST_F(DispatchSanity_test, GLES3)
    validate_nops((_glapi_proc *) ctx.Exec);
 }
 
-#if FEATURE_ES1
 const struct function gles11_functions_possible[] = {
    { "glActiveTexture", _gloffset_ActiveTextureARB },
    { "glAlphaFunc", _gloffset_AlphaFunc },
@@ -251,6 +255,7 @@ const struct function gles11_functions_possible[] = {
    { "glEnableClientState", _gloffset_EnableClientState },
    { "glFinish", _gloffset_Finish },
    { "glFlush", _gloffset_Flush },
+   { "glFlushMappedBufferRangeEXT", -1 },
    { "glFogf", _gloffset_Fogf },
    { "glFogfv", _gloffset_Fogfv },
    { "glFogx", -1 },
@@ -312,6 +317,7 @@ const struct function gles11_functions_possible[] = {
    { "glLoadMatrixx", -1 },
    { "glLogicOp", _gloffset_LogicOp },
    { "glMapBufferOES", -1 },
+   { "glMapBufferRangeEXT", -1 },
    { "glMaterialf", _gloffset_Materialf },
    { "glMaterialfv", _gloffset_Materialfv },
    { "glMaterialx", -1 },
@@ -382,7 +388,6 @@ const struct function gles11_functions_possible[] = {
    { "glViewport", _gloffset_Viewport },
    { NULL, -1 }
 };
-#endif /* FEATURE_ES1 */
 
 const struct function gles2_functions_possible[] = {
    { "glActiveTexture", _gloffset_ActiveTextureARB },
