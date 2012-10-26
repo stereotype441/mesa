@@ -29,7 +29,7 @@
     </function>
 
     <function name="ProgramParameteri" offset="assign" static_dispatch="false"
-              es2="3.0" exec="skip">
+              es2="3.0" mesa_name="+ARB">
         <param name="program" type="GLuint"/>
         <param name="pname" type="GLenum"/>
         <param name="value" type="GLint"/>
