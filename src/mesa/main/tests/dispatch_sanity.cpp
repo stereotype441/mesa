@@ -72,12 +72,9 @@ struct function {
    int offset;
 };
 
+extern const struct function gles11_functions_possible[];
 extern const struct function gles2_functions_possible[];
 extern const struct function gles3_functions_possible[];
-
-#if FEATURE_ES1
-extern const struct function gles11_functions_possible[];
-#endif /* FEATURE_ES1 */
 
 class DispatchSanity_test : public ::testing::Test {
 public:
@@ -143,7 +140,6 @@ validate_nops(const _glapi_proc *table)
    }
 }
 
-#if FEATURE_ES1
 TEST_F(DispatchSanity_test, GLES11)
 {
    ctx.Version = 11;
@@ -161,7 +157,6 @@ TEST_F(DispatchSanity_test, GLES11)
    validate_functions((_glapi_proc *) ctx.Exec, gles11_functions_possible);
    validate_nops((_glapi_proc *) ctx.Exec);
 }
-#endif /* FEATURE_ES1 */
 
 TEST_F(DispatchSanity_test, GLES2)
 {
@@ -200,7 +195,6 @@ TEST_F(DispatchSanity_test, GLES3)
    validate_nops((_glapi_proc *) ctx.Exec);
 }
 
-#if FEATURE_ES1
 const struct function gles11_functions_possible[] = {
    { "glActiveTexture", _gloffset_ActiveTextureARB },
    { "glAlphaFunc", _gloffset_AlphaFunc },
@@ -394,7 +388,6 @@ const struct function gles11_functions_possible[] = {
    { "glViewport", _gloffset_Viewport },
    { NULL, -1 }
 };
-#endif /* FEATURE_ES1 */
 
 const struct function gles2_functions_possible[] = {
    { "glActiveTexture", _gloffset_ActiveTextureARB },
