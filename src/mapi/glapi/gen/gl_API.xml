@@ -12873,7 +12873,7 @@
         <param name="zpass" type="GLenum"/>
     </function>
     <function name="StencilFuncSeparateATI" offset="assign"
-              static_dispatch="false">
+              static_dispatch="false" deprecated="3.1">
         <param name="frontfunc" type="GLenum"/>
         <param name="backfunc" type="GLenum"/>
         <param name="ref" type="GLint"/>
