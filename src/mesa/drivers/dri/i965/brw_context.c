@@ -30,6 +30,7 @@
   */
 
 
+#include "main/context.h"
 #include "main/imports.h"
 #include "main/macros.h"
 #include "main/simple_list.h"
@@ -400,6 +401,11 @@ brwCreateContext(int api,
       ctx->Const.ContextFlags |= GL_CONTEXT_FLAG_DEBUG_BIT;
 
    brw_fs_alloc_reg_sets(brw);
+
+   if (driContextPriv->driScreenPriv->dri2.backgroundCallable) {
+      /* Loader supports multithreading, and so do we. */
+      _mesa_enable_multithreading(ctx);
+   }
 
    return true;
 }
