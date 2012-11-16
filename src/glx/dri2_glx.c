@@ -542,6 +542,10 @@ __dri2CopySubBuffer(__GLXDRIdrawable *pdraw, int x, int y,
    XRectangle xrect;
    XserverRegion region;
 
+   /* TODO: how do we know this screen corresponds to the current context? */
+   if (psc->multithreaded)
+      psc->multithreaded->SynchronizeThreads();
+
    /* Check we have the right attachments */
    if (!priv->have_back)
       return;
