@@ -741,6 +741,9 @@ dri2SwapBuffers(__GLXDRIdrawable *pdraw, int64_t target_msc, int64_t divisor,
 	(struct dri2_display *)dpyPriv->dri2Display;
     CARD64 ret = 0;
 
+    if (psc->multithreaded)
+       psc->multithreaded->SynchronizeThreads();
+
     /* Check we have the right attachments */
     if (!priv->have_back)
 	return ret;
