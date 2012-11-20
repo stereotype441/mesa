@@ -331,6 +331,13 @@ static const int extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es
    EXTRA_END
 };
 
+static const int extra_ARB_ES2_compatibility_api_es2_api_es3[] = {
+   EXT(ARB_ES2_compatibility),
+   EXTRA_API_ES2,
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_sync_api_es3[] = {
    EXT(ARB_sync),
    EXTRA_API_ES3,
@@ -361,7 +368,6 @@ static const int extra_ARB_vertex_shader_api_es3[] = {
    EXTRA_END
 };
 
-EXTRA_EXT(ARB_ES2_compatibility);
 EXTRA_EXT(ARB_texture_cube_map);
 EXTRA_EXT(MESA_texture_array);
 EXTRA_EXT2(EXT_secondary_color, ARB_vertex_program);

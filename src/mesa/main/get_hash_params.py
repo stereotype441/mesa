@@ -204,12 +204,6 @@ descriptor=[
   [ "TEXTURE_COORD_ARRAY_TYPE", "LOC_CUSTOM, TYPE_ENUM, offsetof(struct gl_client_array, Type), NO_EXTRA" ],
   [ "TEXTURE_COORD_ARRAY_STRIDE", "LOC_CUSTOM, TYPE_INT, offsetof(struct gl_client_array, Stride), NO_EXTRA" ],
 
-# GL_ARB_ES2_compatibility
-  [ "SHADER_COMPILER", "CONST(1), extra_ARB_ES2_compatibility" ],
-  [ "MAX_VARYING_VECTORS", "CONTEXT_INT(Const.MaxVarying), extra_ARB_ES2_compatibility" ],
-  [ "MAX_VERTEX_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_ES2_compatibility" ],
-  [ "MAX_FRAGMENT_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_ES2_compatibility" ],
-
 # GL_ARB_multitexture
   [ "MAX_TEXTURE_UNITS", "CONTEXT_INT(Const.MaxTextureUnits), NO_EXTRA" ],
   [ "CLIENT_ACTIVE_TEXTURE", "LOC_CUSTOM, TYPE_INT, 0, NO_EXTRA" ],
@@ -317,10 +311,6 @@ descriptor=[
 
 # Enums unique to OpenGL ES 2.0
 { "apis": ["GLES2"], "params": [
-  [ "MAX_FRAGMENT_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, NO_EXTRA" ],
-  [ "MAX_VARYING_VECTORS", "CONTEXT_INT(Const.MaxVarying), NO_EXTRA" ],
-  [ "MAX_VERTEX_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, NO_EXTRA" ],
-  [ "SHADER_COMPILER", "CONST(1), NO_EXTRA" ],
 # OES_get_program_binary
   [ "NUM_SHADER_BINARY_FORMATS", "CONST(0), NO_EXTRA" ],
   [ "SHADER_BINARY_FORMATS", "CONST(0), NO_EXTRA" ],
@@ -697,6 +687,12 @@ descriptor=[
   [ "MAX_COMBINED_GEOMETRY_UNIFORM_COMPONENTS", "CONTEXT_INT(Const.GeometryProgram.MaxCombinedUniformComponents), extra_ARB_uniform_buffer_object_and_geometry_shader" ],
   [ "UNIFORM_BUFFER_OFFSET_ALIGNMENT", "CONTEXT_INT(Const.UniformBufferOffsetAlignment), extra_ARB_uniform_buffer_object_api_es3" ],
   [ "UNIFORM_BUFFER_BINDING", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_uniform_buffer_object_api_es3" ],
+
+# GL_ARB_ES2_compatibility
+  [ "SHADER_COMPILER", "CONST(1), extra_ARB_ES2_compatibility_api_es2_api_es3" ],
+  [ "MAX_VARYING_VECTORS", "CONTEXT_INT(Const.MaxVarying), extra_ARB_ES2_compatibility_api_es2_api_es3" ],
+  [ "MAX_VERTEX_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_ES2_compatibility_api_es2_api_es3" ],
+  [ "MAX_FRAGMENT_UNIFORM_VECTORS", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_ES2_compatibility_api_es2_api_es3" ],
 ]}
 
 ]
