@@ -338,6 +338,12 @@ static const int extra_ARB_ES2_compatibility_api_es2_api_es3[] = {
    EXTRA_END
 };
 
+static const int extra_ARB_ES3_compatibility_api_es3[] = {
+   EXT(ARB_ES3_compatibility),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_sync_api_es3[] = {
    EXT(ARB_sync),
    EXTRA_API_ES3,

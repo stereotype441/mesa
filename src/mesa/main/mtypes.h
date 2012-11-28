@@ -2938,6 +2938,9 @@ struct gl_constants
 
    /** GL_ARB_map_buffer_alignment */
    GLuint MinMapBufferAlignment;
+
+   /** ES 3.0 */
+   GLint64 MaxElementIndex;
 };
 
 
