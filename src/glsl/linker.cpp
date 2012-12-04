@@ -1533,14 +1533,8 @@ public:
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
               const unsigned max_outputs) const;
-
-   /**
-    * True if assign_location() has been called for this object.
-    */
-   bool is_assigned() const
-   {
-      return this->location != -1;
-   }
+   ir_variable *find_output_var(gl_shader_program *prog,
+                                gl_shader *producer) const;
 
    bool is_next_buffer_separator() const
    {
@@ -1553,19 +1547,8 @@ public:
    }
 
    /**
-    * Determine whether this object refers to the variable var.
-    */
-   bool matches_var(ir_variable *var) const
-   {
-      if (this->is_clip_distance_mesa)
-         return strcmp(var->name, "gl_ClipDistanceMESA") == 0;
-      else
-         return strcmp(var->name, this->var_name) == 0;
-   }
-
-   /**
     * The total number of varying components taken up by this variable.  Only
-    * valid if is_assigned() is true.
+    * valid if assign_location() has been called.
     */
    unsigned num_components() const
    {
@@ -1822,19 +1805,6 @@ tfeedback_decl::accumulate_num_outputs(struct gl_shader_program *prog,
       return true;
    }
 
-   if (!this->is_assigned()) {
-      /* From GL_EXT_transform_feedback:
-       *   A program will fail to link if:
-       *
-       *   * any variable name specified in the <varyings> array is not
-       *     declared as an output in the geometry shader (if present) or
-       *     the vertex shader (if no geometry shader is present);
-       */
-      linker_error(prog, "Transform feedback varying %s undeclared.",
-                   this->orig_name);
-      return false;
-   }
-
    unsigned translated_size = this->size;
    if (this->is_clip_distance_mesa)
       translated_size = (translated_size + 3) / 4;
@@ -1915,6 +1885,29 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
    info->NumVarying++;
 
    return true;
+}
+
+
+ir_variable *
+tfeedback_decl::find_output_var(gl_shader_program *prog,
+                                gl_shader *producer) const
+{
+   const char *name = this->is_clip_distance_mesa
+      ? "gl_ClipDistanceMESA" : this->var_name;
+   ir_variable *var = producer->symbols->get_variable(name);
+   if (var && var->mode == ir_var_out)
+      return var;
+
+   /* From GL_EXT_transform_feedback:
+    *   A program will fail to link if:
+    *
+    *   * any variable name specified in the <varyings> array is not
+    *     declared as an output in the geometry shader (if present) or
+    *     the vertex shader (if no geometry shader is present);
+    */
+   linker_error(prog, "Transform feedback varying %s undeclared.",
+                this->orig_name);
+   return NULL;
 }
 
 
@@ -2102,21 +2095,25 @@ assign_varying_locations(struct gl_context *ctx,
          assign_varying_location(input_var, output_var, &input_index,
                                  &output_index);
       }
+   }
 
-      for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
-         if (!tfeedback_decls[i].is_varying())
-            continue;
+   for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
+      if (!tfeedback_decls[i].is_varying())
+         continue;
 
-         if (!tfeedback_decls[i].is_assigned() &&
-             tfeedback_decls[i].matches_var(output_var)) {
-            if (output_var->is_unmatched_generic_inout) {
-               assign_varying_location(input_var, output_var, &input_index,
-                                       &output_index);
-            }
-            if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
-               return false;
-         }
+      ir_variable *output_var
+         = tfeedback_decls[i].find_output_var(prog, producer);
+
+      if (output_var == NULL)
+         return false;
+
+      if (output_var->is_unmatched_generic_inout) {
+         assign_varying_location(NULL, output_var, &input_index,
+                                 &output_index);
       }
+
+      if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
+         return false;
    }
 
    unsigned varying_vectors = 0;
