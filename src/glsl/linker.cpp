@@ -1956,58 +1956,139 @@ parse_tfeedback_decls(struct gl_context *ctx, struct gl_shader_program *prog,
 
 
 /**
- * Assign a location for a variable that is produced in one pipeline stage
- * (the "producer") and consumed in the next stage (the "consumer").
+ * Data structure recording the relationship between outputs of one shader
+ * stage (the "producer") and inputs of another (the "consumer").
+ */
+class varying_matches
+{
+public:
+   varying_matches();
+   ~varying_matches();
+   void record(ir_variable *producer_var, ir_variable *consumer_var);
+   void assign_locations();
+   void store_locations() const;
+
+private:
+   struct match {
+      ir_variable *producer_var;
+      ir_variable *consumer_var;
+      unsigned generic_location;
+   } *matches;
+   unsigned num_matches;
+   unsigned matches_capacity;
+};
+
+
+varying_matches::varying_matches()
+{
+   /* Note: this initial capacity is rather arbitrarily chosen to be large
+    * enough for many cases without wasting an unreasonable amount of space.
+    * It will be increased if necessary.
+    */
+   this->matches_capacity = 8;
+   this->matches = (match *)
+      malloc(sizeof(*this->matches) * this->matches_capacity);
+   this->num_matches = 0;
+}
+
+
+varying_matches::~varying_matches()
+{
+   free(this->matches);
+}
+
+
+/**
+ * Record the given producer/consumer variable pair in the list of variables
+ * that should later be assigned locations.
  *
- * \param input_var is the input variable declaration in the consumer.
+ * It is permissible for \c consumer_var to be NULL (this happens if a
+ * variable is output by the producer and consumed by transform feedback, but
+ * not consumed by the consumer).
  *
- * \param output_var is the output variable declaration in the producer.
- *
- * \param input_index is the counter that keeps track of assigned input
- *        locations in the consumer.
- *
- * \param output_index is the counter that keeps track of assigned output
- *        locations in the producer.
- *
- * It is permissible for \c input_var to be NULL (this happens if a variable
- * is output by the producer and consumed by transform feedback, but not
- * consumed by the consumer).
- *
- * If the variable has already been assigned a location, this function has no
- * effect.
+ * If \c producer_var has already been paired up with a consumer_var, or
+ * producer_var is part of fixed pipeline functionality (and hence already has
+ * a location assigned), this function has no effect.
  */
 void
-assign_varying_location(ir_variable *input_var, ir_variable *output_var,
-                        unsigned *input_index, unsigned *output_index)
+varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
 {
-   if (!output_var->is_unmatched_generic_inout) {
-      /* Location already assigned. */
+   if (!producer_var->is_unmatched_generic_inout) {
+      /* Either a location already exists for this variable (since it is part
+       * of fixed functionality), or it has already been recorded as part of a
+       * previous match.
+       */
       return;
    }
 
-   if (input_var) {
-      assert(input_var->location == -1);
-      input_var->location = *input_index;
-      input_var->is_unmatched_generic_inout = 0;
+   if (this->num_matches == this->matches_capacity) {
+      this->matches_capacity *= 2;
+      this->matches = (match *)
+         realloc(this->matches,
+                 sizeof(*this->matches) * this->matches_capacity);
    }
+   this->matches[this->num_matches].producer_var = producer_var;
+   this->matches[this->num_matches].consumer_var = consumer_var;
+   this->num_matches++;
+   producer_var->is_unmatched_generic_inout = 0;
+   if (consumer_var)
+      consumer_var->is_unmatched_generic_inout = 0;
+}
 
-   output_var->location = *output_index;
-   output_var->is_unmatched_generic_inout = 0;
 
-   /* FINISHME: Support for "varying" records in GLSL 1.50. */
-   assert(!output_var->type->is_record());
+/**
+ * Choose locations for all of the variable matches that were previously
+ * passed to varying_matches::record().
+ */
+void
+varying_matches::assign_locations()
+{
+   unsigned generic_location = 0;
 
-   if (output_var->type->is_array()) {
-      const unsigned slots = output_var->type->length
-         * output_var->type->fields.array->matrix_columns;
+   for (unsigned i = 0; i < this->num_matches; i++) {
+      this->matches[i].generic_location = generic_location;
 
-      *output_index += slots;
-      *input_index += slots;
-   } else {
-      const unsigned slots = output_var->type->matrix_columns;
+      ir_variable *producer_var = this->matches[i].producer_var;
 
-      *output_index += slots;
-      *input_index += slots;
+      /* FINISHME: Support for "varying" records in GLSL 1.50. */
+      assert(!producer_var->type->is_record());
+
+      if (producer_var->type->is_array()) {
+         const unsigned slots = producer_var->type->length
+            * producer_var->type->fields.array->matrix_columns;
+
+         generic_location += 4 * slots;
+      } else {
+         const unsigned slots = producer_var->type->matrix_columns;
+
+         generic_location += 4 * slots;
+      }
+   }
+}
+
+
+/**
+ * Update the producer and consumer shaders to reflect the locations
+ * assignments that were made by varying_matches::assign_locations().
+ */
+void
+varying_matches::store_locations() const
+{
+   /* FINISHME: Set dynamically when geometry shader support is added. */
+   unsigned producer_base = VERT_RESULT_VAR0;
+   unsigned consumer_base = FRAG_ATTRIB_VAR0;
+
+   for (unsigned i = 0; i < this->num_matches; i++) {
+      ir_variable *producer_var = this->matches[i].producer_var;
+      ir_variable *consumer_var = this->matches[i].consumer_var;
+      if (consumer_var) {
+         assert(consumer_var->location == -1);
+         consumer_var->location
+            = consumer_base + this->matches[i].generic_location / 4;
+      }
+
+      producer_var->location
+         = producer_base + this->matches[i].generic_location / 4;
    }
 }
 
@@ -2064,9 +2145,7 @@ assign_varying_locations(struct gl_context *ctx,
                          unsigned num_tfeedback_decls,
                          tfeedback_decl *tfeedback_decls)
 {
-   /* FINISHME: Set dynamically when geometry shader support is added. */
-   unsigned output_index = VERT_RESULT_VAR0;
-   unsigned input_index = FRAG_ATTRIB_VAR0;
+   varying_matches matches;
 
    /* Operate in a total of three passes.
     *
@@ -2092,8 +2171,7 @@ assign_varying_locations(struct gl_context *ctx,
          input_var = NULL;
 
       if (input_var) {
-         assign_varying_location(input_var, output_var, &input_index,
-                                 &output_index);
+         matches.record(output_var, input_var);
       }
    }
 
@@ -2108,9 +2186,19 @@ assign_varying_locations(struct gl_context *ctx,
          return false;
 
       if (output_var->is_unmatched_generic_inout) {
-         assign_varying_location(NULL, output_var, &input_index,
-                                 &output_index);
+         matches.record(output_var, NULL);
       }
+   }
+
+   matches.assign_locations();
+   matches.store_locations();
+
+   for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
+      if (!tfeedback_decls[i].is_varying())
+         continue;
+
+      ir_variable *output_var
+         = tfeedback_decls[i].find_output_var(prog, producer);
 
       if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
          return false;
