@@ -1599,6 +1599,17 @@ private:
    int location;
 
    /**
+    * If non-zero, then this variable may be packed along with other variables
+    * into a single varying slot, so this offset should be applied when
+    * accessing components.  For example, an offset of 1 means that the x
+    * component of this variable is actually stored in component y of the
+    * location specified by \c location.
+    *
+    * Only valid if location != -1.
+    */
+   unsigned location_frac;
+
+   /**
     * If location != -1, the number of vector elements in this variable, or 1
     * if this variable is a scalar.
     */
@@ -1760,13 +1771,16 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
          if (this->is_clip_distance_mesa) {
             this->location =
                output_var->location + this->array_subscript / 4;
+            this->location_frac = this->array_subscript % 4;
          } else {
             this->location =
                output_var->location + this->array_subscript * matrix_cols;
+            this->location_frac = output_var->location_frac;
          }
          this->size = 1;
       } else {
          this->location = output_var->location;
+         this->location_frac = output_var->location_frac;
          this->size = actual_array_size;
       }
       this->vector_elements = output_var->type->fields.array->vector_elements;
@@ -1784,6 +1798,7 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
          return false;
       }
       this->location = output_var->location;
+      this->location_frac = output_var->location_frac;
       this->size = 1;
       this->vector_elements = output_var->type->vector_elements;
       this->matrix_columns = output_var->type->matrix_columns;
@@ -1871,12 +1886,11 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
       for (unsigned v = 0; v < this->matrix_columns; ++v) {
          unsigned num_components = this->vector_elements;
          assert(info->NumOutputs < max_outputs);
-         info->Outputs[info->NumOutputs].ComponentOffset = 0;
+         info->Outputs[info->NumOutputs].ComponentOffset
+            = this->location_frac;
          if (this->is_clip_distance_mesa) {
             if (this->is_subscripted) {
                num_components = 1;
-               info->Outputs[info->NumOutputs].ComponentOffset =
-                  this->array_subscript % 4;
             } else {
                num_components = MIN2(4, this->size - components_so_far);
             }
