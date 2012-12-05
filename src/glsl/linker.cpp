@@ -1535,8 +1535,7 @@ public:
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
               const unsigned max_outputs) const;
-   ir_variable *find_output_var(gl_shader_program *prog,
-                                gl_shader *producer) const;
+   bool find_output_var(gl_shader_program *prog, gl_shader *producer);
 
    bool is_next_buffer_separator() const
    {
@@ -1558,6 +1557,11 @@ public:
          return this->size;
       else
          return this->vector_elements * this->matrix_columns * this->size;
+   }
+
+   ir_variable *get_output_var() const
+   {
+      return this->output_var;
    }
 
 private:
@@ -1625,6 +1629,14 @@ private:
     * Whether this is gl_NextBuffer from ARB_transform_feedback3.
     */
    bool next_buffer_separator;
+
+   /**
+    * Variable declaration (in the vertex shader) of the variable that has
+    * been matched up to this transform feedback declaration.
+    *
+    * Assigned by find_output_var().
+    */
+   ir_variable *output_var;
 };
 
 
@@ -1890,15 +1902,17 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
 }
 
 
-ir_variable *
+bool
 tfeedback_decl::find_output_var(gl_shader_program *prog,
-                                gl_shader *producer) const
+                                gl_shader *producer)
 {
    const char *name = this->is_clip_distance_mesa
       ? "gl_ClipDistanceMESA" : this->var_name;
    ir_variable *var = producer->symbols->get_variable(name);
-   if (var && var->mode == ir_var_out)
-      return var;
+   if (var && var->mode == ir_var_out) {
+      this->output_var = var;
+      return true;
+   }
 
    /* From GL_EXT_transform_feedback:
     *   A program will fail to link if:
@@ -1909,7 +1923,7 @@ tfeedback_decl::find_output_var(gl_shader_program *prog,
     */
    linker_error(prog, "Transform feedback varying %s undeclared.",
                 this->orig_name);
-   return NULL;
+   return false;
 }
 
 
@@ -2273,11 +2287,10 @@ assign_varying_locations(struct gl_context *ctx,
       if (!tfeedback_decls[i].is_varying())
          continue;
 
-      ir_variable *output_var
-         = tfeedback_decls[i].find_output_var(prog, producer);
-
-      if (output_var == NULL)
+      if (!tfeedback_decls[i].find_output_var(prog, producer))
          return false;
+
+      ir_variable *output_var = tfeedback_decls[i].get_output_var();
 
       if (output_var->is_unmatched_generic_inout) {
          matches.record(output_var, NULL);
@@ -2291,8 +2304,7 @@ assign_varying_locations(struct gl_context *ctx,
       if (!tfeedback_decls[i].is_varying())
          continue;
 
-      ir_variable *output_var
-         = tfeedback_decls[i].find_output_var(prog, producer);
+      ir_variable *output_var = tfeedback_decls[i].get_output_var();
 
       if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
          return false;
