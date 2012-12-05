@@ -1982,7 +1982,8 @@ public:
    ~varying_matches();
    void record(ir_variable *producer_var, ir_variable *consumer_var);
    void assign_locations();
-   void store_locations() const;
+   void store_locations(void *mem_ctx, gl_shader *producer,
+                        gl_shader *consumer) const;
 
 private:
    /**
@@ -2002,7 +2003,12 @@ private:
 
    static unsigned compute_packing_class(ir_variable *var);
    static packing_order_enum compute_packing_order(ir_variable *var);
-   static int match_comparator(const void *x_generic, const void *y_generic);
+   static int match_comparator(const void *x_generic,
+                               const void *y_generic);
+   static void pack_varying(void *mem_ctx, exec_list *instructions,
+                            ir_variable *new_varying,
+                            ir_variable *old_varying, unsigned offset,
+                            bool is_producer);
 
    struct match {
       unsigned packing_class;
@@ -2010,6 +2016,7 @@ private:
       ir_variable *producer_var;
       ir_variable *consumer_var;
       unsigned generic_location;
+      bool is_packed;
    } *matches;
    unsigned num_matches;
    unsigned matches_capacity;
@@ -2092,6 +2099,7 @@ varying_matches::assign_locations()
 
    for (unsigned i = 0; i < this->num_matches; i++) {
       this->matches[i].generic_location = generic_location;
+      this->matches[i].is_packed = false;
 
       ir_variable *producer_var = this->matches[i].producer_var;
 
@@ -2117,23 +2125,85 @@ varying_matches::assign_locations()
  * assignments that were made by varying_matches::assign_locations().
  */
 void
-varying_matches::store_locations() const
+varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
+                                 gl_shader *consumer) const
 {
    /* FINISHME: Set dynamically when geometry shader support is added. */
    unsigned producer_base = VERT_RESULT_VAR0;
    unsigned consumer_base = FRAG_ATTRIB_VAR0;
+   ir_variable *new_producer_varying = NULL;
+   ir_variable *new_consumer_varying = NULL;
 
    for (unsigned i = 0; i < this->num_matches; i++) {
       ir_variable *producer_var = this->matches[i].producer_var;
       ir_variable *consumer_var = this->matches[i].consumer_var;
+      unsigned generic_location = this->matches[i].generic_location;
+      unsigned slot = generic_location / 4;
+      unsigned offset = generic_location % 4;
+
+      /* Note: even if we are lowering varying packings, location and slot
+       * need to be stored in the non-lowered vars, so that transform feedback
+       * can access them.
+       */
+      producer_var->location = producer_base + slot;
+      producer_var->location_frac = offset;
       if (consumer_var) {
          assert(consumer_var->location == -1);
-         consumer_var->location
-            = consumer_base + this->matches[i].generic_location / 4;
+         consumer_var->location = consumer_base + slot;
+         consumer_var->location_frac = offset;
       }
 
-      producer_var->location
-         = producer_base + this->matches[i].generic_location / 4;
+      if (this->matches[i].is_packed) {
+         if (new_producer_varying == NULL ||
+             new_producer_varying->location != producer_var->location) {
+            /* Need to allocate a new packed varying in each shader. */
+            char name[9];
+            sprintf(name, "packed%d", slot);
+            const glsl_type *packed_type;
+            switch (producer_var->type->get_scalar_type()->base_type) {
+            case GLSL_TYPE_UINT:
+               packed_type = glsl_type::uvec4_type;
+               break;
+            case GLSL_TYPE_INT:
+               packed_type = glsl_type::ivec4_type;
+               break;
+            case GLSL_TYPE_FLOAT:
+               packed_type = glsl_type::vec4_type;
+               break;
+            case GLSL_TYPE_BOOL:
+               packed_type = glsl_type::bvec4_type;
+               break;
+            default:
+               assert(!"Unexpected varying type while packing");
+               packed_type = glsl_type::vec4_type;
+               break;
+            }
+            new_producer_varying = new(mem_ctx)
+               ir_variable(packed_type, name, ir_var_out);
+            new_producer_varying->centroid = producer_var->centroid;
+            new_producer_varying->interpolation = producer_var->interpolation;
+            new_producer_varying->location = producer_base + slot;
+            producer->ir->push_head(new_producer_varying);
+            if (consumer != NULL) {
+               new_consumer_varying = new(mem_ctx)
+                  ir_variable(packed_type, name, ir_var_in);
+               new_consumer_varying->centroid = producer_var->centroid;
+               new_consumer_varying->interpolation
+                  = producer_var->interpolation;
+               new_consumer_varying->location = consumer_base + slot;
+               consumer->ir->push_head(new_consumer_varying);
+            }
+         }
+
+         /* Demote the old varyings to ordinary globals, and generate
+          * assignments between the old varyings and the new ones.
+          */
+         this->pack_varying(mem_ctx, producer->ir, new_producer_varying,
+                            producer_var, offset, true);
+         if (consumer_var != NULL)
+            this->pack_varying(mem_ctx, consumer->ir, new_consumer_varying,
+                               consumer_var, offset, false);
+      }
    }
 }
 
@@ -2201,6 +2271,38 @@ varying_matches::match_comparator(const void *x_generic, const void *y_generic)
 }
 
 
+void
+varying_matches::pack_varying(void *mem_ctx, exec_list *instructions,
+                               ir_variable *new_varying,
+                               ir_variable *old_varying, unsigned offset,
+                               bool is_producer)
+{
+   /* Change the old varying into an ordinary global. */
+   old_varying->mode = ir_var_auto;
+
+   /* Generate an assignment of the form:
+    *   new_varying.{swizzle} = old_varying; // producer
+    * or:
+    *   old_varying = new_varying.{swizzle}; // consumer
+    */
+   ir_dereference_variable *old_varying_deref
+      = new(mem_ctx) ir_dereference_variable(old_varying);
+   ir_dereference_variable *new_varying_deref
+      = new(mem_ctx) ir_dereference_variable(new_varying);
+   ir_swizzle *swizzle
+      = new(mem_ctx) ir_swizzle(new_varying_deref, offset, 0, 0, 0, 1);
+   if (is_producer) {
+      ir_assignment *assignment
+         = new(mem_ctx) ir_assignment(swizzle, old_varying_deref);
+      instructions->push_tail(assignment);
+   } else {
+      ir_assignment *assignment
+         = new(mem_ctx) ir_assignment(old_varying_deref, swizzle);
+      old_varying->insert_after(assignment);
+   }
+}
+
+
 /**
  * Is the given variable a varying variable to be counted against the
  * limit in ctx->Const.MaxVarying?
@@ -2247,7 +2349,7 @@ is_varying_var(GLenum shaderType, const ir_variable *var)
  * requirements of transform feedback.
  */
 bool
-assign_varying_locations(struct gl_context *ctx,
+assign_varying_locations(void *mem_ctx, struct gl_context *ctx,
 			 struct gl_shader_program *prog,
 			 gl_shader *producer, gl_shader *consumer,
                          unsigned num_tfeedback_decls,
@@ -2298,7 +2400,7 @@ assign_varying_locations(struct gl_context *ctx,
    }
 
    matches.assign_locations();
-   matches.store_locations();
+   matches.store_locations(mem_ctx, producer, consumer);
 
    for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
       if (!tfeedback_decls[i].is_varying())
@@ -2827,7 +2929,8 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 	 continue;
 
       if (!assign_varying_locations(
-             ctx, prog, prog->_LinkedShaders[prev], prog->_LinkedShaders[i],
+             mem_ctx, ctx, prog, prog->_LinkedShaders[prev],
+             prog->_LinkedShaders[i],
              i == MESA_SHADER_FRAGMENT ? num_tfeedback_decls : 0,
              tfeedback_decls))
 	 goto done;
@@ -2840,8 +2943,8 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
        * locations for use by transform feedback.
        */
       if (!assign_varying_locations(
-             ctx, prog, prog->_LinkedShaders[prev], NULL, num_tfeedback_decls,
-             tfeedback_decls))
+             mem_ctx, ctx, prog, prog->_LinkedShaders[prev], NULL,
+             num_tfeedback_decls, tfeedback_decls))
          goto done;
    }
 
