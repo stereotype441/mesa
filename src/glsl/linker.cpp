@@ -2112,15 +2112,45 @@ varying_matches::assign_locations()
    unsigned generic_location = 0;
 
    for (unsigned i = 0; i < this->num_matches; i++) {
-      this->matches[i].generic_location = generic_location;
       this->matches[i].is_packed = false;
+
+      if (i > 0 && generic_location % 4 != 0 &&
+          this->matches[i - 1].packing_class
+          != this->matches[i].packing_class) {
+         /* This varying is in a different packing class than the previous
+          * one, so we need to make sure it isn't packed into the same slot.
+          */
+         generic_location += 4 - generic_location % 4;
+      }
+
+      if (generic_location % 4 != 0 &&
+          this->matches[i].packing_order != PACKING_ORDER_SCALAR) {
+         /* At the moment we only pack scalars.  This isn't a scalar, so we
+          * need to make sure it isn't packed into the same slot.  TODO: pack
+          * other things.
+          */
+         generic_location += 4 - generic_location % 4;
+      }
+
+      if (generic_location % 4 != 0) {
+         /* This varying is packed with the previous */
+         this->matches[i].is_packed = true;
+         if (i > 0) {
+            this->matches[i - 1].is_packed = true;
+         }
+      }
+
+      this->matches[i].generic_location = generic_location;
 
       ir_variable *producer_var = this->matches[i].producer_var;
 
       /* FINISHME: Support for "varying" records in GLSL 1.50. */
       assert(!producer_var->type->is_record());
 
-      if (producer_var->type->is_array()) {
+      if (this->matches[i].packing_order == PACKING_ORDER_SCALAR) {
+         /* TODO: make packing optional */
+         generic_location += 1;
+      } else if (producer_var->type->is_array()) {
          const unsigned slots = producer_var->type->length
             * producer_var->type->fields.array->matrix_columns;
 
