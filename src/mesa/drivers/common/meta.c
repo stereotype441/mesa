@@ -1844,22 +1844,6 @@ meta_glsl_clear_init(struct gl_context *ctx, struct clear_state *clear)
       "{\n"
       "   gl_FragColor = color;\n"
       "}\n";
-   const char *vs_int_source =
-      "#version 130\n"
-      "in vec4 position;\n"
-      "void main()\n"
-      "{\n"
-      "   gl_Position = position;\n"
-      "}\n";
-   const char *fs_int_source =
-      "#version 130\n"
-      "uniform ivec4 color;\n"
-      "out ivec4 out_color;\n"
-      "\n"
-      "void main()\n"
-      "{\n"
-      "   out_color = color;\n"
-      "}\n";
    GLuint vs, fs;
 
    if (clear->ArrayObj != 0)
@@ -1896,9 +1880,35 @@ meta_glsl_clear_init(struct gl_context *ctx, struct clear_state *clear)
    clear->ColorLocation = _mesa_GetUniformLocation(clear->ShaderProg,
 						      "color");
 
-   if (_mesa_is_desktop_gl(ctx) && ctx->Const.GLSLVersion >= 130) {
+   bool has_integer_textures = _mesa_is_gles3(ctx) ||
+      (_mesa_is_desktop_gl(ctx) && ctx->Const.GLSLVersion >= 130);
+
+   if (has_integer_textures) {
+      void *shader_source_mem_ctx = ralloc_context(NULL);
+      const char *vs_int_source =
+         ralloc_asprintf(shader_source_mem_ctx,
+                         "#version %s\n"
+                         "in vec4 position;\n"
+                         "void main()\n"
+                         "{\n"
+                         "   gl_Position = position;\n"
+                         "}\n",
+                         _mesa_is_desktop_gl(ctx) ? "130" : "300 es");
+      const char *fs_int_source =
+         ralloc_asprintf(shader_source_mem_ctx,
+                         "#version %s\n"
+                         "uniform ivec4 color;\n"
+                         "out ivec4 out_color;\n"
+                         "\n"
+                         "void main()\n"
+                         "{\n"
+                         "   out_color = color;\n"
+                         "}\n",
+                         _mesa_is_desktop_gl(ctx) ? "130" : "300 es");
+
       vs = compile_shader_with_debug(ctx, GL_VERTEX_SHADER, vs_int_source);
       fs = compile_shader_with_debug(ctx, GL_FRAGMENT_SHADER, fs_int_source);
+      ralloc_free(shader_source_mem_ctx);
 
       clear->IntegerShaderProg = _mesa_CreateProgramObjectARB();
       _mesa_AttachShader(clear->IntegerShaderProg, fs);
@@ -3101,18 +3111,19 @@ setup_glsl_generate_mipmap(struct gl_context *ctx,
                                   sampler->func, sampler->texcoords);
    }
    else {
-      vs_source =
-         "#version 130\n"
-         "in vec2 position;\n"
-         "in vec3 textureCoords;\n"
-         "out vec3 texCoords;\n"
-         "void main()\n"
-         "{\n"
-         "   texCoords = textureCoords;\n"
-         "   gl_Position = vec4(position, 0.0, 1.0);\n"
-         "}\n";
+      vs_source = ralloc_asprintf(mem_ctx,
+                                  "#version %s\n"
+                                  "in vec2 position;\n"
+                                  "in vec3 textureCoords;\n"
+                                  "out vec3 texCoords;\n"
+                                  "void main()\n"
+                                  "{\n"
+                                  "   texCoords = textureCoords;\n"
+                                  "   gl_Position = vec4(position, 0.0, 1.0);\n"
+                                  "}\n",
+                                  _mesa_is_desktop_gl(ctx) ? "130" : "300 es");
       fs_source = ralloc_asprintf(mem_ctx,
-                                  "#version 130\n"
+                                  "#version %s\n"
                                   "uniform %s texSampler;\n"
                                   "in vec3 texCoords;\n"
                                   "out vec4 out_color;\n"
@@ -3121,6 +3132,7 @@ setup_glsl_generate_mipmap(struct gl_context *ctx,
                                   "{\n"
                                   "   out_color = texture(texSampler, %s);\n"
                                   "}\n",
+                                  _mesa_is_desktop_gl(ctx) ? "130" : "300 es",
                                   sampler->type,
                                   sampler->texcoords);
    }

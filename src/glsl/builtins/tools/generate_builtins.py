@@ -176,13 +176,14 @@ read_builtins(GLenum target, const char *protos, const char **functions, unsigne
    fakeCtx.API = API_OPENGL_COMPAT;
    fakeCtx.Const.GLSLVersion = 140;
    fakeCtx.Extensions.ARB_ES2_compatibility = true;
+   fakeCtx.Extensions.ARB_ES3_compatibility = true;
    fakeCtx.Const.ForceGLSLExtensionsWarn = false;
    gl_shader *sh = _mesa_new_shader(NULL, 0, target);
    struct _mesa_glsl_parse_state *st =
       new(sh) _mesa_glsl_parse_state(&fakeCtx, target, sh);
 
    st->language_version = 140;
-   st->symbols->language_version = 140;
+   st->symbols->separate_function_namespace = false;
    st->ARB_texture_rectangle_enable = true;
    st->EXT_texture_array_enable = true;
    st->OES_EGL_image_external_enable = true;
@@ -278,8 +279,12 @@ _mesa_glsl_initialize_functions(struct _mesa_glsl_parse_state *state)
             check = ''
 
         version = re.sub(r'_(glsl|vert|frag)$', '', profile)
-        if version.isdigit():
+        if version[0].isdigit():
+            is_es = version.endswith('es')
+            if is_es:
+                version = version[:-2]
             check += 'state->language_version == ' + version
+            check += ' && {0}state->es_shader'.format('' if is_es else '!')
         else: # an extension name
             check += 'state->' + version + '_enable'
 

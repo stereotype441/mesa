@@ -52,6 +52,7 @@ extern "C" {
 #include "main/api_exec.h"
 #include "main/context.h"
 #include "main/remap.h"
+#include "main/vtxfmt.h"
 #include "glapi/glapi.h"
 #include "drivers/common/driverfuncs.h"
 
@@ -103,13 +104,17 @@ DispatchSanity_test::SetUp()
 void
 DispatchSanity_test::SetUpCtx(gl_api api, unsigned int version)
 {
-   ctx.Version = version;
    _mesa_initialize_context(&ctx,
                             api,
                             &visual,
                             NULL, // share_list
                             &driver_functions);
    _vbo_CreateContext(&ctx);
+
+   ctx.Version = version;
+
+   _mesa_initialize_exec_table(&ctx);
+   _mesa_initialize_vbo_vtxfmt(&ctx);
 }
 
 static const char *
@@ -1305,8 +1310,7 @@ const struct function gles3_functions_possible[] = {
    // We check for the aliased -OES version in GLES 2
    // { "glGetBufferPointerv", 30, -1 },
    { "glGetFragDataLocation", 30, -1 },
-   /// XXX: Missing implementation of glGetInteger64i_v
-   // { "glGetInteger64i_v", 30, -1 },
+   { "glGetInteger64i_v", 30, -1 },
    { "glGetInteger64v", 30, -1 },
    { "glGetIntegeri_v", 30, -1 },
    // XXX: Missing implementation of ARB_internalformat_query

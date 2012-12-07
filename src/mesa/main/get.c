@@ -129,7 +129,9 @@ enum value_extra {
    EXTRA_VERSION_31,
    EXTRA_VERSION_32,
    EXTRA_API_GL,
+   EXTRA_API_ES1,
    EXTRA_API_ES2,
+   EXTRA_API_ES3,
    EXTRA_NEW_BUFFERS, 
    EXTRA_NEW_FRAG_CLAMP,
    EXTRA_VALID_DRAW_BUFFER,
@@ -272,6 +274,28 @@ static const int extra_EXT_fog_coord_flush_current[] = {
    EXTRA_END
 };
 
+static const int extra_EXT_transform_feedback_api_es3[] = {
+   EXT(EXT_transform_feedback),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_EXT_pixel_buffer_object_api_es3[] = {
+   EXT(EXT_pixel_buffer_object),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_EXT_texture_lod_bias_api_es3[] = {
+   /* There is no EXT_texture_lod_bias field in ctx->Extensions
+    * so check for presence by looking at the API.
+    */
+   EXTRA_API_GL,
+   EXTRA_API_ES1,
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_EXT_texture_integer[] = {
    EXT(EXT_texture_integer),
    EXTRA_END
@@ -288,14 +312,68 @@ static const int extra_texture_buffer_object[] = {
    EXTRA_END
 };
 
+static const int extra_ARB_fragment_shader_api_es3[] = {
+   EXT(ARB_fragment_shader),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_EXT_framebuffer_blit_api_es3[] = {
+   EXT(EXT_framebuffer_blit),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es3[] = {
+   EXT(ARB_framebuffer_object),
+   EXT(EXT_framebuffer_multisample),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_ES2_compatibility_api_es2_api_es3[] = {
+   EXT(ARB_ES2_compatibility),
+   EXTRA_API_ES2,
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_ES3_compatibility_api_es3[] = {
+   EXT(ARB_ES3_compatibility),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_sync_api_es3[] = {
+   EXT(ARB_sync),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_transform_feedback2_api_es3[] = {
+   EXT(ARB_transform_feedback2),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_ARB_uniform_buffer_object_api_es3[] = {
+   EXT(ARB_uniform_buffer_object),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_uniform_buffer_object_and_geometry_shader[] = {
    EXT(ARB_uniform_buffer_object),
    EXT(ARB_geometry_shader4),
    EXTRA_END
 };
 
+static const int extra_ARB_vertex_shader_api_es3[] = {
+   EXT(ARB_vertex_shader),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
 
-EXTRA_EXT(ARB_ES2_compatibility);
 EXTRA_EXT(ARB_texture_cube_map);
 EXTRA_EXT(MESA_texture_array);
 EXTRA_EXT2(EXT_secondary_color, ARB_vertex_program);
@@ -309,20 +387,14 @@ EXTRA_EXT(EXT_stencil_two_side);
 EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
 EXTRA_EXT(ATI_fragment_shader);
-EXTRA_EXT(EXT_framebuffer_blit);
 EXTRA_EXT(ARB_shader_objects);
 EXTRA_EXT(EXT_provoking_vertex);
 EXTRA_EXT(ARB_fragment_shader);
 EXTRA_EXT(ARB_fragment_program);
-EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(EXT_framebuffer_object);
 EXTRA_EXT(ARB_seamless_cube_map);
-EXTRA_EXT(ARB_sync);
 EXTRA_EXT(ARB_vertex_shader);
-EXTRA_EXT(EXT_transform_feedback);
-EXTRA_EXT(ARB_transform_feedback2);
 EXTRA_EXT(ARB_transform_feedback3);
-EXTRA_EXT(EXT_pixel_buffer_object);
 EXTRA_EXT(ARB_vertex_program);
 EXTRA_EXT2(NV_point_sprite, ARB_point_sprite);
 EXTRA_EXT2(ARB_vertex_program, ARB_fragment_program);
@@ -346,6 +418,12 @@ extra_NV_primitive_restart[] = {
 static const int extra_version_30[] = { EXTRA_VERSION_30, EXTRA_END };
 static const int extra_version_31[] = { EXTRA_VERSION_31, EXTRA_END };
 static const int extra_version_32[] = { EXTRA_VERSION_32, EXTRA_END };
+
+static const int extra_gl30_es3[] = {
+    EXTRA_VERSION_30,
+    EXTRA_API_ES3,
+    EXTRA_END,
+};
 
 static const int
 extra_ARB_vertex_program_api_es2[] = {
@@ -867,8 +945,20 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          if (ctx->NewState & (_NEW_BUFFERS | _NEW_FRAG_CLAMP))
             _mesa_update_state(ctx);
          break;
+      case EXTRA_API_ES1:
+	 if (ctx->API == API_OPENGLES) {
+	    total++;
+	    enabled++;
+	 }
+	 break;
       case EXTRA_API_ES2:
 	 if (ctx->API == API_OPENGLES2) {
+	    total++;
+	    enabled++;
+	 }
+	 break;
+      case EXTRA_API_ES3:
+	 if (_mesa_is_gles3(ctx)) {
 	    total++;
 	    enabled++;
 	 }
@@ -1618,7 +1708,7 @@ _mesa_GetBooleani_v( GLenum pname, GLuint index, GLboolean *params )
 {
    union value v;
    enum value_type type =
-      find_value_indexed("glGetBooleanIndexedv", pname, index, &v);
+      find_value_indexed("glGetBooleani_v", pname, index, &v);
 
    switch (type) {
    case TYPE_INT:
@@ -1643,7 +1733,7 @@ _mesa_GetIntegeri_v( GLenum pname, GLuint index, GLint *params )
 {
    union value v;
    enum value_type type =
-      find_value_indexed("glGetIntegerIndexedv", pname, index, &v);
+      find_value_indexed("glGetIntegeri_v", pname, index, &v);
 
    switch (type) {
    case TYPE_INT:
@@ -1664,11 +1754,11 @@ _mesa_GetIntegeri_v( GLenum pname, GLuint index, GLint *params )
 }
 
 void GLAPIENTRY
-_mesa_GetInteger64Indexedv( GLenum pname, GLuint index, GLint64 *params )
+_mesa_GetInteger64i_v( GLenum pname, GLuint index, GLint64 *params )
 {
    union value v;
    enum value_type type =
-      find_value_indexed("glGetIntegerIndexedv", pname, index, &v);      
+      find_value_indexed("glGetInteger64i_v", pname, index, &v);
 
    switch (type) {
    case TYPE_INT:

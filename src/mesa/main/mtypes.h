@@ -1632,9 +1632,20 @@ struct gl_array_attrib
    GLuint LockFirst;            /**< GL_EXT_compiled_vertex_array */
    GLuint LockCount;            /**< GL_EXT_compiled_vertex_array */
 
-   /** GL 3.1 (slightly different from GL_NV_primitive_restart) */
+   /**
+    * \name Primitive restart controls
+    *
+    * Primitive restart is enabled if either \c PrimitiveRestart or
+    * \c PrimitiveRestart is set.  If \c PrimitiveRestart is set, then
+    * \c RestartIndex is used as the cut vertex.  Otherwise ~0 is used.
+    */
+   /*@{*/
    GLboolean PrimitiveRestart;
+   GLboolean PrimitiveRestartFixedIndex;
+   GLboolean _PrimitiveRestart;
    GLuint RestartIndex;
+   GLuint _RestartIndex;
+   /*@}*/
 
    /* GL_ARB_vertex_buffer_object */
    struct gl_buffer_object *ArrayBufferObj;
@@ -2184,6 +2195,7 @@ struct gl_shader
    struct gl_sl_pragmas Pragmas;
 
    unsigned Version;       /**< GLSL version used for linking */
+   GLboolean IsEsShader; /**< True if this shader uses GLSL ES */
 
    /**
     * \name Sampler tracking
@@ -2386,6 +2398,7 @@ struct gl_shader_program
    GLchar *InfoLog;
 
    unsigned Version;       /**< GLSL version used for linking */
+   GLboolean IsEsProg; /**< True if this program uses GLSL ES */
 
    /**
     * Per-stage shaders resulting from the first stage of linking.
@@ -2925,6 +2938,9 @@ struct gl_constants
 
    /** GL_ARB_map_buffer_alignment */
    GLuint MinMapBufferAlignment;
+
+   /** ES 3.0 */
+   GLint64 MaxElementIndex;
 };
 
 
@@ -2939,6 +2955,7 @@ struct gl_extensions
    GLboolean dummy_false; /* Set false by _mesa_init_extensions(). */
    GLboolean ANGLE_texture_compression_dxt;
    GLboolean ARB_ES2_compatibility;
+   GLboolean ARB_ES3_compatibility;
    GLboolean ARB_base_instance;
    GLboolean ARB_blend_func_extended;
    GLboolean ARB_color_buffer_float;

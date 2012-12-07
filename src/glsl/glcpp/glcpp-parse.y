@@ -133,6 +133,10 @@ _glcpp_parser_skip_stack_change_if (glcpp_parser_t *parser, YYLTYPE *loc,
 static void
 _glcpp_parser_skip_stack_pop (glcpp_parser_t *parser, YYLTYPE *loc);
 
+static void
+_glcpp_parser_handle_version_declaration(glcpp_parser_t *parser, intmax_t version,
+                                         const char *ident);
+
 static int
 glcpp_parser_lex (YYSTYPE *yylval, YYLTYPE *yylloc, glcpp_parser_t *parser);
 
@@ -334,25 +338,10 @@ control_line:
 		_glcpp_parser_skip_stack_pop (parser, & @1);
 	} NEWLINE
 |	HASH_VERSION integer_constant NEWLINE {
-		macro_t *macro = hash_table_find (parser->defines, "__VERSION__");
-		if (macro) {
-			hash_table_remove (parser->defines, "__VERSION__");
-			ralloc_free (macro);
-		}
-		add_builtin_define (parser, "__VERSION__", $2);
-
-		if ($2 == 100)
-			add_builtin_define (parser, "GL_ES", 1);
-
-		/* Currently, all ES2 implementations support highp in the
-		 * fragment shader, so we always define this macro in ES2.
-		 * If we ever get a driver that doesn't support highp, we'll
-		 * need to add a flag to the gl_context and check that here.
-		 */
-		if ($2 >= 130 || $2 == 100)
-			add_builtin_define (parser, "GL_FRAGMENT_PRECISION_HIGH", 1);
-
-		ralloc_asprintf_rewrite_tail (&parser->output, &parser->output_length, "#version %" PRIiMAX, $2);
+		_glcpp_parser_handle_version_declaration(parser, $2, NULL);
+	}
+|	HASH_VERSION integer_constant IDENTIFIER NEWLINE {
+		_glcpp_parser_handle_version_declaration(parser, $2, $3);
 	}
 |	HASH NEWLINE
 ;
@@ -374,6 +363,8 @@ integer_constant:
 expression:
 	integer_constant
 |	IDENTIFIER {
+		if (parser->is_gles)
+			glcpp_error(& @1, parser, "undefined macro %s in expression (illegal in GLES)", $1);
 		$$ = 0;
 	}
 |	expression OR expression {
@@ -1190,15 +1181,18 @@ glcpp_parser_create (const struct gl_extensions *extensions, int api)
 	parser->has_new_source_number = 0;
 	parser->new_source_number = 0;
 
+	parser->is_gles = false;
+
 	/* Add pre-defined macros. */
 	if (extensions != NULL) {
 	   if (extensions->OES_EGL_image_external)
 	      add_builtin_define(parser, "GL_OES_EGL_image_external", 1);
 	}
 
-	if (api == API_OPENGLES2)
+	if (api == API_OPENGLES2) {
+		parser->is_gles = true;
 		add_builtin_define(parser, "GL_ES", 1);
-	else {
+	} else {
 	   add_builtin_define(parser, "GL_ARB_draw_buffers", 1);
 	   add_builtin_define(parser, "GL_ARB_texture_rectangle", 1);
 
@@ -2031,4 +2025,40 @@ _glcpp_parser_skip_stack_pop (glcpp_parser_t *parser, YYLTYPE *loc)
 	node = parser->skip_stack;
 	parser->skip_stack = node->next;
 	ralloc_free (node);
+}
+
+static void
+_glcpp_parser_handle_version_declaration(glcpp_parser_t *parser, intmax_t version,
+                                         const char *es_identifier)
+{
+	macro_t *macro = hash_table_find (parser->defines, "__VERSION__");
+	if (macro) {
+		hash_table_remove (parser->defines, "__VERSION__");
+		ralloc_free (macro);
+	}
+	add_builtin_define (parser, "__VERSION__", version);
+
+	/* If we didn't have a GLES context to begin with, (indicated
+	 * by parser->api), then the version declaration here might
+	 * indicate GLES. */
+	if (! parser->is_gles &&
+	    (version == 100 ||
+	     (es_identifier && (strcmp(es_identifier, "es") == 0))))
+	{
+		parser->is_gles = true;
+		add_builtin_define (parser, "GL_ES", 1);
+	}
+
+	/* Currently, all ES2/ES3 implementations support highp in the
+	 * fragment shader, so we always define this macro in ES2/ES3.
+	 * If we ever get a driver that doesn't support highp, we'll
+	 * need to add a flag to the gl_context and check that here.
+	 */
+	if (version >= 130 || parser->is_gles)
+		add_builtin_define (parser, "GL_FRAGMENT_PRECISION_HIGH", 1);
+
+	ralloc_asprintf_rewrite_tail (&parser->output, &parser->output_length,
+                                      "#version %" PRIiMAX "%s%s", version,
+                                      es_identifier ? " " : "",
+                                      es_identifier ? es_identifier : "");
 }

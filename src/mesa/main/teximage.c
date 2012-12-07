@@ -529,6 +529,27 @@ _mesa_base_tex_format( struct gl_context *ctx, GLint internalFormat )
       }
    }
 
+   if (_mesa_is_gles3(ctx)) {
+      switch (internalFormat) {
+      case GL_COMPRESSED_RGB8_ETC2:
+      case GL_COMPRESSED_SRGB8_ETC2:
+         return GL_RGB;
+      case GL_COMPRESSED_RGBA8_ETC2_EAC:
+      case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+      case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+      case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+         return GL_RGBA;
+      case GL_COMPRESSED_R11_EAC:
+      case GL_COMPRESSED_SIGNED_R11_EAC:
+         return GL_RED;
+      case GL_COMPRESSED_RG11_EAC:
+      case GL_COMPRESSED_SIGNED_RG11_EAC:
+         return GL_RG;
+      default:
+         ; /* fallthrough */
+      }
+   }
+
    if (ctx->API == API_OPENGLES) {
       switch (internalFormat) {
       case GL_PALETTE4_RGB8_OES:
@@ -1927,8 +1948,9 @@ texture_error_check( struct gl_context *ctx,
    err = _mesa_error_check_format_and_type(ctx, format, type);
    if (err != GL_NO_ERROR) {
       _mesa_error(ctx, err,
-                  "glTexImage%dD(incompatible format 0x%x, type 0x%x)",
-                  dimensions, format, type);
+                  "glTexImage%dD(incompatible format = %s, type = %s)",
+                  dimensions, _mesa_lookup_enum_by_nr(format),
+                  _mesa_lookup_enum_by_nr(type));
       return GL_TRUE;
    }
 
@@ -1940,8 +1962,9 @@ texture_error_check( struct gl_context *ctx,
        (_mesa_is_depthstencil_format(internalFormat) != _mesa_is_depthstencil_format(format)) ||
        (_mesa_is_dudv_format(internalFormat) != _mesa_is_dudv_format(format))) {
       _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glTexImage%dD(incompatible internalFormat 0x%x, format 0x%x)",
-                  dimensions, internalFormat, format);
+                  "glTexImage%dD(incompatible internalFormat = %s, format = %s)",
+                  dimensions, _mesa_lookup_enum_by_nr(internalFormat),
+                  _mesa_lookup_enum_by_nr(format));
       return GL_TRUE;
    }
 
@@ -2243,8 +2266,9 @@ texsubimage_error_check(struct gl_context *ctx, GLuint dimensions,
    err = _mesa_error_check_format_and_type(ctx, format, type);
    if (err != GL_NO_ERROR) {
       _mesa_error(ctx, err,
-                  "glTexSubImage%dD(incompatible format 0x%x, type 0x%x)",
-                  dimensions, format, type);
+                  "glTexSubImage%dD(incompatible format = %s, type = %s)",
+                  dimensions, _mesa_lookup_enum_by_nr(format),
+                  _mesa_lookup_enum_by_nr(type));
       return GL_TRUE;
    }
 

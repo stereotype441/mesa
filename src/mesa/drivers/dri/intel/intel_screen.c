@@ -753,8 +753,12 @@ intelDestroyBuffer(__DRIdrawable * driDrawPriv)
  * functions.
  */
 extern bool
-i830CreateContext(const struct gl_config *mesaVis,
+i830CreateContext(int api,
+                  const struct gl_config *mesaVis,
 		  __DRIcontext *driContextPriv,
+		  unsigned major_version,
+		  unsigned minor_version,
+		  unsigned *error,
 		  void *sharedContextPrivate);
 
 extern bool
@@ -796,27 +800,10 @@ intelCreateContext(gl_api api,
                                   major_version, minor_version, error,
                                   sharedContextPrivate);
    } else {
-      switch (api) {
-      case API_OPENGL_COMPAT:
-         if (major_version > 1 || minor_version > 3) {
-            *error = __DRI_CTX_ERROR_BAD_VERSION;
-            success = false;
-         }
-         break;
-      case API_OPENGLES:
-         break;
-      default:
-         *error = __DRI_CTX_ERROR_BAD_API;
-         success = false;
-      }
-
-      if (success) {
-         intelScreen->no_vbo = true;
-         success = i830CreateContext(mesaVis, driContextPriv,
-                                     sharedContextPrivate);
-         if (!success)
-            *error = __DRI_CTX_ERROR_NO_MEMORY;
-      }
+      intelScreen->no_vbo = true;
+      success = i830CreateContext(api, mesaVis, driContextPriv,
+                                  major_version, minor_version, error,
+                                  sharedContextPrivate);
    }
 #else
    success = brwCreateContext(api, mesaVis,
@@ -1050,6 +1037,90 @@ intel_screen_make_configs(__DRIscreen *dri_screen)
    return configs;
 }
 
+static void
+set_max_gl_versions(struct intel_screen *screen)
+{
+#ifdef TEXTURE_FLOAT_ENABLED
+   bool has_texture_float = true;
+#else
+   bool has_texture_float = false;
+#endif
+
+   switch (screen->gen) {
+   case 7:
+      if (has_texture_float && screen->kernel_has_gen7_sol_reset) {
+         screen->max_gl_core_version = 31;
+         screen->max_gl_compat_version = 30;
+         screen->max_gl_es1_version = 11;
+         screen->max_gl_es2_version = 30;
+      } else {
+         screen->max_gl_core_version = 0;
+         screen->max_gl_compat_version = 21;
+         screen->max_gl_es1_version = 11;
+         screen->max_gl_es2_version = 20;
+      }
+      break;
+   case 6:
+      if (has_texture_float) {
+         screen->max_gl_core_version = 31;
+         screen->max_gl_compat_version = 30;
+         screen->max_gl_es1_version = 11;
+         screen->max_gl_es2_version = 30;
+      } else {
+         screen->max_gl_core_version = 0;
+         screen->max_gl_compat_version = 21;
+         screen->max_gl_es1_version = 11;
+         screen->max_gl_es2_version = 20;
+      }
+      break;
+   case 5:
+   case 4:
+      screen->max_gl_core_version = 0;
+      screen->max_gl_compat_version = 21;
+      screen->max_gl_es1_version = 11;
+      screen->max_gl_es2_version = 20;
+      break;
+   case 3: {
+      bool has_fragment_shader = driQueryOptionb(&screen->optionCache, "fragment_shader");
+      bool has_occlusion_query = driQueryOptionb(&screen->optionCache, "stub_occlusion_query");
+
+      screen->max_gl_core_version = 0;
+      screen->max_gl_es1_version = 11;
+
+      if (has_fragment_shader && has_occlusion_query) {
+         screen->max_gl_compat_version = 21;
+      } else {
+         screen->max_gl_compat_version = 14;
+      }
+
+      if (has_fragment_shader) {
+         screen->max_gl_es2_version = 20;
+      } else {
+         screen->max_gl_es2_version = 0;
+      }
+
+      break;
+   }
+   case 2:
+      screen->max_gl_core_version = 0;
+      screen->max_gl_compat_version = 13;
+      screen->max_gl_es1_version = 11;
+      screen->max_gl_es2_version = 0;
+      break;
+   default:
+      assert(!"unrecognized intel_screen::gen");
+      break;
+   }
+
+#ifndef FEATURE_ES1
+   screen->max_gl_es1_version = 0;
+#endif
+
+#ifndef FEATURE_ES2
+   screen->max_gl_es2_version = 0;
+#endif
+}
+
 /**
  * This is the driver specific part of the createNewScreen entry point.
  * Called when using DRI2.
@@ -1060,7 +1131,6 @@ static const
 __DRIconfig **intelInitScreen2(__DRIscreen *psp)
 {
    struct intel_screen *intelScreen;
-   unsigned int api_mask;
 
    if (psp->dri2.loader->base.version <= 2 ||
        psp->dri2.loader->getBuffersWithFormat == NULL) {
@@ -1119,18 +1189,17 @@ __DRIconfig **intelInitScreen2(__DRIscreen *psp)
 
    intel_override_separate_stencil(intelScreen);
 
-   api_mask = (1 << __DRI_API_OPENGL);
-#if FEATURE_ES1
-   api_mask |= (1 << __DRI_API_GLES);
-#endif
-#if FEATURE_ES2
-   api_mask |= (1 << __DRI_API_GLES2);
-#endif
-
-   if (IS_9XX(intelScreen->deviceID) || IS_965(intelScreen->deviceID))
-      psp->api_mask = api_mask;
-
    intelScreen->hw_has_swizzling = intel_detect_swizzling(intelScreen);
+
+   set_max_gl_versions(intelScreen);
+
+   psp->api_mask = (1 << __DRI_API_OPENGL);
+   if (intelScreen->max_gl_es1_version > 0)
+      psp->api_mask |= (1 << __DRI_API_GLES);
+   if (intelScreen->max_gl_es2_version > 0)
+      psp->api_mask |= (1 << __DRI_API_GLES2);
+   if (intelScreen->max_gl_es2_version >= 30)
+      psp->api_mask |= (1 << __DRI_API_GLES3);
 
    psp->extensions = intelScreenExtensions;
 

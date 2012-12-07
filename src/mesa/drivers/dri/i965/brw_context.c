@@ -30,9 +30,12 @@
   */
 
 
+#include "main/api_exec.h"
 #include "main/imports.h"
 #include "main/macros.h"
 #include "main/simple_list.h"
+#include "main/version.h"
+#include "main/vtxfmt.h"
 
 #include "vbo/vbo_context.h"
 
@@ -84,46 +87,7 @@ brwCreateContext(int api,
    __DRIscreen *sPriv = driContextPriv->driScreenPriv;
    struct intel_screen *screen = sPriv->driverPrivate;
    struct dd_function_table functions;
-   const unsigned req_version = major_version * 10 + minor_version;
-   unsigned max_supported_version = 0;
    unsigned i;
-
-#ifdef TEXTURE_FLOAT_ENABLED
-   bool has_texture_float = true;
-#else
-   bool has_texture_float = false;
-#endif
-
-   bool supports_gl30 = has_texture_float &&
-                        (screen->gen == 6 ||
-                         (screen->gen == 7 &&
-                          screen->kernel_has_gen7_sol_reset));
-
-   /* Determine max_supported_version. */
-   switch (api) {
-   case API_OPENGL_COMPAT:
-      max_supported_version = supports_gl30 ? 30 : 21;
-      break;
-   case API_OPENGLES:
-      max_supported_version = 11;
-      break;
-   case API_OPENGLES2:
-      max_supported_version = 20;
-      break;
-   case API_OPENGL_CORE:
-      max_supported_version = supports_gl30 ? 31 : 0;
-      break;
-   default:
-      break;
-   }
-
-   if (max_supported_version == 0) {
-      *error = __DRI_CTX_ERROR_BAD_API;
-      return false;
-   } else if (req_version > max_supported_version) {
-      *error = __DRI_CTX_ERROR_BAD_VERSION;
-      return false;
-   }
 
    struct brw_context *brw = rzalloc(NULL, struct brw_context);
    if (!brw) {
@@ -144,10 +108,12 @@ brwCreateContext(int api,
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
 
-   if (!intelInitContext( intel, api, mesaVis, driContextPriv,
-			  sharedContextPrivate, &functions )) {
+   if (!intelInitContext( intel, api, major_version, minor_version,
+                          mesaVis, driContextPriv,
+			  sharedContextPrivate, &functions,
+			  error)) {
       printf("%s: failed to init intel context\n", __FUNCTION__);
-      *error = __DRI_CTX_ERROR_NO_MEMORY;
+      ralloc_free(brw);
       return false;
    }
 
@@ -362,8 +328,8 @@ brwCreateContext(int api,
 
    intel->batch.need_workaround_flush = true;
 
-   ctx->VertexProgram._MaintainTnlProgram = true;
-   ctx->FragmentProgram._MaintainTexEnvProgram = true;
+   ctx->VertexProgram._MaintainTnlProgram = ctx->API != API_OPENGL_CORE;
+   ctx->FragmentProgram._MaintainTexEnvProgram = ctx->API != API_OPENGL_CORE;
 
    brw_draw_init( brw );
 
@@ -382,6 +348,11 @@ brwCreateContext(int api,
       ctx->Const.ContextFlags |= GL_CONTEXT_FLAG_DEBUG_BIT;
 
    brw_fs_alloc_reg_sets(brw);
+
+   _mesa_compute_version(ctx);
+
+   _mesa_initialize_exec_table(ctx);
+   _mesa_initialize_vbo_vtxfmt(ctx);
 
    return true;
 }
