@@ -2027,9 +2027,10 @@ private:
    static int match_comparator(const void *x_generic,
                                const void *y_generic);
    static void pack_varying(void *mem_ctx, exec_list *instructions,
-                            ir_variable *new_varying,
-                            ir_variable *old_varying, unsigned offset,
-                            unsigned num_components, bool is_producer);
+                            ir_variable **new_varyings,
+                            ir_variable *old_varying,
+                            unsigned generic_location, unsigned num_components,
+                            bool is_producer);
 
    struct match {
       unsigned packing_class;
@@ -2042,6 +2043,7 @@ private:
    } *matches;
    unsigned num_matches;
    unsigned matches_capacity;
+   unsigned num_slots_used;
 };
 
 
@@ -2156,6 +2158,8 @@ varying_matches::assign_locations()
 
       generic_location += this->matches[i].num_components;
    }
+
+   this->num_slots_used = (generic_location + 3) / 4;
 }
 
 
@@ -2170,8 +2174,10 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
    /* FINISHME: Set dynamically when geometry shader support is added. */
    unsigned producer_base = VERT_RESULT_VAR0;
    unsigned consumer_base = FRAG_ATTRIB_VAR0;
-   ir_variable *new_producer_varying = NULL;
-   ir_variable *new_consumer_varying = NULL;
+   ir_variable **new_producer_varyings = rzalloc_array(mem_ctx, ir_variable *,
+                                                       this->num_slots_used);
+   ir_variable **new_consumer_varyings = rzalloc_array(mem_ctx, ir_variable *,
+                                                       this->num_slots_used);
 
    for (unsigned i = 0; i < this->num_matches; i++) {
       ir_variable *producer_var = this->matches[i].producer_var;
@@ -2193,8 +2199,7 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
       }
 
       if (this->matches[i].is_packed) {
-         if (new_producer_varying == NULL ||
-             new_producer_varying->location != producer_var->location) {
+         if (new_producer_varyings[slot] == NULL) {
             /* Need to allocate a new packed varying in each shader. */
             char name[9];
             sprintf(name, "packed%d", slot);
@@ -2217,32 +2222,33 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
                packed_type = glsl_type::vec4_type;
                break;
             }
-            new_producer_varying = new(mem_ctx)
+            new_producer_varyings[slot] = new(mem_ctx)
                ir_variable(packed_type, name, ir_var_out);
-            new_producer_varying->centroid = producer_var->centroid;
-            new_producer_varying->interpolation = producer_var->interpolation;
-            new_producer_varying->location = producer_base + slot;
-            producer->ir->push_head(new_producer_varying);
+            new_producer_varyings[slot]->centroid = producer_var->centroid;
+            new_producer_varyings[slot]->interpolation
+               = producer_var->interpolation;
+            new_producer_varyings[slot]->location = producer_base + slot;
+            producer->ir->push_head(new_producer_varyings[slot]);
             if (consumer != NULL) {
-               new_consumer_varying = new(mem_ctx)
+               new_consumer_varyings[slot] = new(mem_ctx)
                   ir_variable(packed_type, name, ir_var_in);
-               new_consumer_varying->centroid = producer_var->centroid;
-               new_consumer_varying->interpolation
+               new_consumer_varyings[slot]->centroid = producer_var->centroid;
+               new_consumer_varyings[slot]->interpolation
                   = producer_var->interpolation;
-               new_consumer_varying->location = consumer_base + slot;
-               consumer->ir->push_head(new_consumer_varying);
+               new_consumer_varyings[slot]->location = consumer_base + slot;
+               consumer->ir->push_head(new_consumer_varyings[slot]);
             }
          }
 
          /* Demote the old varyings to ordinary globals, and generate
           * assignments between the old varyings and the new ones.
           */
-         this->pack_varying(mem_ctx, producer->ir, new_producer_varying,
-                            producer_var, offset,
+         this->pack_varying(mem_ctx, producer->ir, new_producer_varyings,
+                            producer_var, generic_location,
                             this->matches[i].num_components, true);
          if (consumer_var != NULL)
-            this->pack_varying(mem_ctx, consumer->ir, new_consumer_varying,
-                               consumer_var, offset,
+            this->pack_varying(mem_ctx, consumer->ir, new_consumer_varyings,
+                               consumer_var, generic_location,
                                this->matches[i].num_components, false);
       }
    }
@@ -2336,10 +2342,14 @@ varying_matches::match_comparator(const void *x_generic, const void *y_generic)
 
 void
 varying_matches::pack_varying(void *mem_ctx, exec_list *instructions,
-                              ir_variable *new_varying,
-                              ir_variable *old_varying, unsigned offset,
+                              ir_variable **new_varyings,
+                              ir_variable *old_varying,
+                              unsigned generic_location,
                               unsigned num_components, bool is_producer)
 {
+   unsigned slot = generic_location / 4;
+   unsigned offset = generic_location % 4;
+
    /* Change the old varying into an ordinary global. */
    old_varying->mode = ir_var_auto;
 
@@ -2358,7 +2368,7 @@ varying_matches::pack_varying(void *mem_ctx, exec_list *instructions,
    ir_dereference_variable *old_varying_deref
       = new(mem_ctx) ir_dereference_variable(old_varying);
    ir_dereference_variable *new_varying_deref
-      = new(mem_ctx) ir_dereference_variable(new_varying);
+      = new(mem_ctx) ir_dereference_variable(new_varyings[slot]);
    ir_swizzle *swizzle
       = new(mem_ctx) ir_swizzle(new_varying_deref, swizzle_components,
                                 num_components);
