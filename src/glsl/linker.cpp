@@ -2023,16 +2023,18 @@ private:
 
    static unsigned compute_packing_class(ir_variable *var);
    static packing_order_enum compute_packing_order(ir_variable *var);
+   static unsigned compute_num_components(ir_variable *var);
    static int match_comparator(const void *x_generic,
                                const void *y_generic);
    static void pack_varying(void *mem_ctx, exec_list *instructions,
                             ir_variable *new_varying,
                             ir_variable *old_varying, unsigned offset,
-                            bool is_producer);
+                            unsigned num_components, bool is_producer);
 
    struct match {
       unsigned packing_class;
       packing_order_enum packing_order;
+      unsigned num_components;
       ir_variable *producer_var;
       ir_variable *consumer_var;
       unsigned generic_location;
@@ -2095,6 +2097,8 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
       = this->compute_packing_class(producer_var);
    this->matches[this->num_matches].packing_order
       = this->compute_packing_order(producer_var);
+   this->matches[this->num_matches].num_components
+      = this->compute_num_components(producer_var);
    this->matches[this->num_matches].producer_var = producer_var;
    this->matches[this->num_matches].consumer_var = consumer_var;
    this->num_matches++;
@@ -2120,21 +2124,18 @@ varying_matches::assign_locations()
    for (unsigned i = 0; i < this->num_matches; i++) {
       this->matches[i].is_packed = false;
 
+      /* Advance to the next slot if necessary.  We have to do so if this
+       * varying has a different packing class than the previous one.  We also
+       * have to do so if there isn't enough space remaining in the current
+       * slot to store the varying without "double parking" it (splitting it
+       * across two varying slots).
+       *
+       * We don't have to advance to the next slot if we're already on a slot
+       * boundary.
+       */
       if (i > 0 && generic_location % 4 != 0 &&
-          this->matches[i - 1].packing_class
-          != this->matches[i].packing_class) {
-         /* This varying is in a different packing class than the previous
-          * one, so we need to make sure it isn't packed into the same slot.
-          */
-         generic_location += 4 - generic_location % 4;
-      }
-
-      if (generic_location % 4 != 0 &&
-          this->matches[i].packing_order != PACKING_ORDER_SCALAR) {
-         /* At the moment we only pack scalars.  This isn't a scalar, so we
-          * need to make sure it isn't packed into the same slot.  TODO: pack
-          * other things.
-          */
+          (this->matches[i - 1].packing_class != this->matches[i].packing_class
+           || generic_location % 4 + this->matches[i].num_components > 4)) {
          generic_location += 4 - generic_location % 4;
       }
 
@@ -2153,19 +2154,7 @@ varying_matches::assign_locations()
       /* FINISHME: Support for "varying" records in GLSL 1.50. */
       assert(!producer_var->type->is_record());
 
-      if (this->matches[i].packing_order == PACKING_ORDER_SCALAR) {
-         /* TODO: make packing optional */
-         generic_location += 1;
-      } else if (producer_var->type->is_array()) {
-         const unsigned slots = producer_var->type->length
-            * producer_var->type->fields.array->matrix_columns;
-
-         generic_location += 4 * slots;
-      } else {
-         const unsigned slots = producer_var->type->matrix_columns;
-
-         generic_location += 4 * slots;
-      }
+      generic_location += this->matches[i].num_components;
    }
 }
 
@@ -2249,10 +2238,12 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
           * assignments between the old varyings and the new ones.
           */
          this->pack_varying(mem_ctx, producer->ir, new_producer_varying,
-                            producer_var, offset, true);
+                            producer_var, offset,
+                            this->matches[i].num_components, true);
          if (consumer_var != NULL)
             this->pack_varying(mem_ctx, consumer->ir, new_consumer_varying,
-                               consumer_var, offset, false);
+                               consumer_var, offset,
+                               this->matches[i].num_components, false);
       }
    }
 }
@@ -2308,6 +2299,28 @@ varying_matches::compute_packing_order(ir_variable *var)
 }
 
 
+/**
+ * Compute the number of components that this variable will occupy when
+ * properly packed.
+ */
+unsigned
+varying_matches::compute_num_components(ir_variable *var)
+{
+   if (var->type->is_array()) {
+      /* Arrays aren't packed yet */
+      const unsigned slots = var->type->length
+            * var->type->fields.array->matrix_columns;
+      return 4 * slots;
+   } else if (var->type->matrix_columns > 1) {
+      /* Matrices aren't packed yet */
+      const unsigned slots = var->type->matrix_columns;
+      return 4 * slots;
+   } else {
+      return var->type->components();
+   }
+}
+
+
 int
 varying_matches::match_comparator(const void *x_generic, const void *y_generic)
 {
@@ -2323,12 +2336,19 @@ varying_matches::match_comparator(const void *x_generic, const void *y_generic)
 
 void
 varying_matches::pack_varying(void *mem_ctx, exec_list *instructions,
-                               ir_variable *new_varying,
-                               ir_variable *old_varying, unsigned offset,
-                               bool is_producer)
+                              ir_variable *new_varying,
+                              ir_variable *old_varying, unsigned offset,
+                              unsigned num_components, bool is_producer)
 {
    /* Change the old varying into an ordinary global. */
    old_varying->mode = ir_var_auto;
+
+   /* Figure out the swizzle necessary to select num_components components
+    * starting at offset.
+    */
+   unsigned swizzle_components[4] = { 0, 0, 0, 0 };
+   for (unsigned i = 0; i < num_components; ++i)
+      swizzle_components[i] = i + offset;
 
    /* Generate an assignment of the form:
     *   new_varying.{swizzle} = old_varying; // producer
@@ -2340,7 +2360,8 @@ varying_matches::pack_varying(void *mem_ctx, exec_list *instructions,
    ir_dereference_variable *new_varying_deref
       = new(mem_ctx) ir_dereference_variable(new_varying);
    ir_swizzle *swizzle
-      = new(mem_ctx) ir_swizzle(new_varying_deref, offset, 0, 0, 0, 1);
+      = new(mem_ctx) ir_swizzle(new_varying_deref, swizzle_components,
+                                num_components);
    if (is_producer) {
       ir_assignment *assignment
          = new(mem_ctx) ir_assignment(swizzle, old_varying_deref);
