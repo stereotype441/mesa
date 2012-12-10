@@ -70,7 +70,8 @@
 class lower_packed_varyings_visitor : public ir_hierarchical_visitor
 {
 public:
-   lower_packed_varyings_visitor(void *mem_ctx, unsigned max_location,
+   lower_packed_varyings_visitor(void *mem_ctx, unsigned location_base,
+                                 unsigned locations_used,
                                  ir_variable_mode mode,
                                  exec_list *main_instructions);
 
@@ -88,15 +89,19 @@ private:
    bool needs_lowering(ir_variable *var);
 
    void * const mem_ctx;
+   const unsigned location_base;
+   const unsigned locations_used;
    ir_variable **packed_varyings;
    const ir_variable_mode mode;
    exec_list *main_instructions;
 };
 
 lower_packed_varyings_visitor::lower_packed_varyings_visitor(
-      void *mem_ctx, unsigned locations_used, ir_variable_mode mode,
-      exec_list *main_instructions)
+      void *mem_ctx, unsigned location_base, unsigned locations_used,
+      ir_variable_mode mode, exec_list *main_instructions)
    : mem_ctx(mem_ctx),
+     location_base(location_base),
+     locations_used(locations_used),
      packed_varyings((ir_variable **)
                      rzalloc_array_size(mem_ctx, sizeof(*packed_varyings),
                                         locations_used)),
@@ -108,7 +113,8 @@ lower_packed_varyings_visitor::lower_packed_varyings_visitor(
 ir_visitor_status
 lower_packed_varyings_visitor::visit(ir_variable *var)
 {
-   if (var->mode != this->mode || var->location == -1 ||
+   if (var->mode != this->mode ||
+       var->location < (int) this->location_base ||
        !this->needs_lowering(var))
       return visit_continue;
 
@@ -217,9 +223,11 @@ ir_variable *
 lower_packed_varyings_visitor::get_packed_varying(unsigned location,
                                                   ir_variable *unpacked_var)
 {
-   if (this->packed_varyings[location] == NULL) {
+   unsigned slot = location - this->location_base;
+   assert(slot < locations_used);
+   if (this->packed_varyings[slot] == NULL) {
       char name[10];
-      sprintf(name, "packed%d", location);
+      sprintf(name, "packed%d", slot);
       const glsl_type *packed_type;
       switch (unpacked_var->type->get_scalar_type()->base_type) {
       case GLSL_TYPE_UINT:
@@ -245,9 +253,9 @@ lower_packed_varyings_visitor::get_packed_varying(unsigned location,
       packed_var->interpolation = unpacked_var->interpolation;
       packed_var->location = location;
       this->base_ir->insert_before(packed_var);
-      this->packed_varyings[location] = packed_var;
+      this->packed_varyings[slot] = packed_var;
    }
-   return this->packed_varyings[location];
+   return this->packed_varyings[slot];
 }
 
 bool
@@ -263,8 +271,9 @@ lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
 }
 
 void
-lower_packed_varyings(void *mem_ctx, unsigned locations_used,
-                      ir_variable_mode mode, gl_shader *shader)
+lower_packed_varyings(void *mem_ctx, unsigned location_base,
+                      unsigned locations_used, ir_variable_mode mode,
+                      gl_shader *shader)
 {
    exec_list *instructions = shader->ir;
    ir_function *main_func = shader->symbols->get_function("main");
@@ -272,7 +281,8 @@ lower_packed_varyings(void *mem_ctx, unsigned locations_used,
    ir_function_signature *main_func_sig
       = main_func->matching_signature(&void_parameters);
    exec_list *main_instructions = &main_func_sig->body;
-   lower_packed_varyings_visitor visitor(mem_ctx, locations_used, mode,
+   lower_packed_varyings_visitor visitor(mem_ctx, location_base,
+                                         locations_used, mode,
                                          main_instructions);
    visitor.run(instructions);
 }

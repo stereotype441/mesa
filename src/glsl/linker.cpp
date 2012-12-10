@@ -2003,10 +2003,8 @@ public:
    void record(ir_variable *producer_var, ir_variable *consumer_var);
    void assign_locations();
    void store_locations(void *mem_ctx, gl_shader *producer,
-                        gl_shader *consumer);
-
-   unsigned producer_locations_used;
-   unsigned consumer_locations_used;
+                        gl_shader *consumer, unsigned *producer_base,
+                        unsigned *consumer_base, unsigned *slots_used) const;
 
 private:
    /**
@@ -2151,11 +2149,13 @@ varying_matches::assign_locations()
  */
 void
 varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
-                                 gl_shader *consumer)
+                                 gl_shader *consumer, unsigned *producer_base,
+                                 unsigned *consumer_base,
+                                 unsigned *slots_used) const
 {
    /* FINISHME: Set dynamically when geometry shader support is added. */
-   unsigned producer_base = VERT_RESULT_VAR0;
-   unsigned consumer_base = FRAG_ATTRIB_VAR0;
+   *producer_base = VERT_RESULT_VAR0;
+   *consumer_base = FRAG_ATTRIB_VAR0;
 
    for (unsigned i = 0; i < this->num_matches; i++) {
       ir_variable *producer_var = this->matches[i].producer_var;
@@ -2164,17 +2164,16 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
       unsigned slot = generic_location / 4;
       unsigned offset = generic_location % 4;
 
-      producer_var->location = producer_base + slot;
+      producer_var->location = *producer_base + slot;
       producer_var->location_frac = offset;
       if (consumer_var) {
          assert(consumer_var->location == -1);
-         consumer_var->location = consumer_base + slot;
+         consumer_var->location = *consumer_base + slot;
          consumer_var->location_frac = offset;
       }
    }
 
-   this->producer_locations_used = producer_base + this->num_slots_used;
-   this->consumer_locations_used = consumer_base + this->num_slots_used;
+   *slots_used = this->num_slots_used;
 }
 
 
@@ -2404,7 +2403,11 @@ assign_varying_locations(void *mem_ctx, struct gl_context *ctx,
    }
 
    matches.assign_locations();
-   matches.store_locations(mem_ctx, producer, consumer);
+   unsigned producer_base;
+   unsigned consumer_base;
+   unsigned slots_used;
+   matches.store_locations(mem_ctx, producer, consumer, &producer_base,
+                           &consumer_base, &slots_used);
 
    for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
       if (!tfeedback_decls[i].is_varying())
@@ -2419,10 +2422,10 @@ assign_varying_locations(void *mem_ctx, struct gl_context *ctx,
    /* TODO: better counting */
 
    /* TODO: don't lower if the backend doesn't need it */
-   lower_packed_varyings(ctx, matches.producer_locations_used, ir_var_out,
+   lower_packed_varyings(ctx, producer_base, slots_used, ir_var_out,
                          producer);
    if (consumer) {
-      lower_packed_varyings(ctx, matches.consumer_locations_used, ir_var_in,
+      lower_packed_varyings(ctx, consumer_base, slots_used, ir_var_in,
                             consumer);
    }
 
