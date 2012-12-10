@@ -85,6 +85,7 @@ private:
                             ir_variable *unpacked_var);
    ir_variable *get_packed_varying(unsigned location,
                                    ir_variable *unpacked_var);
+   bool needs_lowering(ir_variable *var);
 
    void * const mem_ctx;
    ir_variable **packed_varyings;
@@ -107,7 +108,8 @@ lower_packed_varyings_visitor::lower_packed_varyings_visitor(
 ir_visitor_status
 lower_packed_varyings_visitor::visit(ir_variable *var)
 {
-   if (var->mode != this->mode || var->location == -1)
+   if (var->mode != this->mode || var->location == -1 ||
+       !this->needs_lowering(var))
       return visit_continue;
 
    /* Change the old varying into an ordinary global. */
@@ -246,6 +248,18 @@ lower_packed_varyings_visitor::get_packed_varying(unsigned location,
       this->packed_varyings[location] = packed_var;
    }
    return this->packed_varyings[location];
+}
+
+bool
+lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
+{
+   /* Things composed of vec4's don't need lowering.  Everything else does. */
+   const glsl_type *type = var->type;
+   if (type->is_array())
+      type = type->fields.array;
+   if (type->vector_elements == 4)
+      return false;
+   return true;
 }
 
 void
