@@ -2138,11 +2138,6 @@ varying_matches::assign_locations()
 
       this->matches[i].generic_location = generic_location;
 
-      ir_variable *producer_var = this->matches[i].producer_var;
-
-      /* FINISHME: Support for "varying" records in GLSL 1.50. */
-      assert(!producer_var->type->is_record());
-
       generic_location += this->matches[i].num_components;
    }
 
