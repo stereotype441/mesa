@@ -71,6 +71,7 @@
 #include "program/hash_table.h"
 #include "linker.h"
 #include "ir_optimization.h"
+#include "ir_print_visitor.h"
 
 extern "C" {
 #include "main/shaderobj.h"
@@ -2424,6 +2425,8 @@ assign_varying_locations(void *mem_ctx, struct gl_context *ctx,
    /* TODO: don't lower if the backend doesn't need it */
    lower_packed_varyings(ctx, producer_base, slots_used, ir_var_out,
                          producer);
+   _mesa_print_ir(producer->ir, NULL);
+   printf("\n");
    if (consumer) {
       lower_packed_varyings(ctx, consumer_base, slots_used, ir_var_in,
                             consumer);
