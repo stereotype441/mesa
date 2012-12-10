@@ -2042,7 +2042,6 @@ private:
       ir_variable *producer_var;
       ir_variable *consumer_var;
       unsigned generic_location;
-      bool is_packed;
    } *matches;
    unsigned num_matches;
    unsigned matches_capacity;
@@ -2127,8 +2126,6 @@ varying_matches::assign_locations()
    unsigned generic_location = 0;
 
    for (unsigned i = 0; i < this->num_matches; i++) {
-      this->matches[i].is_packed = false;
-
       /* Advance to the next slot if this varying has a different packing
        * class than the previous one, and we're not already on a slot
        * boundary.
@@ -2137,14 +2134,6 @@ varying_matches::assign_locations()
           this->matches[i - 1].packing_class
           != this->matches[i].packing_class) {
          generic_location += 4 - generic_location % 4;
-      }
-
-      if (generic_location % 4 != 0) {
-         /* This varying is packed with the previous */
-         this->matches[i].is_packed = true;
-         if (i > 0) {
-            this->matches[i - 1].is_packed = true;
-         }
       }
 
       this->matches[i].generic_location = generic_location;
