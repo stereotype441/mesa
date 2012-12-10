@@ -1763,6 +1763,8 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
       /* Array variable */
       const unsigned matrix_cols =
          output_var->type->fields.array->matrix_columns;
+      const unsigned vector_elements =
+         output_var->type->fields.array->vector_elements;
       unsigned actual_array_size = this->is_clip_distance_mesa ?
          prog->Vert.ClipDistanceArraySize : output_var->type->array_size();
 
@@ -1780,9 +1782,12 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
                output_var->location + this->array_subscript / 4;
             this->location_frac = this->array_subscript % 4;
          } else {
-            this->location =
-               output_var->location + this->array_subscript * matrix_cols;
-            this->location_frac = output_var->location_frac;
+            unsigned fine_location
+               = output_var->location * 4 + output_var->location_frac;
+            unsigned array_elem_size = vector_elements * matrix_cols;
+            fine_location += array_elem_size * this->array_subscript;
+            this->location = fine_location / 4;
+            this->location_frac = fine_location % 4;
          }
          this->size = 1;
       } else {
@@ -1790,7 +1795,7 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
          this->location_frac = output_var->location_frac;
          this->size = actual_array_size;
       }
-      this->vector_elements_foo = output_var->type->fields.array->vector_elements;
+      this->vector_elements_foo = vector_elements;
       this->matrix_columns_foo = matrix_cols;
       if (this->is_clip_distance_mesa)
          this->type = GL_FLOAT;
