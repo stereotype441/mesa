@@ -2003,7 +2003,10 @@ public:
    void record(ir_variable *producer_var, ir_variable *consumer_var);
    void assign_locations();
    void store_locations(void *mem_ctx, gl_shader *producer,
-                        gl_shader *consumer) const;
+                        gl_shader *consumer);
+
+   unsigned producer_locations_used;
+   unsigned consumer_locations_used;
 
 private:
    /**
@@ -2169,15 +2172,11 @@ varying_matches::assign_locations()
  */
 void
 varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
-                                 gl_shader *consumer) const
+                                 gl_shader *consumer)
 {
    /* FINISHME: Set dynamically when geometry shader support is added. */
    unsigned producer_base = VERT_RESULT_VAR0;
    unsigned consumer_base = FRAG_ATTRIB_VAR0;
-   ir_variable **new_producer_varyings = rzalloc_array(mem_ctx, ir_variable *,
-                                                       this->num_slots_used);
-   ir_variable **new_consumer_varyings = rzalloc_array(mem_ctx, ir_variable *,
-                                                       this->num_slots_used);
 
    for (unsigned i = 0; i < this->num_matches; i++) {
       ir_variable *producer_var = this->matches[i].producer_var;
@@ -2186,10 +2185,6 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
       unsigned slot = generic_location / 4;
       unsigned offset = generic_location % 4;
 
-      /* Note: even if we are lowering varying packings, location and slot
-       * need to be stored in the non-lowered vars, so that transform feedback
-       * can access them.
-       */
       producer_var->location = producer_base + slot;
       producer_var->location_frac = offset;
       if (consumer_var) {
@@ -2197,61 +2192,10 @@ varying_matches::store_locations(void *mem_ctx, gl_shader *producer,
          consumer_var->location = consumer_base + slot;
          consumer_var->location_frac = offset;
       }
-
-      if (this->matches[i].is_packed) {
-         if (new_producer_varyings[slot] == NULL) {
-            /* Need to allocate a new packed varying in each shader. */
-            char name[9];
-            sprintf(name, "packed%d", slot);
-            const glsl_type *packed_type;
-            switch (producer_var->type->get_scalar_type()->base_type) {
-            case GLSL_TYPE_UINT:
-               packed_type = glsl_type::uvec4_type;
-               break;
-            case GLSL_TYPE_INT:
-               packed_type = glsl_type::ivec4_type;
-               break;
-            case GLSL_TYPE_FLOAT:
-               packed_type = glsl_type::vec4_type;
-               break;
-            case GLSL_TYPE_BOOL:
-               packed_type = glsl_type::bvec4_type;
-               break;
-            default:
-               assert(!"Unexpected varying type while packing");
-               packed_type = glsl_type::vec4_type;
-               break;
-            }
-            new_producer_varyings[slot] = new(mem_ctx)
-               ir_variable(packed_type, name, ir_var_out);
-            new_producer_varyings[slot]->centroid = producer_var->centroid;
-            new_producer_varyings[slot]->interpolation
-               = producer_var->interpolation;
-            new_producer_varyings[slot]->location = producer_base + slot;
-            producer->ir->push_head(new_producer_varyings[slot]);
-            if (consumer != NULL) {
-               new_consumer_varyings[slot] = new(mem_ctx)
-                  ir_variable(packed_type, name, ir_var_in);
-               new_consumer_varyings[slot]->centroid = producer_var->centroid;
-               new_consumer_varyings[slot]->interpolation
-                  = producer_var->interpolation;
-               new_consumer_varyings[slot]->location = consumer_base + slot;
-               consumer->ir->push_head(new_consumer_varyings[slot]);
-            }
-         }
-
-         /* Demote the old varyings to ordinary globals, and generate
-          * assignments between the old varyings and the new ones.
-          */
-         this->pack_varying(mem_ctx, producer->ir, new_producer_varyings,
-                            producer_var, generic_location,
-                            this->matches[i].num_components, true);
-         if (consumer_var != NULL)
-            this->pack_varying(mem_ctx, consumer->ir, new_consumer_varyings,
-                               consumer_var, generic_location,
-                               this->matches[i].num_components, false);
-      }
    }
+
+   this->producer_locations_used = producer_base + this->num_slots_used;
+   this->consumer_locations_used = consumer_base + this->num_slots_used;
 }
 
 
@@ -2491,6 +2435,16 @@ assign_varying_locations(void *mem_ctx, struct gl_context *ctx,
 
       if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
          return false;
+   }
+
+   /* TODO: better counting */
+
+   /* TODO: don't lower if the backend doesn't need it */
+   lower_packed_varyings(ctx, matches.producer_locations_used, ir_var_out,
+                         producer);
+   if (consumer) {
+      lower_packed_varyings(ctx, matches.consumer_locations_used, ir_var_in,
+                            consumer);
    }
 
    unsigned varying_vectors = 0;
