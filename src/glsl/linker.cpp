@@ -1563,7 +1563,7 @@ public:
       if (this->is_clip_distance_mesa)
          return this->size;
       else
-         return this->vector_elements * this->matrix_columns * this->size;
+         return this->vector_elements_foo * this->matrix_columns_foo * this->size;
    }
 
    ir_variable *get_output_var() const
@@ -1620,13 +1620,13 @@ private:
     * If location != -1, the number of vector elements in this variable, or 1
     * if this variable is a scalar.
     */
-   unsigned vector_elements;
+   unsigned vector_elements_foo;
 
    /**
     * If location != -1, the number of matrix columns in this variable, or 1
     * if this variable is not a matrix.
     */
-   unsigned matrix_columns;
+   unsigned matrix_columns_foo;
 
    /** Type of the varying returned by glGetTransformFeedbackVarying() */
    GLenum type;
@@ -1790,8 +1790,8 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
          this->location_frac = output_var->location_frac;
          this->size = actual_array_size;
       }
-      this->vector_elements = output_var->type->fields.array->vector_elements;
-      this->matrix_columns = matrix_cols;
+      this->vector_elements_foo = output_var->type->fields.array->vector_elements;
+      this->matrix_columns_foo = matrix_cols;
       if (this->is_clip_distance_mesa)
          this->type = GL_FLOAT;
       else
@@ -1807,8 +1807,8 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
       this->location = output_var->location;
       this->location_frac = output_var->location_frac;
       this->size = 1;
-      this->vector_elements = output_var->type->vector_elements;
-      this->matrix_columns = output_var->type->matrix_columns;
+      this->vector_elements_foo = output_var->type->vector_elements;
+      this->matrix_columns_foo = output_var->type->matrix_columns;
       this->type = output_var->type->gl_type;
    }
 
@@ -1840,11 +1840,7 @@ tfeedback_decl::accumulate_num_outputs(struct gl_shader_program *prog)
       return 0;
    }
 
-   unsigned translated_size = this->size;
-   if (this->is_clip_distance_mesa)
-      translated_size = (translated_size + 3) / 4;
-
-   return translated_size * this->matrix_columns;
+   return (this->num_components() + this->location_frac + 3)/4;
 }
 
 
@@ -1882,34 +1878,23 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
       return false;
    }
 
-   unsigned translated_size = this->size;
-   if (this->is_clip_distance_mesa)
-      translated_size = (translated_size + 3) / 4;
-   unsigned components_so_far = 0;
-   for (unsigned index = 0; index < translated_size; ++index) {
-      for (unsigned v = 0; v < this->matrix_columns; ++v) {
-         unsigned num_components = this->vector_elements;
-         assert(info->NumOutputs < max_outputs);
-         info->Outputs[info->NumOutputs].ComponentOffset
-            = this->location_frac;
-         if (this->is_clip_distance_mesa) {
-            if (this->is_subscripted) {
-               num_components = 1;
-            } else {
-               num_components = MIN2(4, this->size - components_so_far);
-            }
-         }
-         info->Outputs[info->NumOutputs].OutputRegister =
-            this->location + v + index * this->matrix_columns;
-         info->Outputs[info->NumOutputs].NumComponents = num_components;
-         info->Outputs[info->NumOutputs].OutputBuffer = buffer;
-         info->Outputs[info->NumOutputs].DstOffset = info->BufferStride[buffer];
-         ++info->NumOutputs;
-         info->BufferStride[buffer] += num_components;
-         components_so_far += num_components;
-      }
+   unsigned location = this->location;
+   unsigned location_frac = this->location_frac;
+   unsigned num_components = this->num_components();
+   while (num_components > 0) {
+      unsigned next_output_size = MIN2(num_components, 4 - location_frac);
+      assert(info->NumOutputs < max_outputs);
+      info->Outputs[info->NumOutputs].ComponentOffset = location_frac;
+      info->Outputs[info->NumOutputs].OutputRegister = location;
+      info->Outputs[info->NumOutputs].NumComponents = next_output_size;
+      info->Outputs[info->NumOutputs].OutputBuffer = buffer;
+      info->Outputs[info->NumOutputs].DstOffset = info->BufferStride[buffer];
+      ++info->NumOutputs;
+      info->BufferStride[buffer] += next_output_size;
+      num_components -= next_output_size;
+      location++;
+      location_frac = 0;
    }
-   assert(components_so_far == this->num_components());
 
    info->Varyings[info->NumVarying].Name = ralloc_strdup(prog, this->orig_name);
    info->Varyings[info->NumVarying].Type = this->type;
