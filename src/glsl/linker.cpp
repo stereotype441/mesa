@@ -2129,18 +2129,13 @@ varying_matches::assign_locations()
    for (unsigned i = 0; i < this->num_matches; i++) {
       this->matches[i].is_packed = false;
 
-      /* Advance to the next slot if necessary.  We have to do so if this
-       * varying has a different packing class than the previous one.  We also
-       * have to do so if there isn't enough space remaining in the current
-       * slot to store the varying without "double parking" it (splitting it
-       * across two varying slots).
-       *
-       * We don't have to advance to the next slot if we're already on a slot
+      /* Advance to the next slot if this varying has a different packing
+       * class than the previous one, and we're not already on a slot
        * boundary.
        */
       if (i > 0 && generic_location % 4 != 0 &&
-          (this->matches[i - 1].packing_class != this->matches[i].packing_class
-           || generic_location % 4 + this->matches[i].num_components > 4)) {
+          this->matches[i - 1].packing_class
+          != this->matches[i].packing_class) {
          generic_location += 4 - generic_location % 4;
       }
 
