@@ -107,7 +107,7 @@ lower_packed_varyings_visitor::lower_packed_varyings_visitor(
 ir_visitor_status
 lower_packed_varyings_visitor::visit(ir_variable *var)
 {
-   if (var->mode != this->mode)
+   if (var->mode != this->mode || var->location == -1)
       return visit_continue;
 
    /* Change the old varying into an ordinary global. */
