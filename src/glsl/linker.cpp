@@ -1538,7 +1538,7 @@ public:
    static bool is_same(const tfeedback_decl &x, const tfeedback_decl &y);
    bool assign_location(struct gl_context *ctx, struct gl_shader_program *prog,
                         ir_variable *output_var);
-   bool accumulate_num_outputs(struct gl_shader_program *prog, unsigned *count);
+   unsigned accumulate_num_outputs(struct gl_shader_program *prog);
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
               const unsigned max_outputs) const;
@@ -1833,21 +1833,18 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
 }
 
 
-bool
-tfeedback_decl::accumulate_num_outputs(struct gl_shader_program *prog,
-                                       unsigned *count)
+unsigned
+tfeedback_decl::accumulate_num_outputs(struct gl_shader_program *prog)
 {
    if (!this->is_varying()) {
-      return true;
+      return 0;
    }
 
    unsigned translated_size = this->size;
    if (this->is_clip_distance_mesa)
       translated_size = (translated_size + 3) / 4;
 
-   *count += translated_size * this->matrix_columns;
-
-   return true;
+   return translated_size * this->matrix_columns;
 }
 
 
@@ -2538,8 +2535,7 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
 
    unsigned num_outputs = 0;
    for (unsigned i = 0; i < num_tfeedback_decls; ++i)
-      if (!tfeedback_decls[i].accumulate_num_outputs(prog, &num_outputs))
-         return false;
+      num_outputs += tfeedback_decls[i].accumulate_num_outputs(prog);
 
    prog->LinkedTransformFeedback.Outputs =
       rzalloc_array(prog,
