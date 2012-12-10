@@ -2196,7 +2196,7 @@ varying_matches::compute_packing_class(ir_variable *var)
    packing_class *= 4;
    packing_class += var->interpolation;
    packing_class *= GLSL_TYPE_ERROR;
-   packing_class += var->type->base_type;
+   packing_class += var->type->get_scalar_type()->base_type;
    return packing_class;
 }
 
