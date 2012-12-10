@@ -2240,18 +2240,18 @@ varying_matches::compute_packing_order(ir_variable *var)
 unsigned
 varying_matches::compute_num_components(ir_variable *var)
 {
-   if (var->type->is_array()) {
-      /* Arrays aren't packed yet */
-      const unsigned slots = var->type->length
-            * var->type->fields.array->matrix_columns;
-      return 4 * slots;
-   } else if (var->type->matrix_columns > 1) {
-      /* Matrices aren't packed yet */
-      const unsigned slots = var->type->matrix_columns;
-      return 4 * slots;
-   } else {
-      return var->type->components();
+   const glsl_type *type = var->type;
+   unsigned multipiler = 1;
+
+   if (type->is_array()) {
+      multipiler *= type->length;
+      type = type->fields.array;
    }
+
+   /* FINISHME: Support for "varying" records in GLSL 1.50. */
+   assert(!type->is_record());
+
+   return multipiler * type->components();
 }
 
 
