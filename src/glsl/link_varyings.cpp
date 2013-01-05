@@ -562,6 +562,11 @@ public:
 
 private:
    /**
+    * Memory context used to allocate intermediate data structures.
+    */
+   void *mem_ctx;
+
+   /**
     * If true, this driver disables varying packing, so all varyings need to
     * be aligned on slot boundaries, and take up a number of slots equal to
     * their number of matrix columns times their array size.
@@ -582,26 +587,19 @@ private:
       PACKING_ORDER_VEC2,
       PACKING_ORDER_SCALAR,
       PACKING_ORDER_VEC3,
+      NUM_PACKING_ORDERS
    };
+
+   static const unsigned NUM_PACKING_CLASSES = 8;
 
    static unsigned compute_packing_class(ir_variable *var);
    static packing_order_enum compute_packing_order(ir_variable *var);
-   static int match_comparator(const void *x_generic, const void *y_generic);
 
    /**
     * Structure recording the relationship between a single producer output
     * and a single consumer input.
     */
-   struct match {
-      /**
-       * Packing class for this varying, computed by compute_packing_class().
-       */
-      unsigned packing_class;
-
-      /**
-       * Packing order for this varying, computed by compute_packing_order().
-       */
-      packing_order_enum packing_order;
+   struct match : public exec_node {
       unsigned num_components;
 
       /**
@@ -613,40 +611,26 @@ private:
        * The input variable in the consumer stage.
        */
       ir_variable *consumer_var;
-   } *matches;
+   };
 
    /**
-    * The number of elements in the \c matches array that are currently in
-    * use.
+    * All matches found so far, organized by packing class and then packing
+    * order.
     */
-   unsigned num_matches;
-
-   /**
-    * The number of elements that were set aside for the \c matches array when
-    * it was allocated.
-    */
-   unsigned matches_capacity;
+   exec_list matches[NUM_PACKING_CLASSES][NUM_PACKING_ORDERS];
 };
 
 
 varying_matches::varying_matches(bool disable_varying_packing)
    : disable_varying_packing(disable_varying_packing)
 {
-   /* Note: this initial capacity is rather arbitrarily chosen to be large
-    * enough for many cases without wasting an unreasonable amount of space.
-    * varying_matches::record() will resize the array if there are more than
-    * this number of varyings.
-    */
-   this->matches_capacity = 8;
-   this->matches = (match *)
-      malloc(sizeof(*this->matches) * this->matches_capacity);
-   this->num_matches = 0;
+   this->mem_ctx = ralloc_context(NULL);
 }
 
 
 varying_matches::~varying_matches()
 {
-   free(this->matches);
+   ralloc_free(this->mem_ctx);
 }
 
 
@@ -673,29 +657,21 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
       return;
    }
 
-   if (this->num_matches == this->matches_capacity) {
-      this->matches_capacity *= 2;
-      this->matches = (match *)
-         realloc(this->matches,
-                 sizeof(*this->matches) * this->matches_capacity);
-   }
-   this->matches[this->num_matches].packing_class
-      = this->compute_packing_class(producer_var);
-   this->matches[this->num_matches].packing_order
-      = this->compute_packing_order(producer_var);
+   match *new_match = new(this->mem_ctx) match;
+   unsigned packing_class = this->compute_packing_class(producer_var);
+   unsigned packing_order = this->compute_packing_order(producer_var);
+   this->matches[packing_class][packing_order].push_tail(new_match);
    if (this->disable_varying_packing) {
       unsigned slots = producer_var->type->is_array()
          ? (producer_var->type->length
             * producer_var->type->fields.array->matrix_columns)
          : producer_var->type->matrix_columns;
-      this->matches[this->num_matches].num_components = 4 * slots;
+      new_match->num_components = 4 * slots;
    } else {
-      this->matches[this->num_matches].num_components
-         = producer_var->type->component_slots();
+      new_match->num_components = producer_var->type->component_slots();
    }
-   this->matches[this->num_matches].producer_var = producer_var;
-   this->matches[this->num_matches].consumer_var = consumer_var;
-   this->num_matches++;
+   new_match->producer_var = producer_var;
+   new_match->consumer_var = consumer_var;
    producer_var->is_unmatched_generic_inout = 0;
    if (consumer_var)
       consumer_var->is_unmatched_generic_inout = 0;
@@ -711,40 +687,36 @@ unsigned
 varying_matches::assign_and_store_locations(unsigned producer_base,
                                             unsigned consumer_base)
 {
-   /* Sort varying matches into an order that makes them easy to pack. */
-   qsort(this->matches, this->num_matches, sizeof(*this->matches),
-         &varying_matches::match_comparator);
-
    unsigned generic_location = 0;
 
-   for (unsigned i = 0; i < this->num_matches; i++) {
-      /* Advance to the next slot if this varying has a different packing
-       * class than the previous one, and we're not already on a slot
-       * boundary.
+   for (unsigned i = 0; i < NUM_PACKING_CLASSES; i++) {
+      for (unsigned j = 0; j < NUM_PACKING_ORDERS; j++) {
+         foreach_list (node, &this->matches[i][j]) {
+            match *m = (match *) node;
+            ir_variable *producer_var = m->producer_var;
+            ir_variable *consumer_var = m->consumer_var;
+            unsigned slot = generic_location / 4;
+            unsigned offset = generic_location % 4;
+
+            producer_var->location = producer_base + slot;
+            producer_var->location_frac = offset;
+            if (consumer_var) {
+               assert(consumer_var->location == -1);
+               consumer_var->location = consumer_base + slot;
+               consumer_var->location_frac = offset;
+            }
+
+            generic_location += m->num_components;
+         }
+      }
+
+      /* Advance to the next slot if we're not already on a slot boundary, so
+       * that varyings of different packing classes won't get packed together.
        */
-      if (i > 0 &&
-          this->matches[i - 1].packing_class
-          != this->matches[i].packing_class) {
-         generic_location = ALIGN(generic_location, 4);
-      }
-
-      ir_variable *producer_var = this->matches[i].producer_var;
-      ir_variable *consumer_var = this->matches[i].consumer_var;
-      unsigned slot = generic_location / 4;
-      unsigned offset = generic_location % 4;
-
-      producer_var->location = producer_base + slot;
-      producer_var->location_frac = offset;
-      if (consumer_var) {
-         assert(consumer_var->location == -1);
-         consumer_var->location = consumer_base + slot;
-         consumer_var->location_frac = offset;
-      }
-
-      generic_location += this->matches[i].num_components;
+      generic_location = ALIGN(generic_location, 4);
    }
 
-   return (generic_location + 3) / 4;
+   return generic_location / 4;
 }
 
 
@@ -803,22 +775,6 @@ varying_matches::compute_packing_order(ir_variable *var)
       assert(!"Unexpected value of vector_elements");
       return PACKING_ORDER_VEC4;
    }
-}
-
-
-/**
- * Comparison function passed to qsort() to sort varyings by packing_class and
- * then by packing_order.
- */
-int
-varying_matches::match_comparator(const void *x_generic, const void *y_generic)
-{
-   const match *x = (const match *) x_generic;
-   const match *y = (const match *) y_generic;
-
-   if (x->packing_class != y->packing_class)
-      return x->packing_class - y->packing_class;
-   return x->packing_order - y->packing_order;
 }
 
 
