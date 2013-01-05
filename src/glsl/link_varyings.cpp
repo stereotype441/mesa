@@ -557,8 +557,8 @@ public:
    varying_matches(bool disable_varying_packing);
    ~varying_matches();
    void record(ir_variable *producer_var, ir_variable *consumer_var);
-   unsigned assign_locations();
-   void store_locations(unsigned producer_base, unsigned consumer_base) const;
+   unsigned assign_and_store_locations(unsigned producer_base,
+                                       unsigned consumer_base);
 
 private:
    /**
@@ -712,10 +712,12 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
 
 /**
  * Choose locations for all of the variable matches that were previously
- * passed to varying_matches::record().
+ * passed to varying_matches::record(), and update the producer and consumer
+ * shaders to reflect the location assignments.
  */
 unsigned
-varying_matches::assign_locations()
+varying_matches::assign_and_store_locations(unsigned producer_base,
+                                            unsigned consumer_base)
 {
    /* Sort varying matches into an order that makes them easy to pack. */
    qsort(this->matches, this->num_matches, sizeof(*this->matches),
@@ -734,27 +736,8 @@ varying_matches::assign_locations()
          generic_location = ALIGN(generic_location, 4);
       }
 
-      this->matches[i].generic_location = generic_location;
-
-      generic_location += this->matches[i].num_components;
-   }
-
-   return (generic_location + 3) / 4;
-}
-
-
-/**
- * Update the producer and consumer shaders to reflect the locations
- * assignments that were made by varying_matches::assign_locations().
- */
-void
-varying_matches::store_locations(unsigned producer_base,
-                                 unsigned consumer_base) const
-{
-   for (unsigned i = 0; i < this->num_matches; i++) {
       ir_variable *producer_var = this->matches[i].producer_var;
       ir_variable *consumer_var = this->matches[i].consumer_var;
-      unsigned generic_location = this->matches[i].generic_location;
       unsigned slot = generic_location / 4;
       unsigned offset = generic_location % 4;
 
@@ -765,7 +748,13 @@ varying_matches::store_locations(unsigned producer_base,
          consumer_var->location = consumer_base + slot;
          consumer_var->location_frac = offset;
       }
+
+      this->matches[i].generic_location = generic_location;
+
+      generic_location += this->matches[i].num_components;
    }
+
+   return (generic_location + 3) / 4;
 }
 
 
@@ -944,8 +933,8 @@ assign_varying_locations(struct gl_context *ctx,
       }
    }
 
-   const unsigned slots_used = matches.assign_locations();
-   matches.store_locations(producer_base, consumer_base);
+   const unsigned slots_used
+      = matches.assign_and_store_locations(producer_base, consumer_base);
 
    for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
       if (!tfeedback_decls[i].is_varying())
