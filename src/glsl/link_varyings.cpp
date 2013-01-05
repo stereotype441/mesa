@@ -693,17 +693,15 @@ varying_matches::assign_and_store_locations(unsigned producer_base,
       for (unsigned j = 0; j < NUM_PACKING_ORDERS; j++) {
          foreach_list (node, &this->matches[i][j]) {
             match *m = (match *) node;
-            ir_variable *producer_var = m->producer_var;
-            ir_variable *consumer_var = m->consumer_var;
             unsigned slot = generic_location / 4;
             unsigned offset = generic_location % 4;
 
-            producer_var->location = producer_base + slot;
-            producer_var->location_frac = offset;
-            if (consumer_var) {
-               assert(consumer_var->location == -1);
-               consumer_var->location = consumer_base + slot;
-               consumer_var->location_frac = offset;
+            m->producer_var->location = producer_base + slot;
+            m->producer_var->location_frac = offset;
+            if (m->consumer_var) {
+               assert(m->consumer_var->location == -1);
+               m->consumer_var->location = consumer_base + slot;
+               m->consumer_var->location_frac = offset;
             }
 
             generic_location += m->num_components;
