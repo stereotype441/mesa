@@ -34,6 +34,7 @@
 
 
 #include "main/glheader.h"
+#include "list.h"
 
 
 struct gl_shader_program;
@@ -158,6 +159,80 @@ private:
     * Whether this is gl_NextBuffer from ARB_transform_feedback3.
     */
    bool next_buffer_separator;
+};
+
+
+/**
+ * Data structure recording the relationship between outputs of one shader
+ * stage (the "producer") and inputs of another (the "consumer").
+ */
+class varying_matches
+{
+public:
+   varying_matches(bool disable_varying_packing);
+   ~varying_matches();
+   void record(ir_variable *producer_var, ir_variable *consumer_var);
+   unsigned assign_and_store_locations(unsigned producer_base,
+                                       unsigned consumer_base);
+
+private:
+   /**
+    * Memory context used to allocate intermediate data structures.
+    */
+   void *mem_ctx;
+
+   /**
+    * If true, this driver disables varying packing, so all varyings need to
+    * be aligned on slot boundaries, and take up a number of slots equal to
+    * their number of matrix columns times their array size.
+    */
+   const bool disable_varying_packing;
+
+   /**
+    * Enum representing the order in which varyings are packed within a
+    * packing class.
+    *
+    * Currently we pack vec4's first, then vec2's, then scalar values, then
+    * vec3's.  This order ensures that the only vectors that are at risk of
+    * having to be "double parked" (split between two adjacent varying slots)
+    * are the vec3's.
+    */
+   enum packing_order_enum {
+      PACKING_ORDER_VEC4,
+      PACKING_ORDER_VEC2,
+      PACKING_ORDER_SCALAR,
+      PACKING_ORDER_VEC3,
+      NUM_PACKING_ORDERS
+   };
+
+   static const unsigned NUM_PACKING_CLASSES = 8;
+
+   static unsigned compute_packing_class(ir_variable *var);
+   static packing_order_enum compute_packing_order(ir_variable *var);
+
+   /**
+    * Structure recording the relationship between a single producer output
+    * and a single consumer input.
+    */
+   struct match : public exec_node {
+      unsigned num_components;
+
+      /**
+       * The output variable in the producer stage.
+       */
+      ir_variable *producer_var;
+
+      /**
+       * The input variable in the consumer stage.
+       */
+      ir_variable *consumer_var;
+   };
+
+   /**
+    * All matches found so far, organized by packing class and then packing
+    * order.
+    */
+   exec_list matches[NUM_PACKING_CLASSES][NUM_PACKING_ORDERS];
 };
 
 
