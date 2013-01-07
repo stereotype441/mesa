@@ -61,6 +61,7 @@ LIBGLSL_FILES = \
 	$(GLSL_SRCDIR)/lower_packed_varyings.cpp \
 	$(GLSL_SRCDIR)/lower_texture_projection.cpp \
 	$(GLSL_SRCDIR)/lower_variable_index_to_cond_assign.cpp \
+        $(GLSL_SRCDIR)/lower_varying_structs2.cpp \
 	$(GLSL_SRCDIR)/lower_vec_index_to_cond_assign.cpp \
 	$(GLSL_SRCDIR)/lower_vec_index_to_swizzle.cpp \
 	$(GLSL_SRCDIR)/lower_vector.cpp \

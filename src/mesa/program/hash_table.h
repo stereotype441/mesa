@@ -284,5 +284,71 @@ private:
    struct hash_table *ht;
 };
 
+
+/**
+ * Map from a string (name) to an arbitrary pointer value.
+ *
+ * This class manages the memory for key storage, but not value storage;
+ * values remain allocated after the hash table is destroyed.
+ *
+ * TODO: is this needed?
+ */
+//template<class Contained>
+//class string_to_ptr_map
+//{
+//public:
+//   string_to_ptr_map()
+//   {
+//      this->ht = hash_table_ctor(0, hash_table_string_hash,
+//                                 hash_table_string_compare);
+//   }
+//
+//   ~string_to_ptr_map()
+//   {
+//      hash_table_call_foreach(this->ht, delete_key, NULL);
+//      hash_table_dtor(this->ht);
+//   }
+//
+//   /**
+//    * Remove all mappings from this map.
+//    */
+//   void clear()
+//   {
+//      hash_table_call_foreach(this->ht, delete_key, NULL);
+//      hash_table_clear(this->ht);
+//   }
+//
+//   /**
+//    * Get the pointer associated with a particular key.
+//    *
+//    * If there is no hash table entry associated with the given key, NULL is
+//    * returned.
+//    */
+//   Contained *get(const char *key)
+//   {
+//      return (Contained *) hash_table_find(this->ht, (const void *) key);
+//   }
+//
+//   void put(Contained *value, const char *key)
+//   {
+//      char *dup_key = strdup(key);
+//      bool old_key_kept = hash_table_replace(this->ht, value, dup_key);
+//      if (old_key_kept)
+//         free(dup_key);
+//   }
+//
+//private:
+//   static void delete_key(const void *key, void *data, void *closure)
+//   {
+//      (void) data;
+//      (void) closure;
+//
+//      free((char *)key);
+//   }
+//
+//   struct hash_table *ht;
+//};
+
+
 #endif /* __cplusplus */
 #endif /* HASH_TABLE_H */

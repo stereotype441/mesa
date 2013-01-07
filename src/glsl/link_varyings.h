@@ -174,6 +174,7 @@ public:
    void record(ir_variable *producer_var, ir_variable *consumer_var);
    unsigned assign_and_store_locations(unsigned producer_base,
                                        unsigned consumer_base);
+   void lower_varying_structs(gl_shader *producer, gl_shader *consumer);
 
 private:
    /**

@@ -29,6 +29,7 @@
  */
 
 
+#include "lower_varying_structs.h"
 #include "main/mtypes.h"
 #include "glsl_symbol_table.h"
 #include "ir_optimization.h"
@@ -644,6 +645,19 @@ varying_matches::assign_and_store_locations(unsigned producer_base,
 }
 
 
+void
+varying_matches::lower_varying_structs(gl_shader *producer, gl_shader *consumer)
+{
+   lower_varying_structs_visitor producer_visitor(producer, ir_var_out);
+   producer_visitor.run(producer->ir);
+   if (consumer) {
+      lower_varying_structs_visitor consumer_visitor(consumer, ir_var_in);
+      consumer_visitor.run(consumer->ir);
+      assert(false); /* TODO */
+   }
+}
+
+
 /**
  * Compute the "packing class" of the given varying.  This is an unsigned
  * integer with the property that two variables in the same packing class can
@@ -802,6 +816,8 @@ assign_varying_locations(struct gl_context *ctx,
          matches.record(output_var, NULL);
       }
    }
+
+   matches.lower_varying_structs(producer, consumer);
 
    const unsigned slots_used
       = matches.assign_and_store_locations(producer_base, consumer_base);
