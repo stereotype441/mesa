@@ -38,6 +38,68 @@
 
 
 /**
+ * Structure recording the relationship between a single producer output and a
+ * single consumer input, and the varying location that has been assigned to
+ * them (if such assignment has been made already).
+ */
+struct varying_match : public exec_node
+{
+   varying_match(ir_variable *producer_var, ir_variable *consumer_var);
+   unsigned num_components(bool disable_varying_packing) const;
+
+   /**
+    * The output variable in the producer stage.
+    */
+   ir_variable * const producer_var;
+
+   /**
+    * The input variable in the consumer stage.
+    */
+   ir_variable * const consumer_var;
+
+   /**
+    * The location which has been assigned for this varying.  This is
+    * expressed in multiples of a float, with the first generic varying
+    * (i.e. the one referred to by VERT_RESULT_VAR0 or FRAG_ATTRIB_VAR0)
+    * represented by the value 0.
+    */
+   unsigned generic_location;
+};
+
+
+varying_match::varying_match(ir_variable *producer_var,
+                             ir_variable *consumer_var)
+   : producer_var(producer_var),
+     consumer_var(consumer_var),
+     generic_location(0) /* Not assigned yet */
+{
+}
+
+
+
+/**
+ * Compute the number of varying components taken up by this varying.  If
+ * varyings are being packed, this is equal to
+ * producer_var->type->component_slots().  If varyings aren't being packed,
+ * this is equal to 4 times the number of vec4 slots that the unpacked varying
+ * takes up.
+ */
+unsigned
+varying_match::num_components(bool disable_varying_packing) const
+{
+   const glsl_type *type = this->producer_var->type;
+   if (disable_varying_packing) {
+      unsigned slots = type->is_array()
+         ? type->length * type->fields.array->matrix_columns
+         : type->matrix_columns;
+      return 4 * slots;
+   } else {
+      return type->component_slots();
+   }
+}
+
+
+/**
  * Validate that outputs from one stage match inputs of another
  */
 bool
@@ -596,36 +658,10 @@ private:
    static packing_order_enum compute_packing_order(ir_variable *var);
 
    /**
-    * Structure recording the relationship between a single producer output
-    * and a single consumer input.
-    */
-   struct match : public exec_node {
-      unsigned num_components;
-
-      /**
-       * The output variable in the producer stage.
-       */
-      ir_variable *producer_var;
-
-      /**
-       * The input variable in the consumer stage.
-       */
-      ir_variable *consumer_var;
-
-      /**
-       * The location which has been assigned for this varying.  This is
-       * expressed in multiples of a float, with the first generic varying
-       * (i.e. the one referred to by VERT_RESULT_VAR0 or FRAG_ATTRIB_VAR0)
-       * represented by the value 0.
-       */
-      unsigned generic_location;
-   };
-
-   /**
-    * A collection of match objects representing all varyings that need to be
-    * assigned locations (or that have already been assigned locations, if
-    * assign_and_store_locations() has already been called).  Organized by
-    * packing class and then packing order.
+    * A collection of varying_match objects representing all varyings that
+    * need to be assigned locations (or that have already been assigned
+    * locations, if assign_and_store_locations() has already been called).
+    * Organized by packing class and then packing order.
     */
    exec_list matches_to_assign[NUM_PACKING_CLASSES][NUM_PACKING_ORDERS];
 };
@@ -667,21 +703,11 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
       return;
    }
 
-   match *new_match = new(this->mem_ctx) match;
+   varying_match *new_match = new(this->mem_ctx)
+      varying_match(producer_var, consumer_var);
    unsigned packing_class = this->compute_packing_class(producer_var);
    unsigned packing_order = this->compute_packing_order(producer_var);
    this->matches_to_assign[packing_class][packing_order].push_tail(new_match);
-   if (this->disable_varying_packing) {
-      unsigned slots = producer_var->type->is_array()
-         ? (producer_var->type->length
-            * producer_var->type->fields.array->matrix_columns)
-         : producer_var->type->matrix_columns;
-      new_match->num_components = 4 * slots;
-   } else {
-      new_match->num_components = producer_var->type->component_slots();
-   }
-   new_match->producer_var = producer_var;
-   new_match->consumer_var = consumer_var;
    producer_var->is_unmatched_generic_inout = 0;
    if (consumer_var)
       consumer_var->is_unmatched_generic_inout = 0;
@@ -702,7 +728,7 @@ varying_matches::assign_and_store_locations(unsigned producer_base,
    for (unsigned i = 0; i < NUM_PACKING_CLASSES; i++) {
       for (unsigned j = 0; j < NUM_PACKING_ORDERS; j++) {
          foreach_list (node, &this->matches_to_assign[i][j]) {
-            match *m = (match *) node;
+            varying_match *m = (varying_match *) node;
             unsigned slot = generic_location / 4;
             unsigned offset = generic_location % 4;
 
@@ -716,7 +742,8 @@ varying_matches::assign_and_store_locations(unsigned producer_base,
 
             m->generic_location = generic_location;
 
-            generic_location += m->num_components;
+            generic_location
+               += m->num_components(this->disable_varying_packing);
          }
       }
 
