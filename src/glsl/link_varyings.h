@@ -53,7 +53,7 @@ public:
    static bool is_same(const tfeedback_decl &x, const tfeedback_decl &y);
    bool assign_location(struct gl_context *ctx, struct gl_shader_program *prog,
                         ir_variable *output_var);
-   unsigned get_num_outputs() const;
+   unsigned get_num_outputs_upper_bound() const;
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
               const unsigned max_outputs) const;

@@ -407,14 +407,20 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
 }
 
 
+/**
+ * Return the maximum possible number of entries in the
+ * gl_transform_feedback_info::Outputs array that this declaration might
+ * contribute to.  This is used to compute an initial size for the
+ * gl_transform_feedback_info::Outputs array.
+ */
 unsigned
-tfeedback_decl::get_num_outputs() const
+tfeedback_decl::get_num_outputs_upper_bound() const
 {
    if (!this->is_varying()) {
       return 0;
    }
 
-   return (this->num_components() + this->location_frac + 3)/4;
+   return this->num_components();
 }
 
 
@@ -572,14 +578,14 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
 		    struct gl_transform_feedback_varying_info,
 		    num_tfeedback_decls);
 
-   unsigned num_outputs = 0;
+   unsigned max_outputs = 0;
    for (unsigned i = 0; i < num_tfeedback_decls; ++i)
-      num_outputs += tfeedback_decls[i].get_num_outputs();
+      max_outputs += tfeedback_decls[i].get_num_outputs_upper_bound();
 
    prog->LinkedTransformFeedback.Outputs =
       rzalloc_array(prog,
                     struct gl_transform_feedback_output,
-                    num_outputs);
+                    max_outputs);
 
    unsigned num_buffers = 0;
 
@@ -587,7 +593,7 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
       /* GL_SEPARATE_ATTRIBS */
       for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
          if (!tfeedback_decls[i].store(ctx, prog, &prog->LinkedTransformFeedback,
-                                       num_buffers, num_outputs))
+                                       num_buffers, max_outputs))
             return false;
 
          num_buffers++;
@@ -603,13 +609,19 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
 
          if (!tfeedback_decls[i].store(ctx, prog,
                                        &prog->LinkedTransformFeedback,
-                                       num_buffers, num_outputs))
+                                       num_buffers, max_outputs))
             return false;
       }
       num_buffers++;
    }
 
-   assert(prog->LinkedTransformFeedback.NumOutputs == num_outputs);
+   assert(prog->LinkedTransformFeedback.NumOutputs <= max_outputs);
+
+   /* Free up unused memory in prog->LinkedTransformFeedback.Outputs. */
+   prog->LinkedTransformFeedback.Outputs
+      = reralloc(prog, prog->LinkedTransformFeedback.Outputs,
+                 struct gl_transform_feedback_output,
+                 prog->LinkedTransformFeedback.NumOutputs);
 
    prog->LinkedTransformFeedback.NumBuffers = num_buffers;
    return true;
