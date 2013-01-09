@@ -349,12 +349,14 @@ tfeedback_decl::assign_varying_match(struct gl_context *ctx,
       } else {
          this->size = actual_array_size;
       }
-      this->vector_elements = vector_elements;
       this->matrix_columns = matrix_cols;
-      if (this->is_clip_distance_mesa)
+      if (this->is_clip_distance_mesa) {
+         this->vector_elements = 1;
          this->type = GL_FLOAT;
-      else
+      } else {
+         this->vector_elements = vector_elements;
          this->type = type->fields.array->gl_type;
+      }
    } else {
       /* Regular variable (scalar, vector, or matrix) */
       if (this->is_subscripted) {
@@ -445,12 +447,8 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
    unsigned fine_location
       = producer_var->location * 4 + producer_var->location_frac;
    if (this->is_subscripted) {
-      if (this->is_clip_distance_mesa) {
-         fine_location += this->array_subscript;
-      } else {
-         fine_location += this->vector_elements * this->matrix_columns
-            * this->array_subscript;
-      }
+      fine_location += this->vector_elements * this->matrix_columns
+         * this->array_subscript;
    }
    unsigned location = fine_location / 4;
    unsigned location_frac = fine_location % 4;

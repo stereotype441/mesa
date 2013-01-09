@@ -78,10 +78,7 @@ public:
     */
    unsigned num_components() const
    {
-      if (this->is_clip_distance_mesa)
-         return this->size;
-      else
-         return this->vector_elements * this->matrix_columns * this->size;
+      return this->vector_elements * this->matrix_columns * this->size;
    }
 
 private:
@@ -121,6 +118,9 @@ private:
    /**
     * If match != NULL, the number of vector elements in this variable, or 1
     * if this variable is a scalar.
+    *
+    * Note: for gl_ClipDistance, this value is 1 even if is_clip_distance_mesa
+    * is true.
     */
    unsigned vector_elements;
 
