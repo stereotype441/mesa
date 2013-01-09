@@ -59,11 +59,12 @@ struct varying_match : public exec_node
 
    /**
     * The location which has been assigned for this varying.  This is
-    * expressed in multiples of a float, with the first generic varying
-    * (i.e. the one referred to by VERT_RESULT_VAR0 or FRAG_ATTRIB_VAR0)
-    * represented by the value 0.
+    * expressed using the conventions for location values used by the producer
+    * (e.g. if the producer is a vertex shader, it is expressed as a
+    * gl_vert_result), except that it is multiplied by 4 to allow for varying
+    * packing.
     */
-   unsigned generic_location;
+   unsigned producer_location;
 };
 
 
@@ -71,7 +72,7 @@ varying_match::varying_match(ir_variable *producer_var,
                              ir_variable *consumer_var)
    : producer_var(producer_var),
      consumer_var(consumer_var),
-     generic_location(0) /* Not assigned yet */
+     producer_location(0) /* Not assigned yet */
 {
 }
 
@@ -740,7 +741,7 @@ varying_matches::assign_and_store_locations(unsigned producer_base,
                m->consumer_var->location_frac = offset;
             }
 
-            m->generic_location = generic_location;
+            m->producer_location = generic_location + producer_base * 4;
 
             generic_location
                += m->num_components(this->disable_varying_packing);
