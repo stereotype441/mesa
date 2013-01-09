@@ -625,7 +625,7 @@ class varying_matches
 public:
    varying_matches(bool disable_varying_packing);
    ~varying_matches();
-   void record(ir_variable *producer_var, ir_variable *consumer_var);
+   varying_match *record(ir_variable *producer_var, ir_variable *consumer_var);
    unsigned assign_and_store_locations(unsigned producer_base,
                                        unsigned consumer_base);
 
@@ -662,7 +662,9 @@ private:
    static const unsigned NUM_PACKING_CLASSES = 8;
 
    static unsigned compute_packing_class(ir_variable *var);
-   static packing_order_enum compute_packing_order(ir_variable *var);
+   static packing_order_enum compute_packing_order(const glsl_type *type);
+   void schedule_for_location_assignment(varying_match *match,
+                                         unsigned packing_class);
 
    /**
     * A collection of varying_match objects representing all varyings that
@@ -699,37 +701,56 @@ varying_matches::~varying_matches()
 
 /**
  * Record the given producer/consumer variable pair in the list of variables
- * that should later be assigned locations.
+ * that should later be assigned locations, and return a varying_match data
+ * structure describing the match.
  *
  * It is permissible for \c consumer_var to be NULL (this happens if a
  * variable is output by the producer and consumed by transform feedback, but
  * not consumed by the consumer).
  *
- * If \c producer_var has already been paired up with a consumer_var, or
- * producer_var is part of fixed pipeline functionality (and hence already has
- * a location assigned), this function has no effect.
+ * If \c producer_var has already been paired up with a consumer_var, then \c
+ * consumer_var is ignored and the old varying_match data structure is
+ * returned.
+ *
+ * If \c producer_var is part of fixed pipeline functionality (and hence has
+ * an explicit location assigned), this pair is not recorded in the list of
+ * variables that should later be assigned locations, but a varying_match data
+ * structure is still returned for it.  In this case, the
+ * varying_match::producer_location field is set to match the
+ * explicitly-assigned location, so that after a successful call to
+ * this->assign_and_store_locations(), all varying_match objects returned by
+ * this function will have a valid producer_location.
  */
-void
+varying_match *
 varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
 {
-   if (!producer_var->is_unmatched_generic_inout) {
-      /* Either a location already exists for this variable (since it is part
-       * of fixed functionality), or it has already been recorded as part of a
-       * previous match.
-       */
-      return;
+   varying_match *old_match = (varying_match *)
+      hash_table_find(this->producer_var_to_match_hash, producer_var);
+   if (old_match) {
+      /* producer_var has already been paired up with a consumer_var */
+      return old_match;
    }
 
    varying_match *new_match = new(this->mem_ctx)
       varying_match(producer_var, consumer_var);
-   unsigned packing_class = this->compute_packing_class(producer_var);
-   unsigned packing_order = this->compute_packing_order(producer_var);
-   this->matches_to_assign[packing_class][packing_order].push_tail(new_match);
    hash_table_insert(this->producer_var_to_match_hash, new_match,
                      producer_var);
-   producer_var->is_unmatched_generic_inout = 0;
-   if (consumer_var)
-      consumer_var->is_unmatched_generic_inout = 0;
+   if (producer_var->explicit_location) {
+      /* A location already exists for this variable (since it is part of
+       * fixed functionality), so we don't need to store it in
+       * this->matches_to_assign.  Instead, just record the location that has
+       * already been explicitly assigned.
+       */
+      new_match->producer_location
+         = 4 * producer_var->location + producer_var->location_frac;
+   } else {
+      unsigned packing_class = this->compute_packing_class(producer_var);
+      this->schedule_for_location_assignment(new_match, packing_class);
+      producer_var->is_unmatched_generic_inout = 0;
+      if (consumer_var)
+         consumer_var->is_unmatched_generic_inout = 0;
+   }
+   return new_match;
 }
 
 
@@ -813,10 +834,8 @@ varying_matches::compute_packing_class(ir_variable *var)
  * other varyings in the same packing class.
  */
 varying_matches::packing_order_enum
-varying_matches::compute_packing_order(ir_variable *var)
+varying_matches::compute_packing_order(const glsl_type *element_type)
 {
-   const glsl_type *element_type = var->type;
-
    /* FINISHME: Support for "varying" records in GLSL 1.50. */
    while (element_type->base_type == GLSL_TYPE_ARRAY) {
       element_type = element_type->fields.array;
@@ -831,6 +850,20 @@ varying_matches::compute_packing_order(ir_variable *var)
       assert(!"Unexpected value of vector_elements");
       return PACKING_ORDER_VEC4;
    }
+}
+
+
+/**
+ * Store the given match structure appropriately in this->matches_to_assign so
+ * that when assign_and_store_locations() is called, it will be assigned a
+ * location.
+ */
+void
+varying_matches::schedule_for_location_assignment(varying_match *match,
+                                                  unsigned packing_class)
+{
+   unsigned packing_order = this->compute_packing_order(match->type);
+   this->matches_to_assign[packing_class][packing_order].push_tail(match);
 }
 
 
@@ -916,7 +949,7 @@ assign_varying_locations(struct gl_context *ctx,
          input_var = NULL;
 
       if (input_var) {
-         matches.record(output_var, input_var);
+         (void) matches.record(output_var, input_var);
       }
    }
 
@@ -930,9 +963,7 @@ assign_varying_locations(struct gl_context *ctx,
       if (output_var == NULL)
          return false;
 
-      if (output_var->is_unmatched_generic_inout) {
-         matches.record(output_var, NULL);
-      }
+      (void) matches.record(output_var, NULL);
    }
 
    const unsigned slots_used
