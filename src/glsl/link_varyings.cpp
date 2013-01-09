@@ -35,6 +35,7 @@
 #include "linker.h"
 #include "link_varyings.h"
 #include "main/macros.h"
+#include "program/hash_table.h"
 
 
 /**
@@ -665,6 +666,12 @@ private:
     * Organized by packing class and then packing order.
     */
    exec_list matches_to_assign[NUM_PACKING_CLASSES][NUM_PACKING_ORDERS];
+
+   /**
+    * Hashtable mapping ir_variable pointers in the producer to the
+    * corresponding varying_match objects.
+    */
+   hash_table *producer_var_to_match_hash;
 };
 
 
@@ -672,11 +679,15 @@ varying_matches::varying_matches(bool disable_varying_packing)
    : disable_varying_packing(disable_varying_packing)
 {
    this->mem_ctx = ralloc_context(NULL);
+   this->producer_var_to_match_hash
+      = hash_table_ctor(0, hash_table_pointer_hash,
+                        hash_table_pointer_compare);
 }
 
 
 varying_matches::~varying_matches()
 {
+   hash_table_dtor(this->producer_var_to_match_hash);
    ralloc_free(this->mem_ctx);
 }
 
@@ -709,6 +720,8 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
    unsigned packing_class = this->compute_packing_class(producer_var);
    unsigned packing_order = this->compute_packing_order(producer_var);
    this->matches_to_assign[packing_class][packing_order].push_tail(new_match);
+   hash_table_insert(this->producer_var_to_match_hash, new_match,
+                     producer_var);
    producer_var->is_unmatched_generic_inout = 0;
    if (consumer_var)
       consumer_var->is_unmatched_generic_inout = 0;
