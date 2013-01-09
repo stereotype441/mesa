@@ -1804,9 +1804,6 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
          goto done;
    }
 
-   if (!store_tfeedback_info(ctx, prog, num_tfeedback_decls, tfeedback_decls))
-      goto done;
-
    if (prog->_LinkedShaders[MESA_SHADER_VERTEX] != NULL) {
       demote_shader_inputs_and_outputs(prog->_LinkedShaders[MESA_SHADER_VERTEX],
 				       ir_var_out);

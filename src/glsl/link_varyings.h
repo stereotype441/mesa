@@ -171,11 +171,6 @@ parse_tfeedback_decls(struct gl_context *ctx, struct gl_shader_program *prog,
                       char **varying_names, tfeedback_decl *decls);
 
 bool
-store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
-                     unsigned num_tfeedback_decls,
-                     tfeedback_decl *tfeedback_decls);
-
-bool
 assign_varying_locations(struct gl_context *ctx,
 			 void *mem_ctx,
 			 struct gl_shader_program *prog,

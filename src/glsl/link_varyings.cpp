@@ -559,7 +559,7 @@ parse_tfeedback_decls(struct gl_context *ctx, struct gl_shader_program *prog,
  * If an error occurs, the error is reported through linker_error() and false
  * is returned.
  */
-bool
+static bool
 store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
                      unsigned num_tfeedback_decls,
                      tfeedback_decl *tfeedback_decls)
@@ -572,6 +572,9 @@ store_tfeedback_info(struct gl_context *ctx, struct gl_shader_program *prog,
 
    memset(&prog->LinkedTransformFeedback, 0,
           sizeof(prog->LinkedTransformFeedback));
+
+   if (num_tfeedback_decls == 0)
+      return true;
 
    prog->LinkedTransformFeedback.Varyings =
       rzalloc_array(prog,
@@ -1081,5 +1084,6 @@ assign_varying_locations(struct gl_context *ctx,
       }
    }
 
-   return true;
+   return store_tfeedback_info(ctx, prog, num_tfeedback_decls,
+                               tfeedback_decls);
 }
