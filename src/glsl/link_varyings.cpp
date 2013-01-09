@@ -49,6 +49,11 @@ struct varying_match : public exec_node
    unsigned num_components(bool disable_varying_packing) const;
 
    /**
+    * GLSL type of this varying.
+    */
+   const glsl_type * const type;
+
+   /**
     * The output variable in the producer stage.
     */
    ir_variable * const producer_var;
@@ -71,7 +76,8 @@ struct varying_match : public exec_node
 
 varying_match::varying_match(ir_variable *producer_var,
                              ir_variable *consumer_var)
-   : producer_var(producer_var),
+   : type(producer_var->type),
+     producer_var(producer_var),
      consumer_var(consumer_var),
      producer_location(0) /* Not assigned yet */
 {
@@ -89,14 +95,13 @@ varying_match::varying_match(ir_variable *producer_var,
 unsigned
 varying_match::num_components(bool disable_varying_packing) const
 {
-   const glsl_type *type = this->producer_var->type;
    if (disable_varying_packing) {
-      unsigned slots = type->is_array()
-         ? type->length * type->fields.array->matrix_columns
-         : type->matrix_columns;
+      unsigned slots = this->type->is_array()
+         ? this->type->length * this->type->fields.array->matrix_columns
+         : this->type->matrix_columns;
       return 4 * slots;
    } else {
-      return type->component_slots();
+      return this->type->component_slots();
    }
 }
 
