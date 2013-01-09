@@ -39,6 +39,7 @@
 struct gl_shader_program;
 struct gl_shader;
 class ir_variable;
+struct varying_match;
 
 
 /**
@@ -51,8 +52,9 @@ public:
    bool init(struct gl_context *ctx, struct gl_shader_program *prog,
              const void *mem_ctx, const char *input);
    static bool is_same(const tfeedback_decl &x, const tfeedback_decl &y);
-   bool assign_location(struct gl_context *ctx, struct gl_shader_program *prog,
-                        ir_variable *output_var);
+   bool assign_varying_match(struct gl_context *ctx,
+                             struct gl_shader_program *prog,
+                             varying_match *match);
    unsigned get_num_outputs_upper_bound() const;
    bool store(struct gl_context *ctx, struct gl_shader_program *prog,
               struct gl_transform_feedback_info *info, unsigned buffer,
@@ -72,7 +74,7 @@ public:
 
    /**
     * The total number of varying components taken up by this variable.  Only
-    * valid if assign_location() has been called.
+    * valid if assign_varying_match() has been called.
     */
    unsigned num_components() const
    {
@@ -111,31 +113,20 @@ private:
    bool is_clip_distance_mesa;
 
    /**
-    * The vertex shader output location that the linker assigned for this
-    * variable.  -1 if a location hasn't been assigned yet.
+    * If assign_varying_match has been called, the varying_match object that
+    * is associated with this transform feedback declaration.  Otherwise NULL.
     */
-   int location;
+   varying_match *match;
 
    /**
-    * If non-zero, then this variable may be packed along with other variables
-    * into a single varying slot, so this offset should be applied when
-    * accessing components.  For example, an offset of 1 means that the x
-    * component of this variable is actually stored in component y of the
-    * location specified by \c location.
-    *
-    * Only valid if location != -1.
-    */
-   unsigned location_frac;
-
-   /**
-    * If location != -1, the number of vector elements in this variable, or 1
+    * If match != NULL, the number of vector elements in this variable, or 1
     * if this variable is a scalar.
     */
    unsigned vector_elements;
 
    /**
-    * If location != -1, the number of matrix columns in this variable, or 1
-    * if this variable is not a matrix.
+    * If match != NULL, the number of matrix columns in this variable, or 1 if
+    * this variable is not a matrix.
     */
    unsigned matrix_columns;
 
@@ -143,7 +134,7 @@ private:
    GLenum type;
 
    /**
-    * If location != -1, the size that should be returned by
+    * If match != NULL, the size that should be returned by
     * glGetTransformFeedbackVarying().
     */
    unsigned size;

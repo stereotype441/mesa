@@ -240,7 +240,6 @@ tfeedback_decl::init(struct gl_context *ctx, struct gl_shader_program *prog,
     * because any variable with an invalid name can't exist in the IR anyway.
     */
 
-   this->location = -1;
    this->orig_name = input;
    this->is_clip_distance_mesa = false;
    this->skip_components = 0;
@@ -315,27 +314,27 @@ tfeedback_decl::is_same(const tfeedback_decl &x, const tfeedback_decl &y)
 
 
 /**
- * Assign a location for this tfeedback_decl object based on the location
- * assignment in output_var.
+ * Associate this tfeedback_decl object with a varying_match, and check for
+ * errors.
  *
  * If an error occurs, the error is reported through linker_error() and false
  * is returned.
  */
 bool
-tfeedback_decl::assign_location(struct gl_context *ctx,
-                                struct gl_shader_program *prog,
-                                ir_variable *output_var)
+tfeedback_decl::assign_varying_match(struct gl_context *ctx,
+                                     struct gl_shader_program *prog,
+                                     varying_match *match)
 {
    assert(this->is_varying());
 
-   if (output_var->type->is_array()) {
+   this->match = match;
+   const glsl_type *type = match->type;
+   if (type->is_array()) {
       /* Array variable */
-      const unsigned matrix_cols =
-         output_var->type->fields.array->matrix_columns;
-      const unsigned vector_elements =
-         output_var->type->fields.array->vector_elements;
+      const unsigned matrix_cols = type->fields.array->matrix_columns;
+      const unsigned vector_elements = type->fields.array->vector_elements;
       unsigned actual_array_size = this->is_clip_distance_mesa ?
-         prog->Vert.ClipDistanceArraySize : output_var->type->array_size();
+         prog->Vert.ClipDistanceArraySize : type->array_size();
 
       if (this->is_subscripted) {
          /* Check array bounds. */
@@ -346,22 +345,8 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
                          actual_array_size);
             return false;
          }
-         if (this->is_clip_distance_mesa) {
-            this->location =
-               output_var->location + this->array_subscript / 4;
-            this->location_frac = this->array_subscript % 4;
-         } else {
-            unsigned fine_location
-               = output_var->location * 4 + output_var->location_frac;
-            unsigned array_elem_size = vector_elements * matrix_cols;
-            fine_location += array_elem_size * this->array_subscript;
-            this->location = fine_location / 4;
-            this->location_frac = fine_location % 4;
-         }
          this->size = 1;
       } else {
-         this->location = output_var->location;
-         this->location_frac = output_var->location_frac;
          this->size = actual_array_size;
       }
       this->vector_elements = vector_elements;
@@ -369,7 +354,7 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
       if (this->is_clip_distance_mesa)
          this->type = GL_FLOAT;
       else
-         this->type = output_var->type->fields.array->gl_type;
+         this->type = type->fields.array->gl_type;
    } else {
       /* Regular variable (scalar, vector, or matrix) */
       if (this->is_subscripted) {
@@ -378,12 +363,10 @@ tfeedback_decl::assign_location(struct gl_context *ctx,
                       this->orig_name, this->var_name);
          return false;
       }
-      this->location = output_var->location;
-      this->location_frac = output_var->location_frac;
       this->size = 1;
-      this->vector_elements = output_var->type->vector_elements;
-      this->matrix_columns = output_var->type->matrix_columns;
-      this->type = output_var->type->gl_type;
+      this->vector_elements = type->vector_elements;
+      this->matrix_columns = type->matrix_columns;
+      this->type = type->gl_type;
    }
 
    /* From GL_EXT_transform_feedback:
@@ -458,8 +441,19 @@ tfeedback_decl::store(struct gl_context *ctx, struct gl_shader_program *prog,
       return false;
    }
 
-   unsigned location = this->location;
-   unsigned location_frac = this->location_frac;
+   ir_variable *producer_var = this->match->producer_var;
+   unsigned fine_location
+      = producer_var->location * 4 + producer_var->location_frac;
+   if (this->is_subscripted) {
+      if (this->is_clip_distance_mesa) {
+         fine_location += this->array_subscript;
+      } else {
+         fine_location += this->vector_elements * this->matrix_columns
+            * this->array_subscript;
+      }
+   }
+   unsigned location = fine_location / 4;
+   unsigned location_frac = fine_location % 4;
    unsigned num_components = this->num_components();
    while (num_components > 0) {
       unsigned output_size = MIN2(num_components, 4 - location_frac);
@@ -978,22 +972,13 @@ assign_varying_locations(struct gl_context *ctx,
       if (output_var == NULL)
          return false;
 
-      (void) matches.record(output_var, NULL);
+      varying_match *match = matches.record(output_var, NULL);
+      if (!tfeedback_decls[i].assign_varying_match(ctx, prog, match))
+         return false;
    }
 
    const unsigned slots_used
       = matches.assign_and_store_locations(producer_base, consumer_base);
-
-   for (unsigned i = 0; i < num_tfeedback_decls; ++i) {
-      if (!tfeedback_decls[i].is_varying())
-         continue;
-
-      ir_variable *output_var
-         = tfeedback_decls[i].find_output_var(prog, producer);
-
-      if (!tfeedback_decls[i].assign_location(ctx, prog, output_var))
-         return false;
-   }
 
    if (ctx->Const.DisableVaryingPacking) {
       /* Transform feedback code assumes varyings are packed, so if the driver
