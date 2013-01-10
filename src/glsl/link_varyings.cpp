@@ -46,6 +46,7 @@
 struct varying_match : public exec_node
 {
    varying_match(ir_variable *producer_var, ir_variable *consumer_var);
+   varying_match(const glsl_type *type TODO: other args);
    unsigned num_components(bool disable_varying_packing) const;
 
    /**
@@ -54,7 +55,16 @@ struct varying_match : public exec_node
    const glsl_type * const type;
 
    /**
-    * The output variable in the producer stage.
+    * If this varying has been flattened from an array of structures, length
+    * of the array that was flattened (or product of the lengths, if several
+    * arrays were flattened).  Otherwise 0.
+    */
+   unsigned array_length;
+
+   /**
+    * The output variable in the producer stage.  In varying_match objects
+    * produced by struct flattening, this is NULL until the call to
+    * varying_matches::lower_structs().
     */
    ir_variable * const producer_var;
 
@@ -63,14 +73,23 @@ struct varying_match : public exec_node
     */
    ir_variable * const consumer_var;
 
-   /**
-    * The location which has been assigned for this varying.  This is
-    * expressed using the conventions for location values used by the producer
-    * (e.g. if the producer is a vertex shader, it is expressed as a
-    * gl_vert_result), except that it is multiplied by 4 to allow for varying
-    * packing.
-    */
-   unsigned producer_location;
+   union {
+      /**
+       * If type is neither a struct nor an array of structs, the location
+       * which has been assigned for this varying.  This is expressed using
+       * the conventions for location values used by the producer (e.g. if the
+       * producer is a vertex shader, it is expressed as a gl_vert_result),
+       * except that it is multiplied by 4 to allow for varying packing.
+       */
+      unsigned producer_location;
+
+      /**
+       * If type is a struct or an array of structs, pointer to an array of
+       * varying_match objects corresponding to each element of the struct.
+       * Each structure element will be assigned its own location.
+       */
+      varying_match *struct_elems;
+   };
 };
 
 
@@ -672,6 +691,7 @@ private:
    static packing_order_enum compute_packing_order(const glsl_type *type);
    void schedule_for_location_assignment(varying_match *match,
                                          unsigned packing_class);
+   void schedule_struct();
 
    /**
     * A collection of varying_match objects representing all varyings that
@@ -869,8 +889,26 @@ void
 varying_matches::schedule_for_location_assignment(varying_match *match,
                                                   unsigned packing_class)
 {
-   unsigned packing_order = this->compute_packing_order(match->type);
-   this->matches_to_assign[packing_class][packing_order].push_tail(match);
+   if (match->type->base_type == GLSL_TYPE_STRUCT) {
+      /* Need to flatten this structure */
+      this->schedule_struct();
+   } else if (match->type->base_type == GLSL_TYPE_ARRAY
+              && match->type->fields.array->base_type == GLSL_TYPE_STRUCT) {
+      /* Need to flatten this array of structures. */
+      this->schedule_struct();
+   } else {
+      unsigned packing_order = this->compute_packing_order(match->type);
+      this->matches_to_assign[packing_class][packing_order].push_tail(match);
+   }
+}
+
+
+void
+varying_matches::schedule_struct(const glsl_type *type, unsigned array_length)
+{
+   for (unsigned i = 0; i < type->length; i++) {
+      new varying_match(
+   }
 }
 
 
