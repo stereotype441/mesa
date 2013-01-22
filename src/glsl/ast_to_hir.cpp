@@ -4217,12 +4217,6 @@ ast_uniform_block::hir(exec_list *instructions,
    struct gl_uniform_block *ubo = get_next_uniform_block(state);
    ubo->Name = ralloc_strdup(state->uniform_blocks, this->block_name);
 
-   if (!state->symbols->add_uniform_block(ubo)) {
-      YYLTYPE loc = this->get_location();
-      _mesa_glsl_error(&loc, state, "Uniform block name `%s' already taken in "
-                       "the current scope.\n", ubo->Name);
-   }
-
    if (this->layout.flags.q.shared) {
       ubo->_Packing = ubo_packing_shared;
    } else if (this->layout.flags.q.packed) {
@@ -4257,6 +4251,12 @@ ast_uniform_block::hir(exec_list *instructions,
                                         num_variables,
                                         (enum glsl_interface_packing) ubo->_Packing,
                                         this->block_name);
+
+   if (!state->symbols->add_type(block_type->name, block_type)) {
+      YYLTYPE loc = this->get_location();
+      _mesa_glsl_error(&loc, state, "Uniform block name `%s' already taken in "
+                       "the current scope.\n", this->block_name);
+   }
 
    /* Since interface blocks cannot contain structure definitions, it should
     * be impossible for the block to generate any instructions.
