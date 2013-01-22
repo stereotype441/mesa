@@ -359,6 +359,9 @@ struct exec_list {
 
    void push_head(exec_node *n)
    {
+      /* Verify that the new node isn't already in a list */
+      assert(n->next == NULL && n->prev == NULL);
+
       n->next = head;
       n->prev = (exec_node *) &head;
 
