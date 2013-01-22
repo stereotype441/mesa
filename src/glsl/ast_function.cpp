@@ -1519,7 +1519,7 @@ ast_function_expression::hir(exec_list *instructions,
       } else {
 	 value = generate_call(instructions, sig, &actual_parameters,
 			       &call, state);
-         assert(value->prev == NULL && value->next == NULL);
+         assert(value == NULL || (value->prev == NULL && value->next == NULL));
       }
 
       return value;
