@@ -1475,8 +1475,9 @@ ast_function_expression::hir(exec_list *instructions,
       if (all_parameters_are_constant) {
 	 return new(ctx) ir_constant(constructor_type, &actual_parameters);
       } else if (constructor_type->is_scalar()) {
-	 ir_rvalue *tmp = dereference_component((ir_rvalue *) actual_parameters.head,
-				      0);
+         ir_rvalue *tmp = (ir_rvalue *) actual_parameters.head;
+         tmp->remove();
+	 tmp = dereference_component(tmp, 0);
          assert(tmp->prev == NULL && tmp->next == NULL);
          return tmp;
       } else if (constructor_type->is_vector()) {
