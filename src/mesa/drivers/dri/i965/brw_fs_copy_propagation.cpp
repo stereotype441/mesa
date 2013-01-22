@@ -109,8 +109,9 @@ fs_copy_prop_dataflow::fs_copy_prop_dataflow(void *mem_ctx, cfg_t *cfg,
       bd[b].kill = rzalloc_array(bd, bool, num_acp);
 
       for (int i = 0; i < ACP_HASH_SIZE; i++) {
-         foreach_list(entry_node, &out_acp[b][i]) {
+         foreach_list_safe(entry_node, &out_acp[b][i]) {
             acp_entry *entry = (acp_entry *)entry_node;
+            entry->remove();
 
             acp[next_acp] = entry;
             bd[b].liveout[next_acp] = true;
