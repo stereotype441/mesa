@@ -371,6 +371,9 @@ struct exec_list {
 
    void push_tail(exec_node *n)
    {
+      /* Verify that the new node isn't already in a list */
+      assert(n->next == NULL && n->prev == NULL);
+
       n->next = (exec_node *) &tail;
       n->prev = tail_pred;
 
