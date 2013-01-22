@@ -46,8 +46,10 @@ process_parameters(exec_list *instructions, exec_list *actual_parameters,
       ir_rvalue *result = ast->hir(instructions, state);
 
       ir_constant *const constant = result->constant_expression_value();
-      if (constant != NULL)
+      if (constant != NULL) {
+         assert(constant->prev == NULL && constant->next == NULL);
 	 result = constant;
+      }
 
       actual_parameters->push_tail(result);
       count++;
@@ -1249,8 +1251,10 @@ ast_function_expression::hir(exec_list *instructions,
 	    return ir_rvalue::error_value(ctx);
 	 }
 
-	 return process_array_constructor(instructions, constructor_type,
+	 ir_rvalue *tmp = process_array_constructor(instructions, constructor_type,
 					  & loc, &this->expressions, state);
+         assert(tmp->prev == NULL && tmp->next == NULL);
+         return tmp;
       }
 
 
@@ -1307,10 +1311,15 @@ ast_function_expression::hir(exec_list *instructions,
 	    constant_record_constructor(constructor_type, &actual_parameters,
 					state);
 
-	 return (constant != NULL)
-	    ? constant
-	    : emit_inline_record_constructor(constructor_type, instructions,
-					     &actual_parameters, state);
+         if (constant != NULL) {
+            assert(constant->prev == NULL && constant->next == NULL);
+            return constant;
+         } else {
+            ir_rvalue *tmp = emit_inline_record_constructor(constructor_type, instructions,
+                                                            &actual_parameters, state);
+            assert(tmp->prev == NULL && tmp->next == NULL);
+            return tmp;
+         }
       }
 
       if (!constructor_type->is_numeric() && !constructor_type->is_boolean())
@@ -1466,19 +1475,25 @@ ast_function_expression::hir(exec_list *instructions,
       if (all_parameters_are_constant) {
 	 return new(ctx) ir_constant(constructor_type, &actual_parameters);
       } else if (constructor_type->is_scalar()) {
-	 return dereference_component((ir_rvalue *) actual_parameters.head,
+	 ir_rvalue *tmp = dereference_component((ir_rvalue *) actual_parameters.head,
 				      0);
+         assert(tmp->prev == NULL && tmp->next == NULL);
+         return tmp;
       } else if (constructor_type->is_vector()) {
-	 return emit_inline_vector_constructor(constructor_type,
+	 ir_rvalue *tmp = emit_inline_vector_constructor(constructor_type,
 					       instructions,
 					       &actual_parameters,
 					       ctx);
+         assert(tmp->prev == NULL && tmp->next == NULL);
+         return tmp;
       } else {
 	 assert(constructor_type->is_matrix());
-	 return emit_inline_matrix_constructor(constructor_type,
+	 ir_rvalue *tmp = emit_inline_matrix_constructor(constructor_type,
 					       instructions,
 					       &actual_parameters,
 					       ctx);
+         assert(tmp->prev == NULL && tmp->next == NULL);
+         return tmp;
       }
    } else {
       const ast_expression *id = subexpressions[0];
@@ -1503,6 +1518,7 @@ ast_function_expression::hir(exec_list *instructions,
       } else {
 	 value = generate_call(instructions, sig, &actual_parameters,
 			       &call, state);
+         assert(value->prev == NULL && value->next == NULL);
       }
 
       return value;
