@@ -457,6 +457,13 @@ fs_visitor::opt_copy_propagate()
       for (int i = 0; i < dataflow.num_acp; i++) {
          if (dataflow.bd[b].livein[i]) {
             struct acp_entry *entry = dataflow.acp[i];
+            /* entry may have been placed into the in_acp hashtable while
+             * processing a previous block.  Since the hashtable is reset on
+             * each iteration through the loop, entry's prev and next pointers
+             * now point to garbage.  Reset them to NULL so that we can safely
+             * insert it into the new hashtable.
+             */
+            entry->prev = entry->next = NULL;
             in_acp[entry->dst.reg % ACP_HASH_SIZE].push_tail(entry);
          }
       }
