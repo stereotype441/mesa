@@ -158,6 +158,9 @@ struct exec_node {
     */
    void insert_before(exec_node *before)
    {
+      /* Verify that the new node isn't already in a list */
+      assert(before->next == NULL && before->prev == NULL);
+
       before->next = this;
       before->prev = this->prev;
 
