@@ -144,6 +144,9 @@ struct exec_node {
     */
    void insert_after(exec_node *after)
    {
+      /* Verify that the new node isn't already in a list */
+      assert(after->next == NULL && after->prev == NULL);
+
       after->next = this->next;
       after->prev = this;
 
