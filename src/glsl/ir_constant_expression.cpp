@@ -1155,7 +1155,17 @@ ir_dereference_record::constant_expression_value(struct hash_table *variable_con
 {
    ir_constant *v = this->record->constant_expression_value();
 
-   return (v != NULL) ? v->get_record_field(this->field) : NULL;
+   if (v == NULL)
+      return NULL;
+
+   /* v contains an exec_list, which in turn contains an ir_constant for each
+    * field of the record.  Retrieve the appropriate member of that list and
+    * remove it from the exec_list (which we then throw away) so that the
+    * caller can safely add it to other exec_lists.
+    */
+   v = v->get_record_field(this->field);
+   v->remove();
+   return v;
 }
 
 
