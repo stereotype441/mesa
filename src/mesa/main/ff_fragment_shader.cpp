@@ -935,7 +935,6 @@ static void load_texture( texenv_fragment_program *p, GLuint unit )
    if (!p->state->unit[unit].enabled) {
       p->src_texture[unit] = p->make_temp(glsl_type::vec4_type,
 					  "dummy_tex");
-      p->emit(p->src_texture[unit]);
 
       p->emit(assign(p->src_texture[unit], new(p->mem_ctx) ir_constant(0.0f)));
       return ;
@@ -1119,7 +1118,6 @@ load_texunit_bumpmap( texenv_fragment_program *p, GLuint unit )
 
    /* bump_texcoord = texcoord */
    ir_variable *bumped = p->make_temp(texcoord->type, "bump_texcoord");
-   p->emit(bumped);
    p->emit(assign(bumped, texcoord));
 
    /* bump_texcoord.xy += arg0.x * rotmat0 + arg0.y * rotmat1 */
