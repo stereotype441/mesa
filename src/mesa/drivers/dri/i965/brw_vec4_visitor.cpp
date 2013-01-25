@@ -909,11 +909,11 @@ vec4_visitor::visit(ir_variable *ir)
       return;
 
    switch (ir->mode) {
-   case ir_var_in:
+   case ir_var_shader_in:
       reg = new(mem_ctx) dst_reg(ATTR, ir->location);
       break;
 
-   case ir_var_out:
+   case ir_var_shader_out:
       reg = new(mem_ctx) dst_reg(this, ir->type);
 
       for (int i = 0; i < type_size(ir->type); i++) {
@@ -2003,8 +2003,10 @@ vec4_visitor::visit(ir_texture *ir)
       assert(!"TXB is not valid for vertex shaders.");
    }
 
+   bool use_texture_offset = ir->offset != NULL && ir->op != ir_txf;
+
    /* Texel offsets go in the message header; Gen4 also requires headers. */
-   inst->header_present = ir->offset || intel->gen < 5;
+   inst->header_present = use_texture_offset || intel->gen < 5;
    inst->base_mrf = 2;
    inst->mlen = inst->header_present + 1; /* always at least one */
    inst->sampler = sampler;
@@ -2012,7 +2014,7 @@ vec4_visitor::visit(ir_texture *ir)
    inst->dst.writemask = WRITEMASK_XYZW;
    inst->shadow_compare = ir->shadow_comparitor != NULL;
 
-   if (ir->offset != NULL && ir->op != ir_txf)
+   if (use_texture_offset)
       inst->texture_offset = brw_texture_offset(ir->offset->as_constant());
 
    /* MRF for the first parameter */

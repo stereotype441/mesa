@@ -1930,11 +1930,11 @@ is_varying_var(ir_variable *var, _mesa_glsl_parser_targets target)
 {
    switch (target) {
    case vertex_shader:
-      return var->mode == ir_var_out;
+      return var->mode == ir_var_shader_out;
    case fragment_shader:
-      return var->mode == ir_var_in;
+      return var->mode == ir_var_shader_in;
    default:
-      return var->mode == ir_var_out || var->mode == ir_var_in;
+      return var->mode == ir_var_shader_out || var->mode == ir_var_shader_in;
    }
 }
 
@@ -2003,13 +2003,16 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
     * the setting alone.
     */
    if (qual->flags.q.in && qual->flags.q.out)
-      var->mode = ir_var_inout;
-   else if (qual->flags.q.attribute || qual->flags.q.in
+      var->mode = ir_var_function_inout;
+   else if (qual->flags.q.in)
+      var->mode = is_parameter ? ir_var_function_in : ir_var_shader_in;
+   else if (qual->flags.q.attribute
 	    || (qual->flags.q.varying && (state->target == fragment_shader)))
-      var->mode = ir_var_in;
-   else if (qual->flags.q.out
-	    || (qual->flags.q.varying && (state->target == vertex_shader)))
-      var->mode = ir_var_out;
+      var->mode = ir_var_shader_in;
+   else if (qual->flags.q.out)
+      var->mode = is_parameter ? ir_var_function_out : ir_var_shader_out;
+   else if (qual->flags.q.varying && (state->target == vertex_shader))
+      var->mode = ir_var_shader_out;
    else if (qual->flags.q.uniform)
       var->mode = ir_var_uniform;
 
@@ -2034,10 +2037,8 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
        * Similar text exists in the section on vertex shader outputs.
        *
        * Similar text exists in the GLSL ES 3.00 spec, except that the GLSL ES
-       * 3.00 spec claims to allow structs as well.  However, this is likely
-       * an error, since section 11 of the spec ("Counting of Inputs and
-       * Outputs") enumerates all possible types of interstage linkage
-       * variables, and it does not mention structs.
+       * 3.00 spec allows structs as well.  Varying structs are also allowed
+       * in GLSL 1.50.
        */
       switch (var->type->get_scalar_type()->base_type) {
       case GLSL_TYPE_FLOAT:
@@ -2052,6 +2053,8 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
                           state->get_version_string());
          break;
       case GLSL_TYPE_STRUCT:
+         if (state->is_version(150, 300))
+            break;
          _mesa_glsl_error(loc, state,
                           "varying variables may not be of type struct");
          break;
@@ -2064,15 +2067,16 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
    if (state->all_invariant && (state->current_function == NULL)) {
       switch (state->target) {
       case vertex_shader:
-	 if (var->mode == ir_var_out)
+	 if (var->mode == ir_var_shader_out)
 	    var->invariant = true;
 	 break;
       case geometry_shader:
-	 if ((var->mode == ir_var_in) || (var->mode == ir_var_out))
+	 if ((var->mode == ir_var_shader_in)
+             || (var->mode == ir_var_shader_out))
 	    var->invariant = true;
 	 break;
       case fragment_shader:
-	 if (var->mode == ir_var_in)
+	 if (var->mode == ir_var_shader_in)
 	    var->invariant = true;
 	 break;
       }
@@ -2088,8 +2092,8 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
       var->interpolation = INTERP_QUALIFIER_NONE;
 
    if (var->interpolation != INTERP_QUALIFIER_NONE &&
-       !(state->target == vertex_shader && var->mode == ir_var_out) &&
-       !(state->target == fragment_shader && var->mode == ir_var_in)) {
+       !(state->target == vertex_shader && var->mode == ir_var_shader_out) &&
+       !(state->target == fragment_shader && var->mode == ir_var_shader_in)) {
       _mesa_glsl_error(loc, state,
 		       "interpolation qualifier `%s' can only be applied to "
 		       "vertex shader outputs and fragment shader inputs.",
@@ -2122,7 +2126,7 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
        */
       switch (state->target) {
       case vertex_shader:
-	 if (!global_scope || (var->mode != ir_var_in)) {
+	 if (!global_scope || (var->mode != ir_var_shader_in)) {
 	    fail = true;
 	    string = "input";
 	 }
@@ -2135,7 +2139,7 @@ apply_type_qualifier_to_variable(const struct ast_type_qualifier *qual,
 	 break;
 
       case fragment_shader:
-	 if (!global_scope || (var->mode != ir_var_out)) {
+	 if (!global_scope || (var->mode != ir_var_shader_out)) {
 	    fail = true;
 	    string = "output";
 	 }
@@ -2446,7 +2450,7 @@ process_initializer(ir_variable *var, ast_declaration *decl,
 		       "cannot initialize samplers");
    }
 
-   if ((var->mode == ir_var_in) && (state->current_function == NULL)) {
+   if ((var->mode == ir_var_shader_in) && (state->current_function == NULL)) {
       _mesa_glsl_error(& initializer_loc, state,
 		       "cannot initialize %s shader input / %s",
 		       _mesa_glsl_shader_target_name(state->target),
@@ -2585,12 +2589,12 @@ ast_declarator_list::hir(exec_list *instructions,
 			     "Undeclared variable `%s' cannot be marked "
 			     "invariant\n", decl->identifier);
 	 } else if ((state->target == vertex_shader)
-	       && (earlier->mode != ir_var_out)) {
+	       && (earlier->mode != ir_var_shader_out)) {
 	    _mesa_glsl_error(& loc, state,
 			     "`%s' cannot be marked invariant, vertex shader "
 			     "outputs only\n", decl->identifier);
 	 } else if ((state->target == fragment_shader)
-	       && (earlier->mode != ir_var_in)) {
+	       && (earlier->mode != ir_var_shader_in)) {
 	    _mesa_glsl_error(& loc, state,
 			     "`%s' cannot be marked invariant, fragment shader "
 			     "inputs only\n", decl->identifier);
@@ -2713,16 +2717,13 @@ ast_declarator_list::hir(exec_list *instructions,
 				       & loc, this->ubo_qualifiers_valid, false);
 
       if (this->type->qualifier.flags.q.invariant) {
-	 if ((state->target == vertex_shader) && !(var->mode == ir_var_out ||
-						   var->mode == ir_var_inout)) {
-	    /* FINISHME: Note that this doesn't work for invariant on
-	     * a function signature outval
-	     */
+	 if ((state->target == vertex_shader) &&
+             var->mode != ir_var_shader_out) {
 	    _mesa_glsl_error(& loc, state,
 			     "`%s' cannot be marked invariant, vertex shader "
 			     "outputs only\n", var->name);
 	 } else if ((state->target == fragment_shader) &&
-		    !(var->mode == ir_var_in || var->mode == ir_var_inout)) {
+		    var->mode != ir_var_shader_in) {
 	    /* FINISHME: Note that this doesn't work for invariant on
 	     * a function signature inval
 	     */
@@ -2759,7 +2760,7 @@ ast_declarator_list::hir(exec_list *instructions,
 			     "global scope%s",
 			     mode, var->name, extra);
 	 }
-      } else if (var->mode == ir_var_in) {
+      } else if (var->mode == ir_var_shader_in) {
          var->read_only = true;
 
 	 if (state->target == vertex_shader) {
@@ -2839,7 +2840,7 @@ ast_declarator_list::hir(exec_list *instructions,
           && state->target == vertex_shader
           && state->current_function == NULL
           && var->type->is_integer()
-          && var->mode == ir_var_out
+          && var->mode == ir_var_shader_out
           && var->interpolation != INTERP_QUALIFIER_FLAT) {
 
          _mesa_glsl_error(&loc, state, "If a vertex output is an integer, "
@@ -3143,7 +3144,8 @@ ast_parameter_declarator::hir(exec_list *instructions,
    }
 
    is_void = false;
-   ir_variable *var = new(ctx) ir_variable(type, this->identifier, ir_var_in);
+   ir_variable *var = new(ctx)
+      ir_variable(type, this->identifier, ir_var_function_in);
 
    /* Apply any specified qualifiers to the parameter declaration.  Note that
     * for function parameters the default mode is 'in'.
@@ -3157,7 +3159,7 @@ ast_parameter_declarator::hir(exec_list *instructions,
     *    as out or inout function parameters, nor can they be assigned
     *    into."
     */
-   if ((var->mode == ir_var_inout || var->mode == ir_var_out)
+   if ((var->mode == ir_var_function_inout || var->mode == ir_var_function_out)
        && type->contains_sampler()) {
       _mesa_glsl_error(&loc, state, "out and inout parameters cannot contain samplers");
       type = glsl_type::error_type;
@@ -3177,7 +3179,7 @@ ast_parameter_declarator::hir(exec_list *instructions,
     * So for GLSL 1.10, passing an array as an out or inout parameter is not
     * allowed.  This restriction is removed in GLSL 1.20, and in GLSL ES.
     */
-   if ((var->mode == ir_var_inout || var->mode == ir_var_out)
+   if ((var->mode == ir_var_function_inout || var->mode == ir_var_function_out)
        && type->is_array()
        && !state->check_version(120, 100, &loc,
                                 "Arrays cannot be out or inout parameters")) {
@@ -4307,7 +4309,7 @@ detect_conflicting_assignments(struct _mesa_glsl_parse_state *state,
 	 gl_FragData_assigned = true;
       else if (strncmp(var->name, "gl_", 3) != 0) {
 	 if (state->target == fragment_shader &&
-	     (var->mode == ir_var_out || var->mode == ir_var_inout)) {
+	     var->mode == ir_var_shader_out) {
 	    user_defined_fs_output_assigned = true;
 	    user_defined_fs_output = var;
 	 }
