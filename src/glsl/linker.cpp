@@ -273,17 +273,15 @@ link_invalidate_variable_locations(gl_shader *sh, int input_base,
          continue;
       }
 
+      var->is_unmatched_inout = 1;
+
       /* Only assign locations for generic attributes / varyings / etc.
        */
       if ((var->location >= base) && !var->explicit_location)
          var->location = -1;
 
-      if ((var->location == -1) && !var->explicit_location) {
-         var->is_unmatched_generic_inout = 1;
+      if ((var->location == -1) && !var->explicit_location)
          var->location_frac = 0;
-      } else {
-         var->is_unmatched_generic_inout = 0;
-      }
    }
 }
 
@@ -1288,7 +1286,7 @@ assign_attribute_or_color_locations(gl_shader_program *prog,
 	 if (prog->AttributeBindings->get(binding, var->name)) {
 	    assert(binding >= VERT_ATTRIB_GENERIC0);
 	    var->location = binding;
-            var->is_unmatched_generic_inout = 0;
+            var->is_unmatched_inout = 0;
 	 }
       } else if (target_index == MESA_SHADER_FRAGMENT) {
 	 unsigned binding;
@@ -1297,7 +1295,7 @@ assign_attribute_or_color_locations(gl_shader_program *prog,
 	 if (prog->FragDataBindings->get(binding, var->name)) {
 	    assert(binding >= FRAG_RESULT_DATA0);
 	    var->location = binding;
-            var->is_unmatched_generic_inout = 0;
+            var->is_unmatched_inout = 0;
 
 	    if (prog->FragDataIndexBindings->get(index, var->name)) {
 	       var->index = index;
@@ -1413,7 +1411,7 @@ assign_attribute_or_color_locations(gl_shader_program *prog,
       }
 
       to_assign[i].var->location = generic_base + location;
-      to_assign[i].var->is_unmatched_generic_inout = 0;
+      to_assign[i].var->is_unmatched_inout = 0;
       used_locations |= (use_mask << location);
    }
 
@@ -1437,7 +1435,7 @@ demote_shader_inputs_and_outputs(gl_shader *sh, enum ir_variable_mode mode)
        * its value is used by other shader stages.  This will cause the variable
        * to have a location assigned.
        */
-      if (var->is_unmatched_generic_inout) {
+      if (var->is_unmatched_inout && !var->explicit_location) {
 	 var->mode = ir_var_auto;
       }
    }

@@ -673,10 +673,19 @@ varying_matches::~varying_matches()
 void
 varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
 {
-   if (!producer_var->is_unmatched_generic_inout) {
-      /* Either a location already exists for this variable (since it is part
-       * of fixed functionality), or it has already been recorded as part of a
-       * previous match.
+   if (!producer_var->is_unmatched_inout) {
+      /* This variable has already been recorded as part of a previous match.
+       */
+      return;
+   }
+
+   producer_var->is_unmatched_inout = 0;
+   if (consumer_var)
+      consumer_var->is_unmatched_inout = 0;
+
+   if (producer_var->explicit_location) {
+      /* A location already exists for this variable, since it is part of
+       * fixed functionality.
        */
       return;
    }
@@ -704,9 +713,6 @@ varying_matches::record(ir_variable *producer_var, ir_variable *consumer_var)
    this->matches[this->num_matches].producer_var = producer_var;
    this->matches[this->num_matches].consumer_var = consumer_var;
    this->num_matches++;
-   producer_var->is_unmatched_generic_inout = 0;
-   if (consumer_var)
-      consumer_var->is_unmatched_generic_inout = 0;
 }
 
 
@@ -938,7 +944,7 @@ assign_varying_locations(struct gl_context *ctx,
       if (output_var == NULL)
          return false;
 
-      if (output_var->is_unmatched_generic_inout) {
+      if (output_var->is_unmatched_inout) {
          matches.record(output_var, NULL);
       }
    }
@@ -981,7 +987,7 @@ assign_varying_locations(struct gl_context *ctx,
          if ((var == NULL) || (var->mode != ir_var_shader_in))
             continue;
 
-         if (var->is_unmatched_generic_inout) {
+         if (var->is_unmatched_inout && !var->explicit_location) {
             if (prog->Version <= 120) {
                /* On page 25 (page 31 of the PDF) of the GLSL 1.20 spec:
                 *
