@@ -1041,7 +1041,7 @@ set_max_gl_versions(struct intel_screen *screen)
    switch (screen->gen) {
    case 7:
       if (screen->kernel_has_gen7_sol_reset) {
-         screen->max_gl_core_version = 31;
+         screen->max_gl_core_version = 32;
          screen->max_gl_compat_version = 30;
          screen->max_gl_es1_version = 11;
          screen->max_gl_es2_version = 30;
@@ -1053,7 +1053,7 @@ set_max_gl_versions(struct intel_screen *screen)
       }
       break;
    case 6:
-      screen->max_gl_core_version = 31;
+      screen->max_gl_core_version = 32;
       screen->max_gl_compat_version = 30;
       screen->max_gl_es1_version = 11;
       screen->max_gl_es2_version = 20;
@@ -1185,6 +1185,8 @@ __DRIconfig **intelInitScreen2(__DRIscreen *psp)
       psp->api_mask |= (1 << __DRI_API_GLES2);
    if (intelScreen->max_gl_es2_version >= 30)
       psp->api_mask |= (1 << __DRI_API_GLES3);
+   if (intelScreen->max_gl_core_version >= 32)
+      psp->api_mask |= (1 << __DRI_API_OPENGL_CORE);
 
    psp->extensions = intelScreenExtensions;
 
