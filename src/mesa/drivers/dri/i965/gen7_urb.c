@@ -101,7 +101,7 @@ gen7_upload_urb(struct brw_context *brw)
    assert(brw->urb.nr_vs_entries % 8 == 0);
    assert(brw->urb.nr_gs_entries % 8 == 0);
    /* GS requirement */
-   assert(!brw->gs.prog_active);
+   //assert(!brw->gs.prog_active);
 
    gen7_emit_vs_workaround_flush(intel);
    gen7_emit_urb_state(brw, brw->urb.nr_vs_entries, brw->urb.vs_size,

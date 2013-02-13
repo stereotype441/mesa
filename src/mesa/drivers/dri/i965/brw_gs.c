@@ -73,7 +73,10 @@ static void compile_gs_prog( struct brw_context *brw,
     */
    brw_set_mask_control(&c.func, BRW_MASK_DISABLE);
 
-   if (intel->gen >= 6) {
+   if (intel->gen >= 7) {
+      unsigned num_verts = 3; /* HACK */
+      gen7_gs_program(&c, key, num_verts);
+   } else if (intel->gen == 6) {
       unsigned num_verts;
       bool check_edge_flag;
       /* On Sandybridge, we use the GS for implementing transform feedback
@@ -185,8 +188,8 @@ static void populate_key( struct brw_context *brw,
    key->userclip_active = brw->vs.prog_data->userclip;
 
    if (intel->gen >= 7) {
-      /* On Gen7 and later, we don't use GS (yet). */
-      key->need_gs_prog = false;
+      /* On Gen7 and later, we use GS. */
+      key->need_gs_prog = true; /* HACK: shouldn't always be on */
    } else if (intel->gen == 6) {
       /* On Gen6, GS is used for transform feedback. */
       /* _NEW_TRANSFORM_FEEDBACK */

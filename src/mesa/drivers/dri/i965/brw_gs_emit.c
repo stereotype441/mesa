@@ -537,3 +537,22 @@ gen6_sol_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
       break;
    }
 }
+
+
+void
+gen7_gs_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
+                unsigned num_verts)
+{
+   struct brw_compile *p = &c->func;
+   c->prog_data.svbi_postincrement_value = num_verts;
+
+   brw_gs_alloc_regs(c, num_verts, true);
+   brw_gs_initialize_header(c);
+
+#if 0
+   /* I don't think this is needed */
+   brw_gs_ff_sync(c, 1);
+#endif
+
+   brw_gs_terminate(c);
+}

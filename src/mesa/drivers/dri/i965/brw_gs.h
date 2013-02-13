@@ -111,5 +111,7 @@ void brw_gs_quad_strip( struct brw_gs_compile *c, struct brw_gs_prog_key *key );
 void brw_gs_lines( struct brw_gs_compile *c );
 void gen6_sol_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
                       unsigned num_verts, bool check_edge_flag);
+void gen7_gs_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
+                     unsigned num_verts);
 
 #endif
