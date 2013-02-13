@@ -554,5 +554,25 @@ gen7_gs_program(struct brw_gs_compile *c, struct brw_gs_prog_key *key,
    brw_gs_ff_sync(c, 1);
 #endif
 
+   /* Write #vertices (needed only in last URB write msg) */
+   brw_MOV(p, suboffset(vec1(retype(c->reg.header, BRW_REGISTER_TYPE_UD)), 2),
+           brw_imm_ud(3));
+
+   brw_urb_WRITE(p,
+                 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
+                 0,
+                 c->reg.header,
+                 false /* allocate */,
+                 false /* used - ignored for IVB+ (TODO: I think) */,
+                 4 /* msg length */,
+                 0 /* response length */,
+                 1 /* eot */,
+                 1 /* writes_complete */,
+                 0 /* urb offset */,
+                 BRW_URB_SWIZZLE_NONE);
+
+#if 0
+   /* Thread already terminated */
    brw_gs_terminate(c);
+#endif
 }
