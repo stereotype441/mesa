@@ -81,6 +81,9 @@ gen7_upload_urb(struct brw_context *brw)
    /* Total space for entries is URB size - 16kB for push constants */
    int handle_region_size = (brw->urb.size - 16) * 1024; /* bytes */
 
+   /* Allocate half to GS */
+   handle_region_size = (handle_region_size / 8192 / 2) * 8192;
+
    /* CACHE_NEW_VS_PROG */
    brw->urb.vs_size = MAX2(brw->vs.prog_data->urb_entry_size, 1);
 
@@ -93,6 +96,7 @@ gen7_upload_urb(struct brw_context *brw)
 
    /* URB Starting Addresses are specified in multiples of 8kB. */
    brw->urb.vs_start = 2; /* skip over push constants */
+   GLuint gs_start = brw->urb.vs_start + handle_region_size / 8192;
 
    assert(brw->urb.nr_vs_entries % 8 == 0);
    assert(brw->urb.nr_gs_entries % 8 == 0);
@@ -101,12 +105,12 @@ gen7_upload_urb(struct brw_context *brw)
 
    gen7_emit_vs_workaround_flush(intel);
    gen7_emit_urb_state(brw, brw->urb.nr_vs_entries, brw->urb.vs_size,
-                       brw->urb.vs_start);
+                       brw->urb.vs_start, gs_start);
 }
 
 void
 gen7_emit_urb_state(struct brw_context *brw, GLuint nr_vs_entries,
-                    GLuint vs_size, GLuint vs_start)
+                    GLuint vs_size, GLuint vs_start, GLuint gs_start)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -120,8 +124,9 @@ gen7_emit_urb_state(struct brw_context *brw, GLuint nr_vs_entries,
    /* Allocate the GS, HS, and DS zero space - we don't use them. */
    BEGIN_BATCH(2);
    OUT_BATCH(_3DSTATE_URB_GS << 16 | (2 - 2));
-   OUT_BATCH((0 << GEN7_URB_ENTRY_SIZE_SHIFT) |
-             (vs_start << GEN7_URB_STARTING_ADDRESS_SHIFT));
+   OUT_BATCH(MIN2(nr_vs_entries, 192) |
+             (0 << GEN7_URB_ENTRY_SIZE_SHIFT) |
+             (gs_start << GEN7_URB_STARTING_ADDRESS_SHIFT));
    ADVANCE_BATCH();
 
    BEGIN_BATCH(2);

@@ -57,7 +57,7 @@ gen7_blorp_emit_urb_config(struct brw_context *brw,
    int vs_size = 2;
    int vs_start = 2; /* skip over push constants */
 
-   gen7_emit_urb_state(brw, num_vs_entries, vs_size, vs_start);
+   gen7_emit_urb_state(brw, num_vs_entries, vs_size, vs_start, 0);
 }
 
 
