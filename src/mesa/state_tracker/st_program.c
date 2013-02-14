@@ -1032,6 +1032,7 @@ st_translate_geometry_program(struct st_context *st,
                            stgp->input_semantic_name,
                            stgp->input_semantic_index,
                            NULL,
+                           NULL /* is_centroid */,
                            /* outputs */
                            gs_num_outputs,
                            outputMapping,
