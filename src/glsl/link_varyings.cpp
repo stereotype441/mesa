@@ -47,9 +47,8 @@ cross_validate_outputs_to_inputs(struct gl_shader_program *prog,
 				 gl_shader *producer, gl_shader *consumer)
 {
    glsl_symbol_table parameters;
-   /* FINISHME: Figure these out dynamically. */
-   const char *const producer_stage = "vertex";
-   const char *const consumer_stage = "fragment";
+   const char *const producer_stage = get_type_string(producer->Type);
+   const char *const consumer_stage = get_type_string(consumer->Type);
 
    /* Find all shader outputs in the "producer" stage.
     */
@@ -960,6 +959,8 @@ assign_varying_locations(struct gl_context *ctx,
 {
    const unsigned producer_base = VARYING_SLOT_VAR0;
    const unsigned consumer_base = VARYING_SLOT_VAR0;
+   const char *const producer_stage = get_type_string(producer->Type);
+   const char *const consumer_stage = get_type_string(consumer->Type);
    varying_matches matches(ctx->Const.DisableVaryingPacking);
    hash_table *tfeedback_candidates
       = hash_table_ctor(0, hash_table_string_hash, hash_table_string_compare);
@@ -1082,8 +1083,9 @@ assign_varying_locations(struct gl_context *ctx,
                 * "glsl1-varying read but not written" in piglit.
                 */
 
-               linker_error(prog, "fragment shader varying %s not written "
-                            "by vertex shader\n.", var->name);
+               linker_error(prog, "%s shader varying %s not written "
+                            "by %s shader\n.",
+                            consumer_stage, var->name, producer_stage);
             }
 
             /* An 'in' variable is only really a shader input if its
