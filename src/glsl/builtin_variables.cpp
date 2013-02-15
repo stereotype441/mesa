@@ -665,6 +665,14 @@ builtin_variable_generator::generate_vs_special_vars()
 void
 builtin_variable_generator::generate_gs_special_vars()
 {
+   /* gl_VerticesIn is only defined in {ARB,EXT}_geometry_shader4.  It was not
+    * adopted into GLSL 1.50.
+    */
+   if (state->ARB_geometry_shader4_enable ||
+       state->EXT_geometry_shader4_enable) {
+      add_input(-1, int_t, "gl_VerticesIn");
+   }
+
    add_output(VARYING_SLOT_LAYER, int_t, "gl_Layer");
 
    /* Although gl_PrimitiveID appears in tessellation control and tessellation
@@ -677,8 +685,10 @@ builtin_variable_generator::generate_gs_special_vars()
     * the specific case of gl_PrimitiveIDIn.  So we don't need to treat
     * gl_PrimitiveIDIn as an {ARB,EXT}_geometry_shader4-only variable.
     */
-   add_input(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveIDIn");
-   add_output(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveID");
+   add_input(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveIDIn")
+      ->interpolation = INTERP_QUALIFIER_FLAT;
+   add_output(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveID")
+      ->interpolation = INTERP_QUALIFIER_FLAT;
 }
 
 
@@ -692,6 +702,16 @@ builtin_variable_generator::generate_fs_special_vars()
    add_input(VARYING_SLOT_FACE, bool_t, "gl_FrontFacing");
    if (state->is_version(120, 100))
       add_input(VARYING_SLOT_PNTC, vec2_t, "gl_PointCoord");
+
+   /* {ARB,EXT}_geometry_shader4 and GLSL 1.50 introduced gl_PrimitiveID to
+    * the fragment shader.
+    */
+   if (state->ARB_geometry_shader4_enable ||
+       state->EXT_geometry_shader4_enable ||
+       state->is_version(150, 0)) {
+      add_input(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveID")
+         ->interpolation = INTERP_QUALIFIER_FLAT;
+   }
 
    /* gl_FragColor and gl_FragData were deprecated starting in desktop GLSL
     * 1.30, and were relegated to the compatibility profile in GLSL 4.20.
