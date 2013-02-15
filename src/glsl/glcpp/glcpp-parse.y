@@ -1230,6 +1230,11 @@ glcpp_parser_create (const struct gl_extensions *extensions, int api)
 
 	      if (extensions->ARB_shading_language_packing)
 	         add_builtin_define(parser, "GL_ARB_shading_language_packing", 1);
+
+              if (extensions->ARB_geometry_shader4) {
+                 add_builtin_define(parser, "GL_ARB_geometry_shader4", 1);
+                 add_builtin_define(parser, "GL_EXT_geometry_shader4", 1);
+              }
 	   }
 	}
 
