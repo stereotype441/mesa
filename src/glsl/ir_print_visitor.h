@@ -69,6 +69,8 @@ public:
    virtual void visit(ir_if *);
    virtual void visit(ir_loop *);
    virtual void visit(ir_loop_jump *);
+   virtual void visit(ir_emitvertex *);
+   virtual void visit(ir_endprim *);
    /*@}*/
 
 private:
