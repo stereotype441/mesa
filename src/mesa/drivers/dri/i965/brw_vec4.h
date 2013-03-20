@@ -28,15 +28,22 @@
 #include "brw_shader.h"
 #include "main/compiler.h"
 #include "program/hash_table.h"
-
-extern "C" {
 #include "brw_vs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "brw_context.h"
 #include "brw_eu.h"
-};
+
+#ifdef __cplusplus
+}; /* extern "C" */
+#endif
 
 #include "glsl/ir.h"
 
+#ifdef __cplusplus
 namespace brw {
 
 class dst_reg;
@@ -614,5 +621,6 @@ private:
 };
 
 } /* namespace brw */
+#endif /* __cplusplus */
 
 #endif /* BRW_VEC4_H */
