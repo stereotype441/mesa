@@ -66,6 +66,12 @@ brw_compute_vue_map(struct brw_context *brw, struct brw_vs_compile *c,
    vue_map->slots_valid = slots_valid;
    int i;
 
+   /* Make sure that the values we store in vue_map->varying_to_slot and
+    * vue_map->slot_to_varying won't overflow the signed chars that are used
+    * to store them.
+    */
+   STATIC_ASSERT(BRW_VARYING_SLOT_MAX <= 128);
+
    vue_map->num_slots = 0;
    for (i = 0; i < BRW_VARYING_SLOT_MAX; ++i) {
       vue_map->varying_to_slot[i] = -1;
