@@ -1162,7 +1162,18 @@ struct brw_context
    } vs;
 
    struct {
+      struct brw_vec4_gs_prog_data *prog_data;
+
+      drm_intel_bo *scratch_bo;
+      /** Offset in the program cache to the GS program */
+      uint32_t prog_offset;
+
+      uint32_t bind_bo_offset;
+   } vec4_gs;
+
+   struct {
       struct brw_gs_prog_data *prog_data;
+      drm_intel_bo *const_bo;
 
       bool prog_active;
       /** Offset in the program cache to the CLIP program pre-gen6 */
