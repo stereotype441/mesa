@@ -422,6 +422,23 @@ link_invalidate_variable_locations(gl_shader *sh, int input_base,
 }
 
 
+/**
+ * Gets the shader type (MESA_SHADER_*) at the specified position in the
+ * pipeline, from 0 to MESA_SHADER_TYPES.
+ */
+unsigned
+get_pipeline_stage(unsigned pos)
+{
+   unsigned shader_types[MESA_SHADER_TYPES] = {
+      MESA_SHADER_VERTEX,
+      MESA_SHADER_GEOMETRY,
+      MESA_SHADER_FRAGMENT
+   };
+   assert(pos >= 0 && pos < MESA_SHADER_TYPES);
+   return shader_types[pos];
+}
+
+
 const char *
 get_type_string(unsigned type)
 {
@@ -1935,15 +1952,17 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
        * stage.
        */
       for (unsigned i = prev + 1; i < MESA_SHADER_TYPES; i++) {
-	 if (prog->_LinkedShaders[i] == NULL)
-	    continue;
+         unsigned type = get_pipeline_stage(i);
+         unsigned type_prev = get_pipeline_stage(prev);
+         if (prog->_LinkedShaders[type] == NULL)
+            continue;
 
-	 if (!cross_validate_outputs_to_inputs(prog,
-					       prog->_LinkedShaders[prev],
-					       prog->_LinkedShaders[i]))
-	    goto done;
+         if (!cross_validate_outputs_to_inputs(prog,
+					        prog->_LinkedShaders[type_prev],
+					        prog->_LinkedShaders[type]))
+            goto done;
 
-	 prev = i;
+         prev = i;
       }
 
       prog->LinkStatus = true;
@@ -2046,19 +2065,21 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
    }
 
    for (unsigned i = prev + 1; i < MESA_SHADER_TYPES; i++) {
-      if (prog->_LinkedShaders[i] == NULL)
-	 continue;
+      unsigned type = get_pipeline_stage(i);
+      unsigned type_prev = get_pipeline_stage(prev);
+      if (prog->_LinkedShaders[type] == NULL)
+         continue;
 
       if (!assign_varying_locations(
-				    ctx, mem_ctx, prog, prog->_LinkedShaders[prev], prog->_LinkedShaders[i],
+             ctx, mem_ctx, prog, prog->_LinkedShaders[type_prev], prog->_LinkedShaders[type],
              i == MESA_SHADER_FRAGMENT ? num_tfeedback_decls : 0,
              tfeedback_decls))
-	 goto done;
+         goto done;
 
       prev = i;
    }
 
-   if (prev != MESA_SHADER_FRAGMENT && num_tfeedback_decls != 0) {
+   if (prog->_LinkedShaders[MESA_SHADER_FRAGMENT] == NULL && num_tfeedback_decls != 0) {
       /* There was no fragment shader, but we still have to assign varying
        * locations for use by transform feedback.
        */
