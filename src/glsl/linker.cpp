@@ -1952,17 +1952,15 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
        * stage.
        */
       for (unsigned i = prev + 1; i < MESA_SHADER_TYPES; i++) {
-         unsigned type = get_pipeline_stage(i);
-         unsigned type_prev = get_pipeline_stage(prev);
-         if (prog->_LinkedShaders[type] == NULL)
-            continue;
+	 if (prog->_LinkedShaders[i] == NULL)
+	    continue;
 
-         if (!cross_validate_outputs_to_inputs(prog,
-					        prog->_LinkedShaders[type_prev],
-					        prog->_LinkedShaders[type]))
-            goto done;
+	 if (!cross_validate_outputs_to_inputs(prog,
+					       prog->_LinkedShaders[prev],
+					       prog->_LinkedShaders[i]))
+	    goto done;
 
-         prev = i;
+	 prev = i;
       }
 
       prog->LinkStatus = true;
