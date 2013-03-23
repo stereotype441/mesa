@@ -2063,14 +2063,16 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
    }
 
    for (unsigned i = prev + 1; i < MESA_SHADER_TYPES; i++) {
-      if (prog->_LinkedShaders[i] == NULL)
-	 continue;
+      unsigned type = get_pipeline_stage(i);
+      unsigned type_prev = get_pipeline_stage(prev);
+      if (prog->_LinkedShaders[type] == NULL)
+         continue;
 
       if (!assign_varying_locations(
 				    ctx, mem_ctx, prog, prog->_LinkedShaders[prev], prog->_LinkedShaders[i],
              i == MESA_SHADER_FRAGMENT ? num_tfeedback_decls : 0,
              tfeedback_decls))
-	 goto done;
+         goto done;
 
       prev = i;
    }
