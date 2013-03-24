@@ -29,6 +29,7 @@
   *   Keith Whitwell <keith@tungstengraphics.com>
   */
              
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_wm.h"
 #include "brw_state.h"
@@ -476,6 +477,18 @@ static void brw_wm_populate_key( struct brw_context *brw,
 static void
 brw_upload_wm_prog(struct brw_context *brw)
 {
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      if (brw->blorp.params->get_wm_prog) {
+         brw->blorp.prog_offset =
+            brw->blorp.params->get_wm_prog(brw, brw->blorp.params,
+                                           &brw->blorp.prog_data);
+      } else {
+         brw->blorp.prog_offset = 0;
+      }
+      return;
+   }
+
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
    struct brw_wm_prog_key key;
@@ -510,7 +523,8 @@ const struct brw_tracked_state brw_wm_prog = {
       .brw   = (BRW_NEW_FRAGMENT_PROGRAM |
 		BRW_NEW_REDUCED_PRIMITIVE |
                 BRW_NEW_VUE_MAP_GEOM_OUT |
-                BRW_NEW_STATS_WM)
+                BRW_NEW_STATS_WM |
+                BRW_NEW_BLORP)
    },
    .emit = brw_upload_wm_prog
 };

@@ -1070,16 +1070,13 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   brw_blorp_prog_data *prog_data = NULL;
    uint32_t cc_blend_state_offset = 0;
    uint32_t cc_state_offset = 0;
    uint32_t depthstencil_offset;
    uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
-   uint32_t prog_offset = 0;
 
-   if (params->get_wm_prog)
-      prog_offset = params->get_wm_prog(brw, params, &prog_data);
+   brw_wm_prog.emit(brw);
    gen6_blorp_emit_batch_head(brw, params);
    gen6_emit_3dstate_multisample(brw, params->num_samples);
    gen6_emit_3dstate_sample_mask(brw, params->num_samples, 1.0, false, ~0u);
@@ -1122,7 +1119,8 @@ gen6_blorp_exec(struct intel_context *intel,
       gen6_blorp_emit_constant_ps(brw, params, wm_push_const_offset);
    else
       gen6_blorp_emit_constant_ps_disable(brw, params);
-   gen6_blorp_emit_wm_config(brw, params, prog_offset, prog_data);
+   gen6_blorp_emit_wm_config(brw, params, brw->blorp.prog_offset,
+                             brw->blorp.prog_data);
    if (params->get_wm_prog)
       gen6_blorp_emit_binding_table_pointers(brw, params, wm_bind_bo_offset);
    gen6_blorp_emit_viewport_state(brw, params);

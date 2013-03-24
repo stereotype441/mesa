@@ -127,6 +127,8 @@ struct brw_instruction;
 struct brw_vs_prog_key;
 struct brw_wm_prog_key;
 struct brw_wm_prog_data;
+struct brw_blorp_params;
+struct brw_blorp_prog_data;
 
 enum brw_state_id {
    BRW_STATE_URB_FENCE,
@@ -154,6 +156,7 @@ enum brw_state_id {
    BRW_STATE_STATS_WM,
    BRW_STATE_UNIFORM_BUFFER,
    BRW_STATE_META_IN_PROGRESS,
+   BRW_STATE_BLORP,
 };
 
 #define BRW_NEW_URB_FENCE               (1 << BRW_STATE_URB_FENCE)
@@ -186,6 +189,7 @@ enum brw_state_id {
 #define BRW_NEW_STATS_WM		(1 << BRW_STATE_STATS_WM)
 #define BRW_NEW_UNIFORM_BUFFER          (1 << BRW_STATE_UNIFORM_BUFFER)
 #define BRW_NEW_META_IN_PROGRESS        (1 << BRW_STATE_META_IN_PROGRESS)
+#define BRW_NEW_BLORP			(1 << BRW_STATE_BLORP)
 
 struct brw_state_flags {
    /** State update flags signalled by mesa internals */
@@ -1119,6 +1123,19 @@ struct brw_context
       int max_entries;
       double report_time;
    } shader_time;
+
+   struct {
+      /**
+       * If non-NULL, a description of how the rendering pipeline should be
+       * overridden when executing a BLORP operation.
+       *
+       * BRW_NEW_BLORP is flagged when this changes.
+       */
+      const struct brw_blorp_params * params;
+
+      uint32_t prog_offset;
+      struct brw_blorp_prog_data *prog_data;
+   } blorp;
 };
 
 /*======================================================================

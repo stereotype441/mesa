@@ -180,7 +180,10 @@ intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
 void
 brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
 {
-   struct brw_context *brw = brw_context(&intel->ctx);
+   struct gl_context *ctx = &intel->ctx;
+   struct brw_context *brw = brw_context(ctx);
+   brw->blorp.params = params;
+   brw->state.dirty.brw |= BRW_NEW_BLORP;
 
    switch (intel->gen) {
    case 6:
@@ -210,6 +213,9 @@ brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
     * coherent.
     */
    intel_batchbuffer_emit_mi_flush(intel);
+
+   brw->blorp.params = NULL;
+   brw->state.dirty.brw |= BRW_NEW_BLORP;
 }
 
 brw_hiz_op_params::brw_hiz_op_params(struct intel_mipmap_tree *mt,
