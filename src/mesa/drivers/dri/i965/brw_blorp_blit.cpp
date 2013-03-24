@@ -1743,8 +1743,8 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
                                              GLuint dst_x1, GLuint dst_y1,
                                              bool mirror_x, bool mirror_y)
 {
-   src.set(brw, src_mt, src_level, src_layer);
-   dst.set(brw, dst_mt, dst_level, dst_layer);
+   brw_blorp_set_surface_info(brw, &src, src_mt, src_level, src_layer);
+   brw_blorp_set_surface_info(brw, &dst, dst_mt, dst_level, dst_layer);
 
    src.brw_surfaceformat = dst.brw_surfaceformat;
 
@@ -1938,10 +1938,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
       y0 = ROUND_DOWN_TO(y0, y_align) / 2;
       x1 = ALIGN(x1, x_align) * 2;
       y1 = ALIGN(y1, y_align) / 2;
-      dst.width = ALIGN(dst.width, x_align) * 2;
-      dst.height = ALIGN(dst.height, y_align) / 2;
-      dst.x_offset *= 2;
-      dst.y_offset /= 2;
+      dst.mip_info.width = ALIGN(dst.mip_info.width, x_align) * 2;
+      dst.mip_info.height = ALIGN(dst.mip_info.height, y_align) / 2;
+      dst.mip_info.x_offset *= 2;
+      dst.mip_info.y_offset /= 2;
       wm_prog_key.use_kill = true;
    }
 
@@ -1956,10 +1956,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
        * TODO: what if this makes the texture size too large?
        */
       const unsigned x_align = 8, y_align = src.num_samples != 0 ? 8 : 4;
-      src.width = ALIGN(src.width, x_align) * 2;
-      src.height = ALIGN(src.height, y_align) / 2;
-      src.x_offset *= 2;
-      src.y_offset /= 2;
+      src.mip_info.width = ALIGN(src.mip_info.width, x_align) * 2;
+      src.mip_info.height = ALIGN(src.mip_info.height, y_align) / 2;
+      src.mip_info.x_offset *= 2;
+      src.mip_info.y_offset /= 2;
    }
 }
 

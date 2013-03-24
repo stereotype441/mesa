@@ -288,9 +288,11 @@ gen6_blorp_emit_blend_state(struct brw_context *brw,
     * we simply use the RGB values from the fragment shader ("source RGB"),
     * but smash the alpha channel to 1.
     */
-   if (params->src.mt &&
-       _mesa_get_format_bits(params->dst.mt->format, GL_ALPHA_BITS) > 0 &&
-       _mesa_get_format_bits(params->src.mt->format, GL_ALPHA_BITS) == 0) {
+   if (params->src.mip_info.mt &&
+       _mesa_get_format_bits(params->dst.mip_info.mt->format,
+                             GL_ALPHA_BITS) > 0 &&
+       _mesa_get_format_bits(params->src.mip_info.mt->format,
+                             GL_ALPHA_BITS) == 0) {
       blend->blend0.blend_enable = 1;
       blend->blend0.ia_blend_enable = 1;
 
@@ -408,8 +410,8 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
                               uint32_t read_domains, uint32_t write_domain)
 {
    uint32_t wm_surf_offset;
-   uint32_t width = surface->width;
-   uint32_t height = surface->height;
+   uint32_t width = surface->mip_info.width;
+   uint32_t height = surface->mip_info.height;
    if (surface->num_samples > 1) {
       /* Since gen6 uses INTEL_MSAA_LAYOUT_IMS, width and height are measured
        * in samples.  But SURFACE_STATE wants them in pixels, so we need to
@@ -418,7 +420,7 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
       width /= 2;
       height /= 2;
    }
-   struct intel_region *region = surface->mt->region;
+   struct intel_region *region = surface->mip_info.mt->region;
    uint32_t tile_x, tile_y;
 
    uint32_t *surf = (uint32_t *)
@@ -431,7 +433,7 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
               surface->brw_surfaceformat << BRW_SURFACE_FORMAT_SHIFT);
 
    /* reloc */
-   surf[1] = (surface->compute_tile_offsets(&tile_x, &tile_y) +
+   surf[1] = (brw_blorp_compute_tile_offsets(surface, &tile_x, &tile_y) +
               region->bo->offset);
 
    surf[2] = (0 << BRW_SURFACE_LOD_SHIFT |
@@ -457,7 +459,7 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
    assert(tile_y % 2 == 0);
    surf[5] = ((tile_x / 4) << BRW_SURFACE_X_OFFSET_SHIFT |
               (tile_y / 2) << BRW_SURFACE_Y_OFFSET_SHIFT |
-              (surface->mt->align_h == 4 ?
+              (surface->mip_info.mt->align_h == 4 ?
                BRW_SURFACE_VERTICAL_ALIGN_ENABLE : 0));
 
    /* Emit relocation to surface contents */
@@ -1100,7 +1102,7 @@ gen6_blorp_exec(struct intel_context *intel,
          gen6_blorp_emit_surface_state(brw, params, &params->dst,
                                        I915_GEM_DOMAIN_RENDER,
                                        I915_GEM_DOMAIN_RENDER);
-      if (params->src.mt) {
+      if (params->src.mip_info.mt) {
          wm_surf_offset_texture =
             gen6_blorp_emit_surface_state(brw, params, &params->src,
                                           I915_GEM_DOMAIN_SAMPLER, 0);

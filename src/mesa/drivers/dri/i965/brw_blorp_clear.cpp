@@ -114,7 +114,8 @@ brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
    struct gl_context *ctx = &intel->ctx;
    struct intel_renderbuffer *irb = intel_renderbuffer(rb);
 
-   dst.set(brw, irb->mt, irb->mt_level, irb->mt_layer);
+   brw_blorp_set_surface_info(brw, &dst, irb->mt, irb->mt_level,
+                              irb->mt_layer);
 
    /* Override the surface format according to the context's sRGB rules. */
    gl_format format = _mesa_get_render_format(ctx, irb->mt->format);

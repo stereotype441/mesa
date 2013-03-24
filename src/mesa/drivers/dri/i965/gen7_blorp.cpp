@@ -142,14 +142,14 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
    struct intel_context *intel = &brw->intel;
 
    uint32_t wm_surf_offset;
-   uint32_t width = surface->width;
-   uint32_t height = surface->height;
+   uint32_t width = surface->mip_info.width;
+   uint32_t height = surface->mip_info.height;
    /* Note: since gen7 uses INTEL_MSAA_LAYOUT_CMS or INTEL_MSAA_LAYOUT_UMS for
     * color surfaces, width and height are measured in pixels; we don't need
     * to divide them by 2 as we do for Gen6 (see
     * gen6_blorp_emit_surface_state).
     */
-   struct intel_region *region = surface->mt->region;
+   struct intel_region *region = surface->mip_info.mt->region;
    uint32_t tile_x, tile_y;
 
    uint32_t tiling = surface->map_stencil_as_y_tiled
@@ -163,9 +163,9 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
              surface->brw_surfaceformat << BRW_SURFACE_FORMAT_SHIFT |
              gen7_surface_tiling_mode(tiling);
 
-   if (surface->mt->align_h == 4)
+   if (surface->mip_info.mt->align_h == 4)
       surf[0] |= GEN7_SURFACE_VALIGN_4;
-   if (surface->mt->align_w == 8)
+   if (surface->mip_info.mt->align_w == 8)
       surf[0] |= GEN7_SURFACE_HALIGN_8;
 
    if (surface->array_spacing_lod0)
@@ -174,8 +174,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
       surf[0] |= GEN7_SURFACE_ARYSPC_FULL;
 
    /* reloc */
-   surf[1] =
-      surface->compute_tile_offsets(&tile_x, &tile_y) + region->bo->offset;
+   surf[1] = brw_blorp_compute_tile_offsets(surface, &tile_x, &tile_y) +
+      region->bo->offset;
 
    /* Note that the low bits of these fields are missing, so
     * there's the possibility of getting in trouble.
@@ -195,7 +195,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
 
    surf[4] = gen7_surface_msaa_bits(surface->num_samples, surface->msaa_layout);
    if (surface->msaa_layout == INTEL_MSAA_LAYOUT_CMS) {
-      gen7_set_surface_mcs_info(brw, surf, wm_surf_offset, surface->mt->mcs_mt,
+      gen7_set_surface_mcs_info(brw, surf, wm_surf_offset,
+                                surface->mip_info.mt->mcs_mt,
                                 is_render_target);
    }
 
@@ -870,7 +871,7 @@ gen7_blorp_exec(struct intel_context *intel,
                                        I915_GEM_DOMAIN_RENDER,
                                        I915_GEM_DOMAIN_RENDER,
                                        true /* is_render_target */);
-      if (params->src.mt) {
+      if (params->src.mip_info.mt) {
          wm_surf_offset_texture =
             gen7_blorp_emit_surface_state(brw, params, &params->src,
                                           I915_GEM_DOMAIN_SAMPLER, 0,

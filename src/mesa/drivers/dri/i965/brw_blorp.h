@@ -101,20 +101,9 @@ struct brw_blorp_mip_info
 };
 
 
-#ifdef __cplusplus
-} /* end extern "C" */
-
-
-class brw_blorp_surface_info : public brw_blorp_mip_info
+struct brw_blorp_surface_info
 {
-public:
-   brw_blorp_surface_info();
-
-   void set(struct brw_context *brw,
-            struct intel_mipmap_tree *mt,
-            unsigned int level, unsigned int layer);
-
-   uint32_t compute_tile_offsets(uint32_t *tile_x, uint32_t *tile_y) const;
+   struct brw_blorp_mip_info mip_info;
 
    /* Setting this flag indicates that the buffer's contents are W-tiled
     * stencil data, but the surface state should be set up for Y tiled
@@ -148,9 +137,23 @@ public:
     * For MSAA surfaces, MSAA layout that should be used when setting up the
     * surface state for this surface.
     */
-   intel_msaa_layout msaa_layout;
+   enum intel_msaa_layout msaa_layout;
 };
 
+void
+brw_blorp_set_surface_info(struct brw_context *brw,
+                           struct brw_blorp_surface_info *surface_info,
+                           struct intel_mipmap_tree *mt,
+                           unsigned int level, unsigned int layer);
+
+uint32_t
+brw_blorp_compute_tile_offsets(
+      const struct brw_blorp_surface_info *surface_info,
+      uint32_t *tile_x, uint32_t *tile_y);
+
+
+#ifdef __cplusplus
+} /* end extern "C" */
 
 struct brw_blorp_coord_transform_params
 {
