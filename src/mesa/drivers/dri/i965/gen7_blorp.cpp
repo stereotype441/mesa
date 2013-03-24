@@ -844,7 +844,7 @@ gen7_blorp_exec(struct intel_context *intel,
 
    brw_wm_prog.emit(brw);
    gen6_blorp_emit_batch_head(brw, params);
-   gen7_allocate_push_constants(brw);
+   gen7_push_constant_alloc.emit(brw);
    gen6_emit_3dstate_multisample(brw, params->num_samples);
    gen6_emit_3dstate_sample_mask(brw, params->num_samples, 1.0, false, ~0u);
    gen6_blorp_emit_state_base_address(brw, params);
