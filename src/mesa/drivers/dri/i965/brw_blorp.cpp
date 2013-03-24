@@ -29,36 +29,40 @@
 #include "gen6_blorp.h"
 #include "gen7_blorp.h"
 
-brw_blorp_mip_info::brw_blorp_mip_info()
-   : mt(NULL),
-     level(0),
-     layer(0),
-     width(0),
-     height(0),
-     x_offset(0),
-     y_offset(0)
+static void
+brw_blorp_init_mip_info(brw_blorp_mip_info *mip_info)
 {
+   mip_info->mt = NULL;
+   mip_info->level = 0;
+   mip_info->layer = 0;
+   mip_info->width = 0;
+   mip_info->height = 0;
+   mip_info->x_offset = 0;
+   mip_info->y_offset = 0;
 }
 
 brw_blorp_surface_info::brw_blorp_surface_info()
    : map_stencil_as_y_tiled(false),
      num_samples(0)
 {
+   brw_blorp_init_mip_info(this);
 }
 
-void
-brw_blorp_mip_info::set(struct intel_mipmap_tree *mt,
-                        unsigned int level, unsigned int layer)
+static void
+brw_blorp_set_mip_info(struct brw_blorp_mip_info *mip_info,
+                       struct intel_mipmap_tree *mt,
+                       unsigned int level, unsigned int layer)
 {
    intel_miptree_check_level_layer(mt, level, layer);
 
-   this->mt = mt;
-   this->level = level;
-   this->layer = layer;
-   this->width = mt->level[level].width;
-   this->height = mt->level[level].height;
+   mip_info->mt = mt;
+   mip_info->level = level;
+   mip_info->layer = layer;
+   mip_info->width = mt->level[level].width;
+   mip_info->height = mt->level[level].height;
 
-   intel_miptree_get_image_offset(mt, level, layer, &x_offset, &y_offset);
+   intel_miptree_get_image_offset(mt, level, layer,
+                                  &mip_info->x_offset, &mip_info->y_offset);
 }
 
 void
@@ -66,7 +70,7 @@ brw_blorp_surface_info::set(struct brw_context *brw,
                             struct intel_mipmap_tree *mt,
                             unsigned int level, unsigned int layer)
 {
-   brw_blorp_mip_info::set(mt, level, layer);
+   brw_blorp_set_mip_info(this, mt, level, layer);
    this->num_samples = mt->num_samples;
    this->array_spacing_lod0 = mt->array_spacing_lod0;
    this->map_stencil_as_y_tiled = false;
@@ -148,6 +152,7 @@ brw_blorp_params::brw_blorp_params()
      hiz_op(GEN6_HIZ_OP_NONE),
      num_samples(0)
 {
+   brw_blorp_init_mip_info(&depth);
    color_write_disable[0] = false;
    color_write_disable[1] = false;
    color_write_disable[2] = false;
@@ -207,7 +212,7 @@ brw_hiz_op_params::brw_hiz_op_params(struct intel_mipmap_tree *mt,
 {
    this->hiz_op = op;
 
-   depth.set(mt, level, layer);
+   brw_blorp_set_mip_info(&depth, mt, level, layer);
 
    /* Align the rectangle primitive to 8x4 pixels.
     *

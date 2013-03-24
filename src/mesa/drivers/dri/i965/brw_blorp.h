@@ -48,9 +48,6 @@ brw_blorp_blit_miptrees(struct intel_context *intel,
 bool
 brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb);
 
-#ifdef __cplusplus
-} /* end extern "C" */
-
 /**
  * Binding table indices used by BLORP.
  */
@@ -61,14 +58,8 @@ enum {
 };
 
 
-class brw_blorp_mip_info
+struct brw_blorp_mip_info
 {
-public:
-   brw_blorp_mip_info();
-
-   void set(struct intel_mipmap_tree *mt,
-            unsigned int level, unsigned int layer);
-
    struct intel_mipmap_tree *mt;
 
    /**
@@ -108,6 +99,11 @@ public:
     */
    uint32_t y_offset;
 };
+
+
+#ifdef __cplusplus
+} /* end extern "C" */
+
 
 class brw_blorp_surface_info : public brw_blorp_mip_info
 {
