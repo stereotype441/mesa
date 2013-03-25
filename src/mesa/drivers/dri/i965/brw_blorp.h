@@ -222,9 +222,6 @@ brw_blorp_exec(struct intel_context *intel,
 
 
 #ifdef __cplusplus
-} /* end extern "C" */
-
-
 /**
  * Parameters for a HiZ or depth resolve operation.
  *
@@ -240,6 +237,7 @@ struct brw_hiz_op_params : public brw_blorp_params
                      unsigned int level, unsigned int layer,
                      gen6_hiz_op op);
 };
+#endif
 
 struct brw_blorp_blit_prog_key
 {
@@ -251,13 +249,13 @@ struct brw_blorp_blit_prog_key
    /* MSAA layout that has been configured in the surface state for texturing
     * from.
     */
-   intel_msaa_layout tex_layout;
+   enum intel_msaa_layout tex_layout;
 
    /* Actual number of samples per pixel in the source image. */
    unsigned src_samples;
 
    /* Actual MSAA layout used by the source image. */
-   intel_msaa_layout src_layout;
+   enum intel_msaa_layout src_layout;
 
    /* Number of samples per pixel that have been configured in the render
     * target.
@@ -265,13 +263,13 @@ struct brw_blorp_blit_prog_key
    unsigned rt_samples;
 
    /* MSAA layout that has been configured in the render target. */
-   intel_msaa_layout rt_layout;
+   enum intel_msaa_layout rt_layout;
 
    /* Actual number of samples per pixel in the destination image. */
    unsigned dst_samples;
 
    /* Actual MSAA layout used by the destination image. */
-   intel_msaa_layout dst_layout;
+   enum intel_msaa_layout dst_layout;
 
    /* Type of the data to be read from the texture (one of
     * BRW_REGISTER_TYPE_{UD,D,F}).
@@ -307,6 +305,9 @@ struct brw_blorp_blit_prog_key
     */
    bool persample_msaa_dispatch;
 };
+
+#ifdef __cplusplus
+} /* end extern "C" */
 
 struct brw_blorp_blit_params : public brw_blorp_params
 {
