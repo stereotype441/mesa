@@ -172,12 +172,9 @@ struct brw_blorp_wm_push_constants
    uint16_t pad[8];
 };
 
-#ifdef __cplusplus
-} /* end extern "C" */
-
 /* Every 32 bytes of push constant data constitutes one GEN register. */
-const unsigned int BRW_BLORP_NUM_PUSH_CONST_REGS =
-   sizeof(brw_blorp_wm_push_constants) / 32;
+static const unsigned int BRW_BLORP_NUM_PUSH_CONST_REGS =
+   sizeof(struct brw_blorp_wm_push_constants) / 32;
 
 struct brw_blorp_prog_data
 {
@@ -192,7 +189,9 @@ struct brw_blorp_prog_data
 
 struct brw_blorp_params
 {
+#ifdef __cplusplus
    brw_blorp_params();
+#endif
 
    /**
     * If non-NULL, call this function to obtain the WM program for this blorp
@@ -200,25 +199,30 @@ struct brw_blorp_params
     */
    uint32_t (*get_wm_prog)(struct brw_context *brw,
                            const struct brw_blorp_params *params,
-                           brw_blorp_prog_data **prog_data);
+                           struct brw_blorp_prog_data **prog_data);
 
    uint32_t x0;
    uint32_t y0;
    uint32_t x1;
    uint32_t y1;
-   brw_blorp_mip_info depth;
+   struct brw_blorp_mip_info depth;
    uint32_t depth_format;
-   brw_blorp_surface_info src;
-   brw_blorp_surface_info dst;
+   struct brw_blorp_surface_info src;
+   struct brw_blorp_surface_info dst;
    enum gen6_hiz_op hiz_op;
    unsigned num_samples;
-   brw_blorp_wm_push_constants wm_push_consts;
+   struct brw_blorp_wm_push_constants wm_push_consts;
    bool color_write_disable[4];
 };
 
 
 void
-brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params);
+brw_blorp_exec(struct intel_context *intel,
+               const struct brw_blorp_params *params);
+
+
+#ifdef __cplusplus
+} /* end extern "C" */
 
 
 /**
