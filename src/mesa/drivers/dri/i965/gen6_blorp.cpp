@@ -77,52 +77,6 @@ gen6_blorp_emit_batch_head(struct brw_context *brw,
 }
 
 
-/**
- * CMD_STATE_BASE_ADDRESS
- *
- * From the Sandy Bridge PRM, Volume 1, Part 1, Table STATE_BASE_ADDRESS:
- *     The following commands must be reissued following any change to the
- *     base addresses:
- *         3DSTATE_CC_POINTERS
- *         3DSTATE_BINDING_TABLE_POINTERS
- *         3DSTATE_SAMPLER_STATE_POINTERS
- *         3DSTATE_VIEWPORT_STATE_POINTERS
- *         MEDIA_STATE_POINTERS
- */
-void
-gen6_blorp_emit_state_base_address(struct brw_context *brw,
-                                   const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(10);
-   OUT_BATCH(CMD_STATE_BASE_ADDRESS << 16 | (10 - 2));
-   OUT_BATCH(1); /* GeneralStateBaseAddressModifyEnable */
-   /* SurfaceStateBaseAddress */
-   OUT_RELOC(intel->batch.bo, I915_GEM_DOMAIN_SAMPLER, 0, 1);
-   /* DynamicStateBaseAddress */
-   OUT_RELOC(intel->batch.bo, (I915_GEM_DOMAIN_RENDER |
-                               I915_GEM_DOMAIN_INSTRUCTION), 0, 1);
-   OUT_BATCH(1); /* IndirectObjectBaseAddress */
-   if (params->get_wm_prog) {
-      OUT_RELOC(brw->cache.bo, I915_GEM_DOMAIN_INSTRUCTION, 0,
-                1); /* Instruction base address: shader kernels */
-   } else {
-      OUT_BATCH(1); /* InstructionBaseAddress */
-   }
-   OUT_BATCH(1); /* GeneralStateUpperBound */
-   /* Dynamic state upper bound.  Although the documentation says that
-    * programming it to zero will cause it to be ignored, that is a lie.
-    * If this isn't programmed to a real bound, the sampler border color
-    * pointer is rejected, causing border color to mysteriously fail.
-    */
-   OUT_BATCH(0xfffff001);
-   OUT_BATCH(1); /* IndirectObjectUpperBound*/
-   OUT_BATCH(1); /* InstructionAccessUpperBound */
-   ADVANCE_BATCH();
-}
-
-
 void
 gen6_blorp_emit_vertices(struct brw_context *brw,
                          const brw_blorp_params *params)
@@ -1080,7 +1034,7 @@ gen6_blorp_exec(struct intel_context *intel,
    brw_wm_prog.emit(brw);
    gen6_blorp_emit_batch_head(brw, params);
    gen6_multisample_state.emit(brw);
-   gen6_blorp_emit_state_base_address(brw, params);
+   brw_state_base_address.emit(brw);
    gen6_blorp_emit_vertices(brw, params);
    gen6_blorp_emit_urb_config(brw, params);
    if (params->get_wm_prog) {
