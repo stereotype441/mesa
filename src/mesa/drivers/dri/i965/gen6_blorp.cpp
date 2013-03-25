@@ -184,55 +184,6 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 
-/* BLEND_STATE */
-uint32_t
-gen6_blorp_emit_blend_state(struct brw_context *brw,
-                            const brw_blorp_params *params)
-{
-   uint32_t cc_blend_state_offset;
-
-   struct gen6_blend_state *blend = (struct gen6_blend_state *)
-      brw_state_batch(brw, AUB_TRACE_BLEND_STATE,
-                      sizeof(struct gen6_blend_state), 64,
-                      &cc_blend_state_offset);
-
-   memset(blend, 0, sizeof(*blend));
-
-   blend->blend1.pre_blend_clamp_enable = 1;
-   blend->blend1.post_blend_clamp_enable = 1;
-   blend->blend1.clamp_range = BRW_RENDERTARGET_CLAMPRANGE_FORMAT;
-
-   blend->blend1.write_disable_r = params->color_write_disable[0];
-   blend->blend1.write_disable_g = params->color_write_disable[1];
-   blend->blend1.write_disable_b = params->color_write_disable[2];
-   blend->blend1.write_disable_a = params->color_write_disable[3];
-
-   /* When blitting from an XRGB source to a ARGB destination, we need to
-    * interpret the missing channel as 1.0.  Blending can do that for us:
-    * we simply use the RGB values from the fragment shader ("source RGB"),
-    * but smash the alpha channel to 1.
-    */
-   if (params->src.mip_info.mt &&
-       _mesa_get_format_bits(params->dst.mip_info.mt->format,
-                             GL_ALPHA_BITS) > 0 &&
-       _mesa_get_format_bits(params->src.mip_info.mt->format,
-                             GL_ALPHA_BITS) == 0) {
-      blend->blend0.blend_enable = 1;
-      blend->blend0.ia_blend_enable = 1;
-
-      blend->blend0.blend_func = BRW_BLENDFUNCTION_ADD;
-      blend->blend0.ia_blend_func = BRW_BLENDFUNCTION_ADD;
-
-      blend->blend0.source_blend_factor = BRW_BLENDFACTOR_SRC_COLOR;
-      blend->blend0.dest_blend_factor = BRW_BLENDFACTOR_ZERO;
-      blend->blend0.ia_source_blend_factor = BRW_BLENDFACTOR_ONE;
-      blend->blend0.ia_dest_blend_factor = BRW_BLENDFACTOR_ZERO;
-   }
-
-   return cc_blend_state_offset;
-}
-
-
 /* CC_STATE */
 uint32_t
 gen6_blorp_emit_cc_state(struct brw_context *brw,
@@ -995,7 +946,6 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t cc_blend_state_offset = 0;
    uint32_t cc_state_offset = 0;
    uint32_t depthstencil_offset;
    uint32_t wm_push_const_offset = 0;
@@ -1007,12 +957,12 @@ gen6_blorp_exec(struct intel_context *intel,
    brw_state_base_address.emit(brw);
    brw_vertices.emit(brw);
    gen6_urb.emit(brw);
+   gen6_blend_state.emit(brw);
    if (params->get_wm_prog) {
-      cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
       cc_state_offset = gen6_blorp_emit_cc_state(brw, params);
    }
    depthstencil_offset = gen6_blorp_emit_depth_stencil_state(brw, params);
-   gen6_blorp_emit_cc_state_pointers(brw, params, cc_blend_state_offset,
+   gen6_blorp_emit_cc_state_pointers(brw, params, brw->cc.blend_state_offset,
                                      depthstencil_offset, cc_state_offset);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;

@@ -25,6 +25,7 @@
  *
  */
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -42,17 +43,24 @@ gen6_upload_blend_state(struct brw_context *brw)
    struct gl_context *ctx = &brw->intel.ctx;
    struct gen6_blend_state *blend;
    int b;
-   int nr_draw_buffers = ctx->DrawBuffer->_NumColorDrawBuffers;
+   int nr_draw_buffers;
    int size;
 
-   /* We need at least one BLEND_STATE written, because we might do
-    * thread dispatch even if _NumColorDrawBuffers is 0 (for example
-    * for computed depth or alpha test), which will do an FB write
-    * with render target 0, which will reference BLEND_STATE[0] for
-    * alpha test enable.
-    */
-   if (nr_draw_buffers == 0 && ctx->Color.AlphaEnabled)
-      nr_draw_buffers = 1;
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      nr_draw_buffers = brw->blorp.params->get_wm_prog ? 1 : 0;
+   } else {
+      nr_draw_buffers = ctx->DrawBuffer->_NumColorDrawBuffers;
+
+      /* We need at least one BLEND_STATE written, because we might do
+       * thread dispatch even if _NumColorDrawBuffers is 0 (for example
+       * for computed depth or alpha test), which will do an FB write
+       * with render target 0, which will reference BLEND_STATE[0] for
+       * alpha test enable.
+       */
+      if (nr_draw_buffers == 0 && ctx->Color.AlphaEnabled)
+         nr_draw_buffers = 1;
+   }
 
    size = sizeof(*blend) * nr_draw_buffers;
    blend = brw_state_batch(brw, AUB_TRACE_BLEND_STATE,
@@ -61,6 +69,44 @@ gen6_upload_blend_state(struct brw_context *brw)
    memset(blend, 0, size);
 
    for (b = 0; b < nr_draw_buffers; b++) {
+      if (brw->blorp.params) {
+         blend->blend1.pre_blend_clamp_enable = 1;
+         blend->blend1.post_blend_clamp_enable = 1;
+         blend->blend1.clamp_range = BRW_RENDERTARGET_CLAMPRANGE_FORMAT;
+
+         blend->blend1.write_disable_r =
+            brw->blorp.params->color_write_disable[0];
+         blend->blend1.write_disable_g =
+            brw->blorp.params->color_write_disable[1];
+         blend->blend1.write_disable_b =
+            brw->blorp.params->color_write_disable[2];
+         blend->blend1.write_disable_a =
+            brw->blorp.params->color_write_disable[3];
+
+         /* When blitting from an XRGB source to a ARGB destination, we need to
+          * interpret the missing channel as 1.0.  Blending can do that for us:
+          * we simply use the RGB values from the fragment shader ("source RGB"),
+          * but smash the alpha channel to 1.
+          */
+         if (brw->blorp.params->src.mip_info.mt &&
+             _mesa_get_format_bits(brw->blorp.params->dst.mip_info.mt->format,
+                                   GL_ALPHA_BITS) > 0 &&
+             _mesa_get_format_bits(brw->blorp.params->src.mip_info.mt->format,
+                                   GL_ALPHA_BITS) == 0) {
+            blend->blend0.blend_enable = 1;
+            blend->blend0.ia_blend_enable = 1;
+
+            blend->blend0.blend_func = BRW_BLENDFUNCTION_ADD;
+            blend->blend0.ia_blend_func = BRW_BLENDFUNCTION_ADD;
+
+            blend->blend0.source_blend_factor = BRW_BLENDFACTOR_SRC_COLOR;
+            blend->blend0.dest_blend_factor = BRW_BLENDFACTOR_ZERO;
+            blend->blend0.ia_source_blend_factor = BRW_BLENDFACTOR_ONE;
+            blend->blend0.ia_dest_blend_factor = BRW_BLENDFACTOR_ZERO;
+         }
+         continue;
+      }
+
       /* _NEW_BUFFERS */
       struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[b];
       GLenum rb_type;
@@ -231,7 +277,7 @@ const struct brw_tracked_state gen6_blend_state = {
       .mesa = (_NEW_COLOR |
                _NEW_BUFFERS |
                _NEW_MULTISAMPLE),
-      .brw = BRW_NEW_BATCH,
+      .brw = BRW_NEW_BATCH | BRW_NEW_BLORP,
       .cache = 0,
    },
    .emit = gen6_upload_blend_state,
