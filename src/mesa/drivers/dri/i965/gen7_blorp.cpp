@@ -847,7 +847,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_push_constant_alloc.emit(brw);
    gen6_multisample_state.emit(brw);
    brw_state_base_address.emit(brw);
-   gen6_blorp_emit_vertices(brw, params);
+   brw_vertices.emit(brw);
    gen7_blorp_emit_urb_config(brw, params);
    if (params->get_wm_prog) {
       cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);

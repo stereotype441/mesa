@@ -32,6 +32,7 @@
 #include "main/macros.h"
 #include "main/glformats.h"
 
+#include "brw_blorp.h"
 #include "brw_draw.h"
 #include "brw_defines.h"
 #include "brw_context.h"
@@ -570,6 +571,12 @@ static void brw_emit_vertices(struct brw_context *brw)
    struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
    GLuint i, nr_elements;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      gen6_blorp_emit_vertices(brw, brw->blorp.params);
+      return;
+   }
 
    brw_prepare_vertices(brw);
 
