@@ -159,21 +159,21 @@ struct brw_blorp_coord_transform_params
 };
 
 
-#ifdef __cplusplus
-} /* end extern "C" */
-
 struct brw_blorp_wm_push_constants
 {
    uint16_t dst_x0;
    uint16_t dst_x1;
    uint16_t dst_y0;
    uint16_t dst_y1;
-   brw_blorp_coord_transform_params x_transform;
-   brw_blorp_coord_transform_params y_transform;
+   struct brw_blorp_coord_transform_params x_transform;
+   struct brw_blorp_coord_transform_params y_transform;
 
    /* Pad out to an integral number of registers */
    uint16_t pad[8];
 };
+
+#ifdef __cplusplus
+} /* end extern "C" */
 
 /* Every 32 bytes of push constant data constitutes one GEN register. */
 const unsigned int BRW_BLORP_NUM_PUSH_CONST_REGS =
