@@ -35,21 +35,6 @@
 #include "gen7_blorp.h"
 
 
-/* 3DSTATE_BLEND_STATE_POINTERS */
-static void
-gen7_blorp_emit_blend_state_pointer(struct brw_context *brw,
-                                    const brw_blorp_params *params,
-                                    uint32_t cc_blend_state_offset)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(2);
-   OUT_BATCH(_3DSTATE_BLEND_STATE_POINTERS << 16 | (2 - 2));
-   OUT_BATCH(cc_blend_state_offset | 1);
-   ADVANCE_BATCH();
-}
-
-
 /* 3DSTATE_CC_STATE_POINTERS */
 static void
 gen7_blorp_emit_cc_state_pointer(struct brw_context *brw,
@@ -823,8 +808,8 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_urb.emit(brw);
    gen6_blend_state.emit(brw);
    gen6_color_calc_state.emit(brw);
+   gen7_blend_state_pointer.emit(brw);
    if (params->get_wm_prog) {
-      gen7_blorp_emit_blend_state_pointer(brw, params, brw->cc.blend_state_offset);
       gen7_blorp_emit_cc_state_pointer(brw, params, brw->cc.state_offset);
    }
    depthstencil_offset = gen6_blorp_emit_depth_stencil_state(brw, params);
