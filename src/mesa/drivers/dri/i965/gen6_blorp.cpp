@@ -184,23 +184,6 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 
-/* CC_STATE */
-uint32_t
-gen6_blorp_emit_cc_state(struct brw_context *brw,
-                         const brw_blorp_params *params)
-{
-   uint32_t cc_state_offset;
-
-   struct gen6_color_calc_state *cc = (struct gen6_color_calc_state *)
-      brw_state_batch(brw, AUB_TRACE_CC_STATE,
-                      sizeof(gen6_color_calc_state), 64,
-                      &cc_state_offset);
-   memset(cc, 0, sizeof(*cc));
-
-   return cc_state_offset;
-}
-
-
 /**
  * \param out_offset is relative to
  *        CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
@@ -946,7 +929,6 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t cc_state_offset = 0;
    uint32_t depthstencil_offset;
    uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
@@ -958,12 +940,11 @@ gen6_blorp_exec(struct intel_context *intel,
    brw_vertices.emit(brw);
    gen6_urb.emit(brw);
    gen6_blend_state.emit(brw);
-   if (params->get_wm_prog) {
-      cc_state_offset = gen6_blorp_emit_cc_state(brw, params);
-   }
+   gen6_color_calc_state.emit(brw);
    depthstencil_offset = gen6_blorp_emit_depth_stencil_state(brw, params);
    gen6_blorp_emit_cc_state_pointers(brw, params, brw->cc.blend_state_offset,
-                                     depthstencil_offset, cc_state_offset);
+                                     depthstencil_offset,
+                                     brw->cc.state_offset);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
