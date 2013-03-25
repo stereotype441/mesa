@@ -1420,19 +1420,32 @@ brw_update_renderbuffer_surfaces(struct brw_context *brw)
    struct gl_context *ctx = &brw->intel.ctx;
    GLuint i;
 
-   /* _NEW_BUFFERS | _NEW_COLOR */
-   /* Update surfaces for drawing buffers */
-   if (ctx->DrawBuffer->_NumColorDrawBuffers >= 1) {
-      for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++) {
-	 if (intel_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[i])) {
-	    intel->vtbl.update_renderbuffer_surface(brw, ctx->DrawBuffer->_ColorDrawBuffers[i], i);
-	 } else {
-	    intel->vtbl.update_null_renderbuffer_surface(brw, i);
-	 }
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      if (brw->blorp.params->get_wm_prog) {
+         brw->wm.surf_offset[0] =
+            intel->vtbl.update_blorp_surface(brw, brw->blorp.params,
+                                             &brw->blorp.params->dst,
+                                             I915_GEM_DOMAIN_RENDER,
+                                             I915_GEM_DOMAIN_RENDER,
+                                             true /* is_render_target */);
       }
    } else {
-      intel->vtbl.update_null_renderbuffer_surface(brw, 0);
+      /* _NEW_BUFFERS | _NEW_COLOR */
+      /* Update surfaces for drawing buffers */
+      if (ctx->DrawBuffer->_NumColorDrawBuffers >= 1) {
+         for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++) {
+            if (intel_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[i])) {
+               intel->vtbl.update_renderbuffer_surface(brw, ctx->DrawBuffer->_ColorDrawBuffers[i], i);
+            } else {
+               intel->vtbl.update_null_renderbuffer_surface(brw, i);
+            }
+         }
+      } else {
+         intel->vtbl.update_null_renderbuffer_surface(brw, 0);
+      }
    }
+
    brw->state.dirty.brw |= BRW_NEW_SURFACES;
 }
 
@@ -1440,7 +1453,7 @@ const struct brw_tracked_state brw_renderbuffer_surfaces = {
    .dirty = {
       .mesa = (_NEW_COLOR |
                _NEW_BUFFERS),
-      .brw = BRW_NEW_BATCH,
+      .brw = BRW_NEW_BATCH | BRW_NEW_BLORP,
       .cache = 0
    },
    .emit = brw_update_renderbuffer_surfaces,
@@ -1449,7 +1462,7 @@ const struct brw_tracked_state brw_renderbuffer_surfaces = {
 const struct brw_tracked_state gen6_renderbuffer_surfaces = {
    .dirty = {
       .mesa = _NEW_BUFFERS,
-      .brw = BRW_NEW_BATCH,
+      .brw = BRW_NEW_BATCH | BRW_NEW_BLORP,
       .cache = 0
    },
    .emit = brw_update_renderbuffer_surfaces,

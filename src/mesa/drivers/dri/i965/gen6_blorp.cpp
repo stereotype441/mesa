@@ -870,15 +870,10 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_depth_stencil_state.emit(brw);
    gen6_cc_state_pointers.emit(brw);
    gen6_wm_push_constants.emit(brw);
+   gen6_renderbuffer_surfaces.emit(brw);
    if (params->get_wm_prog) {
-      uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
       uint32_t sampler_offset;
-      wm_surf_offset_renderbuffer =
-         intel->vtbl.update_blorp_surface(brw, params, &params->dst,
-                                          I915_GEM_DOMAIN_RENDER,
-                                          I915_GEM_DOMAIN_RENDER,
-                                          true /* is_render_target */);
       if (params->src.mip_info.mt) {
          wm_surf_offset_texture =
             intel->vtbl.update_blorp_surface(brw, params, &params->src,
@@ -887,7 +882,7 @@ gen6_blorp_exec(struct intel_context *intel,
       }
       wm_bind_bo_offset =
          gen6_blorp_emit_binding_table(brw, params,
-                                       wm_surf_offset_renderbuffer,
+                                       brw->wm.surf_offset[0],
                                        wm_surf_offset_texture);
       sampler_offset = gen6_blorp_emit_sampler_state(brw, params);
       gen6_blorp_emit_sampler_state_pointers(brw, params, sampler_offset);
