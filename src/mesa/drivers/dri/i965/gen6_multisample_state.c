@@ -23,6 +23,7 @@
 
 #include "intel_batchbuffer.h"
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_defines.h"
 
@@ -173,18 +174,24 @@ static void upload_multisample_state(struct brw_context *brw)
    float coverage = 1.0;
    float coverage_invert = false;
    unsigned sample_mask = ~0u;
+   unsigned num_samples;
 
-   /* _NEW_BUFFERS */
-   unsigned num_samples = ctx->DrawBuffer->Visual.samples;
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      num_samples = brw->blorp.params->num_samples;
+   } else {
+      /* _NEW_BUFFERS */
+      num_samples = ctx->DrawBuffer->Visual.samples;
 
-   /* _NEW_MULTISAMPLE */
-   if (ctx->Multisample._Enabled) {
-      if (ctx->Multisample.SampleCoverage) {
-         coverage = ctx->Multisample.SampleCoverageValue;
-         coverage_invert = ctx->Multisample.SampleCoverageInvert;
-      }
-      if (ctx->Multisample.SampleMask) {
-         sample_mask = ctx->Multisample.SampleMaskValue;
+      /* _NEW_MULTISAMPLE */
+      if (ctx->Multisample._Enabled) {
+         if (ctx->Multisample.SampleCoverage) {
+            coverage = ctx->Multisample.SampleCoverageValue;
+            coverage_invert = ctx->Multisample.SampleCoverageInvert;
+         }
+         if (ctx->Multisample.SampleMask) {
+            sample_mask = ctx->Multisample.SampleMaskValue;
+         }
       }
    }
 
@@ -201,7 +208,8 @@ const struct brw_tracked_state gen6_multisample_state = {
    .dirty = {
       .mesa = _NEW_BUFFERS |
               _NEW_MULTISAMPLE,
-      .brw = BRW_NEW_CONTEXT,
+      .brw = (BRW_NEW_CONTEXT |
+              BRW_NEW_BLORP),
       .cache = 0
    },
    .emit = upload_multisample_state
