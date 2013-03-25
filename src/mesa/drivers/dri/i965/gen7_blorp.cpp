@@ -762,7 +762,6 @@ gen7_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
    uint32_t sampler_offset = 0;
 
@@ -779,10 +778,10 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_cc_state_pointer.emit(brw);
    gen6_depth_stencil_state.emit(brw);
    gen7_depth_stencil_state_pointer.emit(brw);
+   gen6_wm_push_constants.emit(brw);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
-      wm_push_const_offset = gen6_blorp_emit_wm_constants(brw, params);
       wm_surf_offset_renderbuffer =
          gen7_blorp_emit_surface_state(brw, params, &params->dst,
                                        I915_GEM_DOMAIN_RENDER,
@@ -813,7 +812,7 @@ gen7_blorp_exec(struct intel_context *intel,
       gen7_blorp_emit_binding_table_pointers_ps(brw, params,
                                                 wm_bind_bo_offset);
       gen7_blorp_emit_sampler_state_pointers_ps(brw, params, sampler_offset);
-      gen7_blorp_emit_constant_ps(brw, params, wm_push_const_offset);
+      gen7_blorp_emit_constant_ps(brw, params, brw->wm.push_const_offset);
    } else {
       gen7_blorp_emit_constant_ps_disable(brw, params);
    }

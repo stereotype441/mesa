@@ -25,6 +25,7 @@
  *
  */
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -42,39 +43,57 @@ gen6_upload_wm_push_constants(struct brw_context *brw)
    /* BRW_NEW_FRAGMENT_PROGRAM */
    const struct brw_fragment_program *fp =
       brw_fragment_program_const(brw->fragment_program);
+   GLuint nr_params;
 
-   /* Updates the ParameterValues[i] pointers for all parameters of the
-    * basic type of PROGRAM_STATE_VAR.
-    */
-   /* XXX: Should this happen somewhere before to get our state flag set? */
-   _mesa_load_state_parameters(ctx, fp->program.Base.Parameters);
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      if (brw->blorp.params->get_wm_prog) {
+         STATIC_ASSERT(sizeof(brw->blorp.params->wm_push_consts)
+                       % sizeof(float) == 0);
+         nr_params = sizeof(brw->blorp.params->wm_push_consts) / sizeof(float);
+      } else {
+         nr_params = 0;
+      }
+   } else {
+      /* Updates the ParameterValues[i] pointers for all parameters of the
+       * basic type of PROGRAM_STATE_VAR.
+       */
+      /* XXX: Should this happen somewhere before to get our state flag set? */
+      _mesa_load_state_parameters(ctx, fp->program.Base.Parameters);
 
-   /* CACHE_NEW_WM_PROG */
-   if (brw->wm.prog_data->nr_params != 0) {
+      /* CACHE_NEW_WM_PROG */
+      nr_params = brw->wm.prog_data->nr_params;
+   }
+
+   if (nr_params != 0) {
       float *constants;
-      unsigned int i;
 
       constants = brw_state_batch(brw, AUB_TRACE_WM_CONSTANTS,
-				  brw->wm.prog_data->nr_params *
-				  sizeof(float),
+				  nr_params * sizeof(float),
 				  32, &brw->wm.push_const_offset);
 
-      for (i = 0; i < brw->wm.prog_data->nr_params; i++) {
-	 constants[i] = *brw->wm.prog_data->param[i];
-      }
+      if (brw->blorp.params) {
+         memcpy(constants, &brw->blorp.params->wm_push_consts,
+                sizeof(brw->blorp.params->wm_push_consts));
+      } else {
+         unsigned int i;
+         for (i = 0; i < nr_params; i++) {
+            constants[i] = *brw->wm.prog_data->param[i];
+         }
 
-      if (0) {
-	 printf("WM constants:\n");
-	 for (i = 0; i < brw->wm.prog_data->nr_params; i++) {
-	    if ((i & 7) == 0)
-	       printf("g%d: ", brw->wm.prog_data->first_curbe_grf + i / 8);
-	    printf("%8f ", constants[i]);
-	    if ((i & 7) == 7)
-	       printf("\n");
-	 }
-	 if ((i & 7) != 0)
-	    printf("\n");
-	 printf("\n");
+         if (0) {
+            printf("WM constants:\n");
+            for (i = 0; i < nr_params; i++) {
+               if ((i & 7) == 0)
+                  printf("g%d: ", brw->wm.prog_data->first_curbe_grf + i / 8);
+               printf("%8f ", constants[i]);
+               if ((i & 7) == 7)
+                  printf("\n");
+            }
+            if ((i & 7) != 0)
+               printf("\n");
+            printf("\n");
+         }
       }
    }
 }
@@ -83,7 +102,8 @@ const struct brw_tracked_state gen6_wm_push_constants = {
    .dirty = {
       .mesa  = _NEW_PROGRAM_CONSTANTS,
       .brw   = (BRW_NEW_BATCH |
-		BRW_NEW_FRAGMENT_PROGRAM),
+		BRW_NEW_FRAGMENT_PROGRAM |
+                BRW_NEW_BLORP),
       .cache = CACHE_NEW_WM_PROG,
    },
    .emit = gen6_upload_wm_push_constants,

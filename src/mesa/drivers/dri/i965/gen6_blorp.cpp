@@ -184,23 +184,6 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 
-/* WM push constants */
-uint32_t
-gen6_blorp_emit_wm_constants(struct brw_context *brw,
-                             const brw_blorp_params *params)
-{
-   uint32_t wm_push_const_offset;
-
-   void *constants = brw_state_batch(brw, AUB_TRACE_WM_CONSTANTS,
-                                     sizeof(params->wm_push_consts),
-                                     32, &wm_push_const_offset);
-   memcpy(constants, &params->wm_push_consts,
-          sizeof(params->wm_push_consts));
-
-   return wm_push_const_offset;
-}
-
-
 /* SURFACE_STATE for renderbuffer or texture surface (see
  * brw_update_renderbuffer_surface and brw_update_texture_surface)
  */
@@ -872,7 +855,6 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
 
    brw_wm_prog.emit(brw);
@@ -885,11 +867,11 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_color_calc_state.emit(brw);
    gen6_depth_stencil_state.emit(brw);
    gen6_cc_state_pointers.emit(brw);
+   gen6_wm_push_constants.emit(brw);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
       uint32_t sampler_offset;
-      wm_push_const_offset = gen6_blorp_emit_wm_constants(brw, params);
       wm_surf_offset_renderbuffer =
          gen6_blorp_emit_surface_state(brw, params, &params->dst,
                                        I915_GEM_DOMAIN_RENDER,
@@ -911,7 +893,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_clip_disable(brw, params);
    gen6_blorp_emit_sf_config(brw, params);
    if (params->get_wm_prog)
-      gen6_blorp_emit_constant_ps(brw, params, wm_push_const_offset);
+      gen6_blorp_emit_constant_ps(brw, params, brw->wm.push_const_offset);
    else
       gen6_blorp_emit_constant_ps_disable(brw, params);
    gen6_blorp_emit_wm_config(brw, params, brw->blorp.prog_offset,
