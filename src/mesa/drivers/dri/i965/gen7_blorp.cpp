@@ -56,24 +56,6 @@ gen7_blorp_emit_cc_viewport(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_DEPTH_STENCIL_STATE_POINTERS
- *
- * The offset is relative to CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
- */
-static void
-gen7_blorp_emit_depth_stencil_state_pointers(struct brw_context *brw,
-                                             const brw_blorp_params *params,
-                                             uint32_t depthstencil_offset)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(2);
-   OUT_BATCH(_3DSTATE_DEPTH_STENCIL_STATE_POINTERS << 16 | (2 - 2));
-   OUT_BATCH(depthstencil_offset | 1);
-   ADVANCE_BATCH();
-}
-
-
 /* SURFACE_STATE for renderbuffer or texture surface (see
  * brw_update_renderbuffer_surface and brw_update_texture_surface)
  */
@@ -796,8 +778,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_blend_state_pointer.emit(brw);
    gen7_cc_state_pointer.emit(brw);
    gen6_depth_stencil_state.emit(brw);
-   gen7_blorp_emit_depth_stencil_state_pointers(
-         brw, params, brw->cc.depth_stencil_state_offset);
+   gen7_depth_stencil_state_pointer.emit(brw);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
