@@ -1486,31 +1486,44 @@ brw_update_texture_surfaces(struct brw_context *brw)
    struct gl_program *vs = (struct gl_program *) brw->vertex_program;
    struct gl_program *fs = (struct gl_program *) brw->fragment_program;
 
-   unsigned num_samplers = _mesa_fls(vs->SamplersUsed | fs->SamplersUsed);
-
-   for (unsigned s = 0; s < num_samplers; s++) {
-      brw->vs.surf_offset[SURF_INDEX_VS_TEXTURE(s)] = 0;
-      brw->wm.surf_offset[SURF_INDEX_TEXTURE(s)] = 0;
-
-      if (vs->SamplersUsed & (1 << s)) {
-         const unsigned unit = vs->SamplerUnits[s];
-
-         /* _NEW_TEXTURE */
-         if (ctx->Texture.Unit[unit]._ReallyEnabled) {
-            intel->vtbl.update_texture_surface(ctx, unit,
-                                               brw->vs.surf_offset,
-                                               SURF_INDEX_VS_TEXTURE(s));
-         }
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      if (brw->blorp.params->src.mip_info.mt) {
+         brw->wm.surf_offset[SURF_INDEX_TEXTURE(0)] =
+            intel->vtbl.update_blorp_surface(brw, brw->blorp.params,
+                                             &brw->blorp.params->src,
+                                             I915_GEM_DOMAIN_SAMPLER, 0,
+                                             false /* is_render_target */);
+      } else {
+         brw->wm.surf_offset[SURF_INDEX_TEXTURE(0)] = 0;
       }
+   } else {
+      unsigned num_samplers = _mesa_fls(vs->SamplersUsed | fs->SamplersUsed);
 
-      if (fs->SamplersUsed & (1 << s)) {
-         const unsigned unit = fs->SamplerUnits[s];
+      for (unsigned s = 0; s < num_samplers; s++) {
+         brw->vs.surf_offset[SURF_INDEX_VS_TEXTURE(s)] = 0;
+         brw->wm.surf_offset[SURF_INDEX_TEXTURE(s)] = 0;
 
-         /* _NEW_TEXTURE */
-         if (ctx->Texture.Unit[unit]._ReallyEnabled) {
-            intel->vtbl.update_texture_surface(ctx, unit,
-                                               brw->wm.surf_offset,
-                                               SURF_INDEX_TEXTURE(s));
+         if (vs->SamplersUsed & (1 << s)) {
+            const unsigned unit = vs->SamplerUnits[s];
+
+            /* _NEW_TEXTURE */
+            if (ctx->Texture.Unit[unit]._ReallyEnabled) {
+               intel->vtbl.update_texture_surface(ctx, unit,
+                                                  brw->vs.surf_offset,
+                                                  SURF_INDEX_VS_TEXTURE(s));
+            }
+         }
+
+         if (fs->SamplersUsed & (1 << s)) {
+            const unsigned unit = fs->SamplerUnits[s];
+
+            /* _NEW_TEXTURE */
+            if (ctx->Texture.Unit[unit]._ReallyEnabled) {
+               intel->vtbl.update_texture_surface(ctx, unit,
+                                                  brw->wm.surf_offset,
+                                                  SURF_INDEX_TEXTURE(s));
+            }
          }
       }
    }
