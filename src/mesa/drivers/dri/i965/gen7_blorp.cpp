@@ -780,7 +780,6 @@ gen7_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t depthstencil_offset;
    uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
    uint32_t sampler_offset = 0;
@@ -796,9 +795,9 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_color_calc_state.emit(brw);
    gen7_blend_state_pointer.emit(brw);
    gen7_cc_state_pointer.emit(brw);
-   depthstencil_offset = gen6_blorp_emit_depth_stencil_state(brw, params);
-   gen7_blorp_emit_depth_stencil_state_pointers(brw, params,
-                                                depthstencil_offset);
+   gen6_depth_stencil_state.emit(brw);
+   gen7_blorp_emit_depth_stencil_state_pointers(
+         brw, params, brw->cc.depth_stencil_state_offset);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;

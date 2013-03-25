@@ -26,6 +26,8 @@
  */
 
 #include "intel_fbo.h"
+#include "intel_resolve_map.h"
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 
@@ -44,44 +46,58 @@ gen6_upload_depth_stencil_state(struct brw_context *brw)
 			&brw->cc.depth_stencil_state_offset);
    memset(ds, 0, sizeof(*ds));
 
-   /* _NEW_STENCIL */
-   if (ctx->Stencil._Enabled) {
-      int back = ctx->Stencil._BackFace;
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      /* See the following sections of the Sandy Bridge PRM, Volume 1, Part2:
+       *   - 7.5.3.1 Depth Buffer Clear
+       *   - 7.5.3.2 Depth Buffer Resolve
+       *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
+       */
+      ds->ds2.depth_write_enable = 1;
+      if (brw->blorp.params->hiz_op == GEN6_HIZ_OP_DEPTH_RESOLVE) {
+         ds->ds2.depth_test_enable = 1;
+         ds->ds2.depth_test_func = COMPAREFUNC_NEVER;
+      }
+   } else {
+      /* _NEW_STENCIL */
+      if (ctx->Stencil._Enabled) {
+         int back = ctx->Stencil._BackFace;
 
-      ds->ds0.stencil_enable = 1;
-      ds->ds0.stencil_func =
-	 intel_translate_compare_func(ctx->Stencil.Function[0]);
-      ds->ds0.stencil_fail_op =
-	 intel_translate_stencil_op(ctx->Stencil.FailFunc[0]);
-      ds->ds0.stencil_pass_depth_fail_op =
-	 intel_translate_stencil_op(ctx->Stencil.ZFailFunc[0]);
-      ds->ds0.stencil_pass_depth_pass_op =
-	 intel_translate_stencil_op(ctx->Stencil.ZPassFunc[0]);
-      ds->ds1.stencil_write_mask = ctx->Stencil.WriteMask[0];
-      ds->ds1.stencil_test_mask = ctx->Stencil.ValueMask[0];
+         ds->ds0.stencil_enable = 1;
+         ds->ds0.stencil_func =
+            intel_translate_compare_func(ctx->Stencil.Function[0]);
+         ds->ds0.stencil_fail_op =
+            intel_translate_stencil_op(ctx->Stencil.FailFunc[0]);
+         ds->ds0.stencil_pass_depth_fail_op =
+            intel_translate_stencil_op(ctx->Stencil.ZFailFunc[0]);
+         ds->ds0.stencil_pass_depth_pass_op =
+            intel_translate_stencil_op(ctx->Stencil.ZPassFunc[0]);
+         ds->ds1.stencil_write_mask = ctx->Stencil.WriteMask[0];
+         ds->ds1.stencil_test_mask = ctx->Stencil.ValueMask[0];
 
-      if (ctx->Stencil._TestTwoSide) {
-	 ds->ds0.bf_stencil_enable = 1;
-	 ds->ds0.bf_stencil_func =
-	    intel_translate_compare_func(ctx->Stencil.Function[back]);
-	 ds->ds0.bf_stencil_fail_op =
-	    intel_translate_stencil_op(ctx->Stencil.FailFunc[back]);
-	 ds->ds0.bf_stencil_pass_depth_fail_op =
-	    intel_translate_stencil_op(ctx->Stencil.ZFailFunc[back]);
-	 ds->ds0.bf_stencil_pass_depth_pass_op =
-	    intel_translate_stencil_op(ctx->Stencil.ZPassFunc[back]);
-	 ds->ds1.bf_stencil_write_mask = ctx->Stencil.WriteMask[back];
-	 ds->ds1.bf_stencil_test_mask = ctx->Stencil.ValueMask[back];
+         if (ctx->Stencil._TestTwoSide) {
+            ds->ds0.bf_stencil_enable = 1;
+            ds->ds0.bf_stencil_func =
+               intel_translate_compare_func(ctx->Stencil.Function[back]);
+            ds->ds0.bf_stencil_fail_op =
+               intel_translate_stencil_op(ctx->Stencil.FailFunc[back]);
+            ds->ds0.bf_stencil_pass_depth_fail_op =
+               intel_translate_stencil_op(ctx->Stencil.ZFailFunc[back]);
+            ds->ds0.bf_stencil_pass_depth_pass_op =
+               intel_translate_stencil_op(ctx->Stencil.ZPassFunc[back]);
+            ds->ds1.bf_stencil_write_mask = ctx->Stencil.WriteMask[back];
+            ds->ds1.bf_stencil_test_mask = ctx->Stencil.ValueMask[back];
+         }
+
+         ds->ds0.stencil_write_enable = ctx->Stencil._WriteEnabled;
       }
 
-      ds->ds0.stencil_write_enable = ctx->Stencil._WriteEnabled;
-   }
-
-   /* _NEW_DEPTH */
-   if (ctx->Depth.Test && depth_irb) {
-      ds->ds2.depth_test_enable = ctx->Depth.Test;
-      ds->ds2.depth_test_func = intel_translate_compare_func(ctx->Depth.Func);
-      ds->ds2.depth_write_enable = ctx->Depth.Mask;
+      /* _NEW_DEPTH */
+      if (ctx->Depth.Test && depth_irb) {
+         ds->ds2.depth_test_enable = ctx->Depth.Test;
+         ds->ds2.depth_test_func = intel_translate_compare_func(ctx->Depth.Func);
+         ds->ds2.depth_write_enable = ctx->Depth.Mask;
+      }
    }
 
    brw->state.dirty.cache |= CACHE_NEW_DEPTH_STENCIL_STATE;
@@ -90,7 +106,7 @@ gen6_upload_depth_stencil_state(struct brw_context *brw)
 const struct brw_tracked_state gen6_depth_stencil_state = {
    .dirty = {
       .mesa = _NEW_DEPTH | _NEW_STENCIL | _NEW_BUFFERS,
-      .brw  = BRW_NEW_BATCH,
+      .brw  = BRW_NEW_BATCH | BRW_NEW_BLORP,
       .cache = 0,
    },
    .emit = gen6_upload_depth_stencil_state,
