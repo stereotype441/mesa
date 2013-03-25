@@ -184,31 +184,6 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_CC_STATE_POINTERS
- *
- * The pointer offsets are relative to
- * CMD_STATE_BASE_ADDRESS.DynamicStateBaseAddress.
- *
- * The HiZ op doesn't use BLEND_STATE or COLOR_CALC_STATE.
- */
-static void
-gen6_blorp_emit_cc_state_pointers(struct brw_context *brw,
-                                  const brw_blorp_params *params,
-                                  uint32_t cc_blend_state_offset,
-                                  uint32_t depthstencil_offset,
-                                  uint32_t cc_state_offset)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(4);
-   OUT_BATCH(_3DSTATE_CC_STATE_POINTERS << 16 | (4 - 2));
-   OUT_BATCH(cc_blend_state_offset | 1); /* BLEND_STATE offset */
-   OUT_BATCH(depthstencil_offset | 1); /* DEPTH_STENCIL_STATE offset */
-   OUT_BATCH(cc_state_offset | 1); /* COLOR_CALC_STATE offset */
-   ADVANCE_BATCH();
-}
-
-
 /* WM push constants */
 uint32_t
 gen6_blorp_emit_wm_constants(struct brw_context *brw,
@@ -909,9 +884,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_blend_state.emit(brw);
    gen6_color_calc_state.emit(brw);
    gen6_depth_stencil_state.emit(brw);
-   gen6_blorp_emit_cc_state_pointers(brw, params, brw->cc.blend_state_offset,
-                                     brw->cc.depth_stencil_state_offset,
-                                     brw->cc.state_offset);
+   gen6_cc_state_pointers.emit(brw);
    if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
