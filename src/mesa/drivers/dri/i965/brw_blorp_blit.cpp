@@ -1674,9 +1674,10 @@ brw_blorp_blit_program::render_target_write()
 }
 
 
-void
-brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
-                                        bool mirror)
+static void
+brw_blorp_setup_coord_transform_params(brw_blorp_coord_transform_params *params,
+                                       GLuint src0, GLuint dst0, GLuint dst1,
+                                       bool mirror)
 {
    if (!mirror) {
       /* When not mirroring a coordinate (say, X), we need:
@@ -1684,16 +1685,16 @@ brw_blorp_coord_transform_params::setup(GLuint src0, GLuint dst0, GLuint dst1,
        * Therefore:
        *   x' = 1*x + (src_x0 - dst_x0)
        */
-      multiplier = 1;
-      offset = src0 - dst0;
+      params->multiplier = 1;
+      params->offset = src0 - dst0;
    } else {
       /* When mirroring X we need:
        *   x' - src_x0 = dst_x1 - x - 1
        * Therefore:
        *   x' = -1*x + (src_x0 + dst_x1 - 1)
        */
-      multiplier = -1;
-      offset = src0 + dst1 - 1;
+      params->multiplier = -1;
+      params->offset = src0 + dst1 - 1;
    }
 }
 
@@ -1849,8 +1850,10 @@ brw_blorp_blit_params::brw_blorp_blit_params(struct brw_context *brw,
    y0 = wm_push_consts.dst_y0 = dst_y0;
    x1 = wm_push_consts.dst_x1 = dst_x1;
    y1 = wm_push_consts.dst_y1 = dst_y1;
-   wm_push_consts.x_transform.setup(src_x0, dst_x0, dst_x1, mirror_x);
-   wm_push_consts.y_transform.setup(src_y0, dst_y0, dst_y1, mirror_y);
+   brw_blorp_setup_coord_transform_params(&wm_push_consts.x_transform, src_x0,
+                                          dst_x0, dst_x1, mirror_x);
+   brw_blorp_setup_coord_transform_params(&wm_push_consts.y_transform, src_y0,
+                                          dst_y0, dst_y1, mirror_y);
 
    if (dst.num_samples <= 1 && dst_mt->num_samples > 1) {
       /* We must expand the rectangle we send through the rendering pipeline,

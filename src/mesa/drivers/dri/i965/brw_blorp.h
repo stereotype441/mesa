@@ -152,18 +152,15 @@ brw_blorp_compute_tile_offsets(
       uint32_t *tile_x, uint32_t *tile_y);
 
 
-#ifdef __cplusplus
-} /* end extern "C" */
-
 struct brw_blorp_coord_transform_params
 {
-   void setup(GLuint src0, GLuint dst0, GLuint dst1,
-              bool mirror);
-
    int16_t multiplier;
    int16_t offset;
 };
 
+
+#ifdef __cplusplus
+} /* end extern "C" */
 
 struct brw_blorp_wm_push_constants
 {
