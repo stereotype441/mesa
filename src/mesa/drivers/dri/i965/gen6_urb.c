@@ -52,9 +52,18 @@ gen6_upload_urb( struct brw_context *brw )
    struct intel_context *intel = &brw->intel;
    int nr_vs_entries, nr_gs_entries;
    int total_urb_size = brw->urb.size * 1024; /* in bytes */
+   bool gs_active;
 
-   /* CACHE_NEW_VS_PROG */
-   unsigned vs_size = MAX2(brw->vs.prog_data->base.urb_entry_size, 1);
+   /* BRW_NEW_BLORP */
+   unsigned vs_size;
+   if (brw->blorp.params) {
+      vs_size = 1;
+      gs_active = false;
+   } else {
+      /* CACHE_NEW_VS_PROG */
+      vs_size = MAX2(brw->vs.prog_data->base.urb_entry_size, 1);
+      gs_active = brw->gs.prog_active;
+   }
 
    /* We use the same VUE layout for VS outputs and GS outputs (as it's what
     * the SF and Clipper expect), so we can simply make the GS URB entry size
@@ -65,7 +74,7 @@ gen6_upload_urb( struct brw_context *brw )
    unsigned gs_size = vs_size;
 
    /* Calculate how many entries fit in each stage's section of the URB */
-   if (brw->gs.prog_active) {
+   if (gs_active) {
       nr_vs_entries = (total_urb_size/2) / (vs_size * 128);
       nr_gs_entries = (total_urb_size/2) / (gs_size * 128);
    } else {
@@ -110,15 +119,15 @@ gen6_upload_urb( struct brw_context *brw )
     * doesn't exist on Gen6).  So for now we just do a full pipeline flush as
     * a workaround.
     */
-   if (brw->urb.gen6_gs_previously_active && !brw->gs.prog_active)
+   if (brw->urb.gen6_gs_previously_active && !gs_active)
       intel_batchbuffer_emit_mi_flush(intel);
-   brw->urb.gen6_gs_previously_active = brw->gs.prog_active;
+   brw->urb.gen6_gs_previously_active = gs_active;
 }
 
 const struct brw_tracked_state gen6_urb = {
    .dirty = {
       .mesa = 0,
-      .brw = BRW_NEW_CONTEXT,
+      .brw = BRW_NEW_CONTEXT | BRW_NEW_BLORP,
       .cache = (CACHE_NEW_VS_PROG | CACHE_NEW_GS_PROG),
    },
    .emit = gen6_upload_urb,

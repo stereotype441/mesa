@@ -184,36 +184,6 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_URB
- *
- * Assign the entire URB to the VS. Even though the VS disabled, URB space
- * is still needed because the clipper loads the VUE's from the URB. From
- * the Sandybridge PRM, Volume 2, Part 1, Section 3DSTATE,
- * Dword 1.15:0 "VS Number of URB Entries":
- *     This field is always used (even if VS Function Enable is DISABLED).
- *
- * The warning below appears in the PRM (Section 3DSTATE_URB), but we can
- * safely ignore it because this batch contains only one draw call.
- *     Because of URB corruption caused by allocating a previous GS unit
- *     URB entry to the VS unit, software is required to send a “GS NULL
- *     Fence” (Send URB fence with VS URB size == 1 and GS URB size == 0)
- *     plus a dummy DRAW call before any case where VS will be taking over
- *     GS URB space.
- */
-static void
-gen6_blorp_emit_urb_config(struct brw_context *brw,
-                           const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(3);
-   OUT_BATCH(_3DSTATE_URB << 16 | (3 - 2));
-   OUT_BATCH(brw->urb.max_vs_entries << GEN6_URB_VS_ENTRIES_SHIFT);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /* BLEND_STATE */
 uint32_t
 gen6_blorp_emit_blend_state(struct brw_context *brw,
@@ -1036,7 +1006,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_multisample_state.emit(brw);
    brw_state_base_address.emit(brw);
    brw_vertices.emit(brw);
-   gen6_blorp_emit_urb_config(brw, params);
+   gen6_urb.emit(brw);
    if (params->get_wm_prog) {
       cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
       cc_state_offset = gen6_blorp_emit_cc_state(brw, params);

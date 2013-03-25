@@ -35,32 +35,6 @@
 #include "gen7_blorp.h"
 
 
-/* 3DSTATE_URB_VS
- * 3DSTATE_URB_HS
- * 3DSTATE_URB_DS
- * 3DSTATE_URB_GS
- *
- * If the 3DSTATE_URB_VS is emitted, than the others must be also. From the
- * BSpec, Volume 2a "3D Pipeline Overview", Section 1.7.1 3DSTATE_URB_VS:
- *     3DSTATE_URB_HS, 3DSTATE_URB_DS, and 3DSTATE_URB_GS must also be
- *     programmed in order for the programming of this state to be
- *     valid.
- */
-static void
-gen7_blorp_emit_urb_config(struct brw_context *brw,
-                           const brw_blorp_params *params)
-{
-   /* The minimum valid value is 32. See 3DSTATE_URB_VS,
-    * Dword 1.15:0 "VS Number of URB Entries".
-    */
-   int num_vs_entries = 32;
-   int vs_size = 2;
-   int vs_start = 2; /* skip over push constants */
-
-   gen7_emit_urb_state(brw, num_vs_entries, vs_size, vs_start);
-}
-
-
 /* 3DSTATE_BLEND_STATE_POINTERS */
 static void
 gen7_blorp_emit_blend_state_pointer(struct brw_context *brw,
@@ -848,7 +822,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_multisample_state.emit(brw);
    brw_state_base_address.emit(brw);
    brw_vertices.emit(brw);
-   gen7_blorp_emit_urb_config(brw, params);
+   gen7_urb.emit(brw);
    if (params->get_wm_prog) {
       cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
       cc_state_offset = gen6_blorp_emit_cc_state(brw, params);

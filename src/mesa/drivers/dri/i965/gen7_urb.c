@@ -91,8 +91,14 @@ gen7_upload_urb(struct brw_context *brw)
    /* Total space for entries is URB size - 16kB for push constants */
    int handle_region_size = (brw->urb.size - push_size_kB) * 1024; /* bytes */
 
-   /* CACHE_NEW_VS_PROG */
-   unsigned vs_size = MAX2(brw->vs.prog_data->base.urb_entry_size, 1);
+   /* BRW_NEW_BLORP */
+   unsigned vs_size;
+   if (brw->blorp.params) {
+      vs_size = 1;
+   } else {
+      /* CACHE_NEW_VS_PROG */
+      vs_size = MAX2(brw->vs.prog_data->base.urb_entry_size, 1);
+   }
 
    int nr_vs_entries = handle_region_size / (vs_size * 64);
    if (nr_vs_entries > brw->urb.max_vs_entries)
@@ -149,7 +155,7 @@ gen7_emit_urb_state(struct brw_context *brw, GLuint nr_vs_entries,
 const struct brw_tracked_state gen7_urb = {
    .dirty = {
       .mesa = 0,
-      .brw = BRW_NEW_CONTEXT,
+      .brw = BRW_NEW_CONTEXT | BRW_NEW_BLORP,
       .cache = (CACHE_NEW_VS_PROG | CACHE_NEW_GS_PROG),
    },
    .emit = gen7_upload_urb,
