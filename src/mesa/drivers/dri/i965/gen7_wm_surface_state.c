@@ -31,6 +31,7 @@
 #include "intel_fbo.h"
 #include "intel_buffer_objects.h"
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -609,4 +610,5 @@ gen7_init_vtable_surface_functions(struct brw_context *brw)
    intel->vtbl.update_null_renderbuffer_surface =
       gen7_update_null_renderbuffer_surface;
    intel->vtbl.create_constant_surface = gen7_create_constant_surface;
+   intel->vtbl.update_blorp_surface = gen7_blorp_emit_surface_state;
 }

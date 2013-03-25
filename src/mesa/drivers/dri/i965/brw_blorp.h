@@ -378,6 +378,20 @@ gen6_blorp_emit_clip_disable(struct brw_context *brw,
 void
 gen6_blorp_emit_drawing_rectangle(struct brw_context *brw,
                                   const struct brw_blorp_params *params);
+
+uint32_t
+gen6_blorp_emit_surface_state(struct brw_context *brw,
+                              const struct brw_blorp_params *params,
+                              const struct brw_blorp_surface_info *surface,
+                              uint32_t read_domains, uint32_t write_domain,
+                              bool is_render_target);
+
+uint32_t
+gen7_blorp_emit_surface_state(struct brw_context *brw,
+                              const struct brw_blorp_params *params,
+                              const struct brw_blorp_surface_info *surface,
+                              uint32_t read_domains, uint32_t write_domain,
+                              bool is_render_target);
 /** \} */
 
 #ifdef __cplusplus

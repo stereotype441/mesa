@@ -59,7 +59,7 @@ gen7_blorp_emit_cc_viewport(struct brw_context *brw,
 /* SURFACE_STATE for renderbuffer or texture surface (see
  * brw_update_renderbuffer_surface and brw_update_texture_surface)
  */
-static uint32_t
+uint32_t
 gen7_blorp_emit_surface_state(struct brw_context *brw,
                               const brw_blorp_params *params,
                               const brw_blorp_surface_info *surface,
@@ -783,15 +783,15 @@ gen7_blorp_exec(struct intel_context *intel,
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
       wm_surf_offset_renderbuffer =
-         gen7_blorp_emit_surface_state(brw, params, &params->dst,
-                                       I915_GEM_DOMAIN_RENDER,
-                                       I915_GEM_DOMAIN_RENDER,
-                                       true /* is_render_target */);
+         intel->vtbl.update_blorp_surface(brw, params, &params->dst,
+                                          I915_GEM_DOMAIN_RENDER,
+                                          I915_GEM_DOMAIN_RENDER,
+                                          true /* is_render_target */);
       if (params->src.mip_info.mt) {
          wm_surf_offset_texture =
-            gen7_blorp_emit_surface_state(brw, params, &params->src,
-                                          I915_GEM_DOMAIN_SAMPLER, 0,
-                                          false /* is_render_target */);
+            intel->vtbl.update_blorp_surface(brw, params, &params->src,
+                                             I915_GEM_DOMAIN_SAMPLER, 0,
+                                             false /* is_render_target */);
       }
       wm_bind_bo_offset =
          gen6_blorp_emit_binding_table(brw, params,

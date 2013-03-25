@@ -65,6 +65,8 @@ extern "C" {
 
 struct intel_region;
 struct intel_context;
+struct brw_blorp_params;
+struct brw_blorp_surface_info;
 
 typedef void (*intel_tri_func) (struct intel_context *, intelVertex *,
                                 intelVertex *, intelVertex *);
@@ -204,6 +206,12 @@ struct intel_context
 				      uint32_t size,
 				      uint32_t *out_offset,
                                       bool dword_pitch);
+      uint32_t
+      (*update_blorp_surface)(struct brw_context *brw,
+                              const struct brw_blorp_params *params,
+                              const struct brw_blorp_surface_info *surface,
+                              uint32_t read_domains, uint32_t write_domain,
+                              bool is_render_target);
       /** \} */
 
       /**
