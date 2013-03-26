@@ -566,7 +566,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_vs_state.emit(brw);
    gen7_disable_stages.emit(brw);
    gen7_sol_state.emit(brw);
-   gen6_blorp_emit_clip_disable(brw, params);
+   gen7_clip_state.emit(brw);
    gen7_blorp_emit_sf_config(brw, params);
    gen7_blorp_emit_wm_config(brw, params, brw->blorp.prog_data);
    if (params->get_wm_prog) {

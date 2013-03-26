@@ -35,6 +35,29 @@ upload_clip_state(struct brw_context *brw)
    struct gl_context *ctx = &intel->ctx;
    uint32_t dw1 = 0, dw2 = 0;
 
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      /* Disable the clipper.
+       *
+       * The BLORP op emits a rectangle primitive, which requires clipping to
+       * be disabled. From page 10 of the Sandy Bridge PRM Volume 2 Part 1
+       * Section 1.3 "3D Primitives Overview":
+       *    RECTLIST:
+       *    Either the CLIP unit should be DISABLED, or the CLIP unit's Clip
+       *    Mode should be set to a value other than CLIPMODE_NORMAL.
+       *
+       * Also disable perspective divide. This doesn't change the clipper's
+       * output, but does spare a few electrons.
+       */
+      BEGIN_BATCH(4);
+      OUT_BATCH(_3DSTATE_CLIP << 16 | (4 - 2));
+      OUT_BATCH(0);
+      OUT_BATCH(GEN6_CLIP_PERSPECTIVE_DIVIDE_DISABLE);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+      return;
+   }
+
    /* _NEW_BUFFERS */
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    bool render_to_fbo = _mesa_is_user_fbo(fb);
@@ -131,7 +154,8 @@ const struct brw_tracked_state gen7_clip_state = {
                 _NEW_TRANSFORM),
       .brw   = BRW_NEW_CONTEXT |
                BRW_NEW_META_IN_PROGRESS |
-               BRW_NEW_RASTERIZER_DISCARD,
+               BRW_NEW_RASTERIZER_DISCARD |
+               BRW_NEW_BLORP,
       .cache = CACHE_NEW_WM_PROG
    },
    .emit = upload_clip_state,

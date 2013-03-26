@@ -259,35 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_CLIP
- *
- * Disable the clipper.
- *
- * The BLORP op emits a rectangle primitive, which requires clipping to
- * be disabled. From page 10 of the Sandy Bridge PRM Volume 2 Part 1
- * Section 1.3 "3D Primitives Overview":
- *    RECTLIST:
- *    Either the CLIP unit should be DISABLED, or the CLIP unit's Clip
- *    Mode should be set to a value other than CLIPMODE_NORMAL.
- *
- * Also disable perspective divide. This doesn't change the clipper's
- * output, but does spare a few electrons.
- */
-void
-gen6_blorp_emit_clip_disable(struct brw_context *brw,
-                             const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(4);
-   OUT_BATCH(_3DSTATE_CLIP << 16 | (4 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(GEN6_CLIP_PERSPECTIVE_DIVIDE_DISABLE);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /* 3DSTATE_SF
  *
  * Disable ViewportTransformEnable (dw2.1)
@@ -700,7 +671,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_sampler_state.emit(brw);
    gen6_vs_state.emit(brw);
    gen6_gs_state.emit(brw);
-   gen6_blorp_emit_clip_disable(brw, params);
+   gen6_clip_state.emit(brw);
    gen6_blorp_emit_sf_config(brw, params);
    if (params->get_wm_prog)
       gen6_blorp_emit_constant_ps(brw, params, brw->wm.push_const_offset);
