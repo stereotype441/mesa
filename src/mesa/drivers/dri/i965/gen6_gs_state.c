@@ -34,6 +34,13 @@ static void
 upload_gs_state(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
+   bool active;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params)
+      active = false;
+   else
+      active = brw->gs.prog_active;
 
    /* Disable all the constant buffers. */
    BEGIN_BATCH(5);
@@ -44,7 +51,7 @@ upload_gs_state(struct brw_context *brw)
    OUT_BATCH(0);
    ADVANCE_BATCH();
 
-   if (brw->gs.prog_active) {
+   if (active) {
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
       OUT_BATCH(brw->gs.prog_offset);
@@ -83,7 +90,7 @@ upload_gs_state(struct brw_context *brw)
 const struct brw_tracked_state gen6_gs_state = {
    .dirty = {
       .mesa  = _NEW_TRANSFORM,
-      .brw   = BRW_NEW_CONTEXT,
+      .brw   = BRW_NEW_CONTEXT | BRW_NEW_BLORP,
       .cache = CACHE_NEW_GS_PROG
    },
    .emit = upload_gs_state,
