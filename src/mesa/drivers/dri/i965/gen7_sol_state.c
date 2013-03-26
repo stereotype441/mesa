@@ -225,6 +225,13 @@ upload_sol_state(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      upload_3dstate_streamout(brw, false, NULL);
+      return;
+   }
+
    /* BRW_NEW_TRANSFORM_FEEDBACK */
    bool active = _mesa_is_xfb_active_and_unpaused(ctx);
 
@@ -248,7 +255,8 @@ const struct brw_tracked_state gen7_sol_state = {
       .brw   = (BRW_NEW_BATCH |
 		BRW_NEW_VERTEX_PROGRAM |
                 BRW_NEW_VUE_MAP_GEOM_OUT |
-                BRW_NEW_TRANSFORM_FEEDBACK)
+                BRW_NEW_TRANSFORM_FEEDBACK |
+                BRW_NEW_BLORP)
    },
    .emit = upload_sol_state,
 };
