@@ -259,43 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_SF
- *
- * Disable ViewportTransformEnable (dw2.1)
- *
- * From the SandyBridge PRM, Volume 2, Part 1, Section 1.3, "3D
- * Primitives Overview":
- *     RECTLIST: Viewport Mapping must be DISABLED (as is typical with the
- *     use of screen- space coordinates).
- *
- * A solid rectangle must be rendered, so set FrontFaceFillMode (dw2.4:3)
- * and BackFaceFillMode (dw2.5:6) to SOLID(0).
- *
- * From the Sandy Bridge PRM, Volume 2, Part 1, Section
- * 6.4.1.1 3DSTATE_SF, Field FrontFaceFillMode:
- *     SOLID: Any triangle or rectangle object found to be front-facing
- *     is rendered as a solid object. This setting is required when
- *     (rendering rectangle (RECTLIST) objects.
- */
-static void
-gen6_blorp_emit_sf_config(struct brw_context *brw,
-                          const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(20);
-   OUT_BATCH(_3DSTATE_SF << 16 | (20 - 2));
-   OUT_BATCH((1 - 1) << GEN6_SF_NUM_OUTPUTS_SHIFT | /* only position */
-             1 << GEN6_SF_URB_ENTRY_READ_LENGTH_SHIFT |
-             0 << GEN6_SF_URB_ENTRY_READ_OFFSET_SHIFT);
-   OUT_BATCH(0); /* dw2 */
-   OUT_BATCH(params->num_samples > 1 ? GEN6_SF_MSRAST_ON_PATTERN : 0);
-   for (int i = 0; i < 16; ++i)
-      OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /**
  * Enable or disable thread dispatch and set the HiZ op appropriately.
  */
@@ -672,7 +635,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_vs_state.emit(brw);
    gen6_gs_state.emit(brw);
    gen6_clip_state.emit(brw);
-   gen6_blorp_emit_sf_config(brw, params);
+   gen6_sf_state.emit(brw);
    if (params->get_wm_prog)
       gen6_blorp_emit_constant_ps(brw, params, brw->wm.push_const_offset);
    else
