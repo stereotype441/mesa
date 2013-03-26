@@ -47,8 +47,8 @@ brw_upload_cc_vp(struct brw_context *brw)
    ccv = brw_state_batch(brw, AUB_TRACE_CC_VP_STATE,
 			 sizeof(*ccv), 32, &brw->cc.vp_offset);
 
-   /* _NEW_TRANSFORM */
-   if (ctx->Transform.DepthClamp) {
+   /* BRW_NEW_BLORP, _NEW_TRANSFORM */
+   if (!brw->blorp.params && ctx->Transform.DepthClamp) {
       /* _NEW_VIEWPORT */
       ccv->min_depth = MIN2(ctx->Viewport.Near, ctx->Viewport.Far);
       ccv->max_depth = MAX2(ctx->Viewport.Near, ctx->Viewport.Far);
@@ -63,7 +63,7 @@ brw_upload_cc_vp(struct brw_context *brw)
 const struct brw_tracked_state brw_cc_vp = {
    .dirty = {
       .mesa = _NEW_VIEWPORT | _NEW_TRANSFORM,
-      .brw = BRW_NEW_BATCH,
+      .brw = BRW_NEW_BATCH | BRW_NEW_BLORP,
       .cache = 0
    },
    .emit = brw_upload_cc_vp
