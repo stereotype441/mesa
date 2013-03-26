@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -185,6 +186,52 @@ gen7_update_sampler_state(struct brw_context *brw, int unit, int ss_index,
 
 
 static void
+gen7_update_blorp_sampler_state(struct brw_context *brw,
+                                struct gen7_sampler_state *sampler)
+{
+   memset(sampler, 0, sizeof(*sampler));
+
+   sampler->ss0.min_filter = BRW_MAPFILTER_LINEAR;
+   sampler->ss0.mip_filter = BRW_MIPFILTER_NONE;
+   sampler->ss0.mag_filter = BRW_MAPFILTER_LINEAR;
+
+   sampler->ss3.r_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+   sampler->ss3.s_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+   sampler->ss3.t_wrap_mode = BRW_TEXCOORDMODE_CLAMP;
+
+   //   sampler->ss0.min_mag_neq = 1;
+
+   /* Set LOD bias: 
+    */
+   sampler->ss0.lod_bias = 0;
+
+   sampler->ss0.lod_preclamp = 1; /* OpenGL mode */
+   sampler->ss0.default_color_mode = 0; /* OpenGL/DX10 mode */
+
+   /* Set BaseMipLevel, MaxLOD, MinLOD: 
+    *
+    * XXX: I don't think that using firstLevel, lastLevel works,
+    * because we always setup the surface state as if firstLevel ==
+    * level zero.  Probably have to subtract firstLevel from each of
+    * these:
+    */
+   sampler->ss0.base_level = U_FIXED(0, 1);
+
+   sampler->ss1.max_lod = U_FIXED(0, 8);
+   sampler->ss1.min_lod = U_FIXED(0, 8);
+
+   sampler->ss3.non_normalized_coord = 1;
+
+   sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MIN |
+      BRW_ADDRESS_ROUNDING_ENABLE_V_MIN |
+      BRW_ADDRESS_ROUNDING_ENABLE_R_MIN;
+   sampler->ss3.address_round |= BRW_ADDRESS_ROUNDING_ENABLE_U_MAG |
+      BRW_ADDRESS_ROUNDING_ENABLE_V_MAG |
+      BRW_ADDRESS_ROUNDING_ENABLE_R_MAG;
+}
+
+
+static void
 gen7_upload_samplers(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->intel.ctx;
@@ -194,7 +241,13 @@ gen7_upload_samplers(struct brw_context *brw)
    struct gl_program *vs = (struct gl_program *) brw->vertex_program;
    struct gl_program *fs = (struct gl_program *) brw->fragment_program;
 
-   GLbitfield SamplersUsed = vs->SamplersUsed | fs->SamplersUsed;
+   GLbitfield SamplersUsed;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params)
+      SamplersUsed = brw->blorp.params->get_wm_prog ? 1 : 0;
+   else
+      SamplersUsed = vs->SamplersUsed | fs->SamplersUsed;
 
    brw->sampler.count = _mesa_fls(SamplersUsed);
 
@@ -208,10 +261,14 @@ gen7_upload_samplers(struct brw_context *brw)
 
    for (unsigned s = 0; s < brw->sampler.count; s++) {
       if (SamplersUsed & (1 << s)) {
-         const unsigned unit = (fs->SamplersUsed & (1 << s)) ?
-            fs->SamplerUnits[s] : vs->SamplerUnits[s];
-         if (ctx->Texture.Unit[unit]._ReallyEnabled)
-            gen7_update_sampler_state(brw, unit, s, &samplers[s]);
+         if (brw->blorp.params) {
+            gen7_update_blorp_sampler_state(brw, &samplers[s]);
+         } else {
+            const unsigned unit = (fs->SamplersUsed & (1 << s)) ?
+               fs->SamplerUnits[s] : vs->SamplerUnits[s];
+            if (ctx->Texture.Unit[unit]._ReallyEnabled)
+               gen7_update_sampler_state(brw, unit, s, &samplers[s]);
+         }
       }
    }
 
@@ -223,7 +280,8 @@ const struct brw_tracked_state gen7_samplers = {
       .mesa = _NEW_TEXTURE,
       .brw = BRW_NEW_BATCH |
              BRW_NEW_VERTEX_PROGRAM |
-             BRW_NEW_FRAGMENT_PROGRAM,
+             BRW_NEW_FRAGMENT_PROGRAM |
+             BRW_NEW_BLORP,
       .cache = 0
    },
    .emit = gen7_upload_samplers,
