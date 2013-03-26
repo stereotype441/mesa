@@ -259,29 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* BINDING_TABLE.  See brw_wm_binding_table(). */
-uint32_t
-gen6_blorp_emit_binding_table(struct brw_context *brw,
-                              const brw_blorp_params *params,
-                              uint32_t wm_surf_offset_renderbuffer,
-                              uint32_t wm_surf_offset_texture)
-{
-   uint32_t wm_bind_bo_offset;
-   unsigned size = sizeof(uint32_t) * BRW_BLORP_NUM_BINDING_TABLE_ENTRIES;
-   uint32_t *bind = (uint32_t *)
-      brw_state_batch(brw, AUB_TRACE_BINDING_TABLE,
-                      size,
-                      32, /* alignment */
-                      &wm_bind_bo_offset);
-   memset(bind, 0, size);
-   bind[BRW_BLORP_RENDERBUFFER_BINDING_TABLE_INDEX] =
-      wm_surf_offset_renderbuffer;
-   bind[BRW_BLORP_TEXTURE_BINDING_TABLE_INDEX] = wm_surf_offset_texture;
-
-   return wm_bind_bo_offset;
-}
-
-
 /**
  * SAMPLER_STATE.  See brw_update_sampler_state().
  */
@@ -857,7 +834,6 @@ gen6_blorp_exec(struct intel_context *intel,
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
-   uint32_t wm_bind_bo_offset = 0;
 
    brw_wm_prog.emit(brw);
    gen6_blorp_emit_batch_head(brw, params);
@@ -872,12 +848,9 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_wm_push_constants.emit(brw);
    gen6_renderbuffer_surfaces.emit(brw);
    brw_texture_surfaces.emit(brw);
+   brw_wm_binding_table.emit(brw);
    if (params->get_wm_prog) {
       uint32_t sampler_offset;
-      wm_bind_bo_offset =
-         gen6_blorp_emit_binding_table(
-               brw, params, brw->wm.surf_offset[0],
-               brw->wm.surf_offset[SURF_INDEX_TEXTURE(0)]);
       sampler_offset = gen6_blorp_emit_sampler_state(brw, params);
       gen6_blorp_emit_sampler_state_pointers(brw, params, sampler_offset);
    }
@@ -891,8 +864,10 @@ gen6_blorp_exec(struct intel_context *intel,
       gen6_blorp_emit_constant_ps_disable(brw, params);
    gen6_blorp_emit_wm_config(brw, params, brw->blorp.prog_offset,
                              brw->blorp.prog_data);
-   if (params->get_wm_prog)
-      gen6_blorp_emit_binding_table_pointers(brw, params, wm_bind_bo_offset);
+   if (params->get_wm_prog) {
+      gen6_blorp_emit_binding_table_pointers(brw, params,
+                                             brw->wm.bind_bo_offset);
+   }
    gen6_blorp_emit_viewport_state(brw, params);
 
    if (params->depth.mt)

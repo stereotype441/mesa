@@ -1608,7 +1608,8 @@ brw_upload_wm_binding_table(struct brw_context *brw)
    uint32_t *bind;
    int i;
 
-   if (INTEL_DEBUG & DEBUG_SHADER_TIME) {
+   /* BRW_NEW_BLORP */
+   if ((INTEL_DEBUG & DEBUG_SHADER_TIME) && !brw->blorp.params) {
       gen7_create_shader_time_surface(brw, &brw->wm.surf_offset[SURF_INDEX_WM_SHADER_TIME]);
    }
 
@@ -1631,7 +1632,8 @@ const struct brw_tracked_state brw_wm_binding_table = {
    .dirty = {
       .mesa = 0,
       .brw = (BRW_NEW_BATCH |
-	      BRW_NEW_SURFACES),
+	      BRW_NEW_SURFACES |
+              BRW_NEW_BLORP),
       .cache = 0
    },
    .emit = brw_upload_wm_binding_table,
