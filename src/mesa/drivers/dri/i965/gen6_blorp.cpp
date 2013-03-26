@@ -259,27 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/**
- * 3DSTATE_BINDING_TABLE_POINTERS
- */
-static void
-gen6_blorp_emit_binding_table_pointers(struct brw_context *brw,
-                                       const brw_blorp_params *params,
-                                       uint32_t wm_bind_bo_offset)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(4);
-   OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS << 16 |
-             GEN6_BINDING_TABLE_MODIFY_PS |
-             (4 - 2));
-   OUT_BATCH(0); /* vs -- ignored */
-   OUT_BATCH(0); /* gs -- ignored */
-   OUT_BATCH(wm_bind_bo_offset); /* wm/ps */
-   ADVANCE_BATCH();
-}
-
-
 static void
 gen6_blorp_emit_depth_stencil_config(struct brw_context *brw,
                                      const brw_blorp_params *params)
@@ -518,10 +497,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_clip_state.emit(brw);
    gen6_sf_state.emit(brw);
    gen6_wm_state.emit(brw);
-   if (params->get_wm_prog) {
-      gen6_blorp_emit_binding_table_pointers(brw, params,
-                                             brw->wm.bind_bo_offset);
-   }
+   gen6_binding_table_pointers.emit(brw);
    gen6_blorp_emit_viewport_state(brw, params);
 
    if (params->depth.mt)
