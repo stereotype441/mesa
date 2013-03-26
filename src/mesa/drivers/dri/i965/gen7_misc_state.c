@@ -31,7 +31,7 @@
 
 static void
 do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         uint32_t depthbuffer_format,
          struct intel_mipmap_tree *stencil_mt,
          uint32_t depth_surface_type, uint32_t depth_offset,
          uint32_t width, uint32_t height,
@@ -52,7 +52,6 @@ static void emit_depthbuffer(struct brw_context *brw)
    struct intel_mipmap_tree *hiz_mt = brw->depthstencil.hiz_mt;
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
-   bool enable_hiz_ss = false;
    uint32_t depth_surface_type = BRW_SURFACE_NULL;
    uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
    uint32_t depth_offset = 0;
@@ -70,7 +69,6 @@ static void emit_depthbuffer(struct brw_context *brw)
       assert(region->tiling == I915_TILING_Y);
 
       depthbuffer_format = brw_depthbuffer_format(brw);
-      enable_hiz_ss = hiz_mt;
       depth_surface_type = BRW_SURFACE_2D;
       depth_offset = brw->depthstencil.depth_offset;
       width = drb->Base.Base.Width;
@@ -82,14 +80,14 @@ static void emit_depthbuffer(struct brw_context *brw)
       height = srb->Base.Base.Height;
    }
 
-   do_stuff(brw, depth_mt, depthbuffer_format, enable_hiz_ss, stencil_mt,
+   do_stuff(brw, depth_mt, depthbuffer_format, stencil_mt,
             depth_surface_type, depth_offset, width, height, tile_x, tile_y,
             hiz_mt, true /* separate_stencil */);
 }
 
 static void
 do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         uint32_t depthbuffer_format,
          struct intel_mipmap_tree *stencil_mt, uint32_t depth_surface_type,
          uint32_t depth_offset, uint32_t width, uint32_t height,
          uint32_t tile_x, uint32_t tile_y, struct intel_mipmap_tree *hiz_mt,
@@ -103,7 +101,7 @@ do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
    OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
    OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
              (depthbuffer_format << 18) |
-             ((enable_hiz_ss ? 1 : 0) << 22) |
+             ((hiz_mt ? 1 : 0) << 22) |
              ((stencil_mt != NULL && ctx->Stencil.WriteMask != 0) << 27) |
              ((ctx->Depth.Mask != 0) << 28) |
              (depth_surface_type << 29));

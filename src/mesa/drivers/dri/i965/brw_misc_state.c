@@ -563,7 +563,7 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
 
 static void
 do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         uint32_t depthbuffer_format,
          struct intel_mipmap_tree *stencil_mt,
          uint32_t depth_surface_type, uint32_t depth_offset,
          uint32_t width, uint32_t height,
@@ -584,7 +584,6 @@ static void emit_depthbuffer(struct brw_context *brw)
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
    bool separate_stencil = false;
-   bool enable_hiz_ss = false;
    uint32_t depth_surface_type = BRW_SURFACE_NULL;
    uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
    uint32_t depth_offset = 0;
@@ -610,7 +609,6 @@ static void emit_depthbuffer(struct brw_context *brw)
       assert(intel->gen < 6 || region->tiling == I915_TILING_Y);
       assert(!hiz_mt || region->tiling == I915_TILING_Y);
 
-      enable_hiz_ss = hiz_mt;
       depthbuffer_format = brw_depthbuffer_format(brw);
       depth_surface_type = BRW_SURFACE_2D;
       depth_offset = brw->depthstencil.depth_offset;
@@ -624,41 +622,43 @@ static void emit_depthbuffer(struct brw_context *brw)
        * 3DSTATE_DEPTH_BUFFER: namely the tile walk, surface type, width, and
        * height.
        *
-       * Enable the hiz bit because it and the separate stencil bit must have
-       * the same value. From Section 2.11.5.6.1.1 3DSTATE_DEPTH_BUFFER, Bit
-       * 1.21 "Separate Stencil Enable":
-       *     [DevIL]: If this field is enabled, Hierarchical Depth Buffer
-       *     Enable must also be enabled.
-       *
-       *     [DevGT]: This field must be set to the same value (enabled or
-       *     disabled) as Hierarchical Depth Buffer Enable
-       *
        * The tiled bit must be set. From the Sandybridge PRM, Volume 2, Part 1,
        * Section 7.5.5.1.1 3DSTATE_DEPTH_BUFFER, Bit 1.27 Tiled Surface:
        *     [DevGT+]: This field must be set to TRUE.
        */
       assert(intel->has_separate_stencil);
 
-      enable_hiz_ss = true;
       depth_surface_type = BRW_SURFACE_2D;
       width = stencil_irb->Base.Base.Width;
       height = stencil_irb->Base.Base.Height;
    }
 
-   do_stuff(brw, depth_mt, depthbuffer_format, enable_hiz_ss, stencil_mt,
+   do_stuff(brw, depth_mt, depthbuffer_format, stencil_mt,
             depth_surface_type, depth_offset, width, height, tile_x, tile_y,
             hiz_mt, separate_stencil);
 }
 
 static void
 do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         uint32_t depthbuffer_format,
          struct intel_mipmap_tree *stencil_mt, uint32_t depth_surface_type,
          uint32_t depth_offset, uint32_t width, uint32_t height,
          uint32_t tile_x, uint32_t tile_y, struct intel_mipmap_tree *hiz_mt,
          bool separate_stencil)
 {
    struct intel_context *intel = &brw->intel;
+
+   /* Enable the hiz bit if we're doing separate stencil, because it and the
+    * separate stencil bit must have the same value. From Section 2.11.5.6.1.1
+    * 3DSTATE_DEPTH_BUFFER, Bit 1.21 "Separate Stencil Enable":
+    *     [DevIL]: If this field is enabled, Hierarchical Depth Buffer
+    *     Enable must also be enabled.
+    *
+    *     [DevGT]: This field must be set to the same value (enabled or
+    *     disabled) as Hierarchical Depth Buffer Enable
+    */
+   bool enable_hiz_ss = hiz_mt || separate_stencil;
+
 
    /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
     * non-pipelined state that will need the PIPE_CONTROL workaround.
