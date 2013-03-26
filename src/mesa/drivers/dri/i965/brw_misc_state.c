@@ -561,6 +561,15 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
    }
 }
 
+static void
+do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
+         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         struct intel_mipmap_tree *stencil_mt,
+         uint32_t depth_surface_type, uint32_t depth_offset,
+         uint32_t width, uint32_t height,
+         uint32_t tile_x, uint32_t tile_y,
+         struct intel_mipmap_tree *hiz_mt, bool separate_stencil);
+
 static void emit_depthbuffer(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
@@ -574,7 +583,6 @@ static void emit_depthbuffer(struct brw_context *brw)
    struct intel_mipmap_tree *hiz_mt = brw->depthstencil.hiz_mt;
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
-   unsigned int len;
    bool separate_stencil = false;
    bool enable_hiz_ss = false;
    uint32_t depth_surface_type = BRW_SURFACE_NULL;
@@ -637,6 +645,21 @@ static void emit_depthbuffer(struct brw_context *brw)
       height = stencil_irb->Base.Base.Height;
    }
 
+   do_stuff(brw, depth_mt, depthbuffer_format, enable_hiz_ss, stencil_mt,
+            depth_surface_type, depth_offset, width, height, tile_x, tile_y,
+            hiz_mt, separate_stencil);
+}
+
+static void
+do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
+         uint32_t depthbuffer_format, bool enable_hiz_ss,
+         struct intel_mipmap_tree *stencil_mt, uint32_t depth_surface_type,
+         uint32_t depth_offset, uint32_t width, uint32_t height,
+         uint32_t tile_x, uint32_t tile_y, struct intel_mipmap_tree *hiz_mt,
+         bool separate_stencil)
+{
+   struct intel_context *intel = &brw->intel;
+
    /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
     * non-pipelined state that will need the PIPE_CONTROL workaround.
     */
@@ -645,6 +668,7 @@ static void emit_depthbuffer(struct brw_context *brw)
       intel_emit_depth_stall_flushes(intel);
    }
 
+   unsigned int len;
    if (intel->gen >= 6)
       len = 7;
    else if (intel->is_g4x || intel->gen == 5)
@@ -752,7 +776,7 @@ static void emit_depthbuffer(struct brw_context *brw)
       OUT_BATCH(_3DSTATE_CLEAR_PARAMS << 16 |
 		GEN5_DEPTH_CLEAR_VALID |
 		(2 - 2));
-      OUT_BATCH(depth_irb ? depth_irb->mt->depth_clear_value : 0);
+      OUT_BATCH(depth_mt ? depth_mt->depth_clear_value : 0);
       ADVANCE_BATCH();
    }
 }
