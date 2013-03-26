@@ -160,6 +160,10 @@ upload_ps_state(struct brw_context *brw)
    const int max_threads_shift = brw->intel.is_haswell ?
       HSW_PS_MAX_THREADS_SHIFT : IVB_PS_MAX_THREADS_SHIFT;
 
+   unsigned num_push_const_regs;
+   uint32_t prog_offset, prog_offset_2;
+   bool scratch_needed;
+
    /* BRW_NEW_PS_BINDING_TABLE */
    BEGIN_BATCH(2);
    OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS_PS << 16 | (2 - 2));
@@ -172,8 +176,22 @@ upload_ps_state(struct brw_context *brw)
    OUT_BATCH(brw->sampler.offset);
    ADVANCE_BATCH();
 
-   /* CACHE_NEW_WM_PROG */
-   if (brw->wm.prog_data->nr_params == 0) {
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      /* Make sure the push constants fill an exact integer number of
+       * registers.
+       */
+      assert(sizeof(struct brw_blorp_wm_push_constants) % 32 == 0);
+
+      num_push_const_regs = brw->blorp.params->get_wm_prog ?
+         BRW_BLORP_NUM_PUSH_CONST_REGS : 0;
+   } else {
+      /* CACHE_NEW_WM_PROG */
+      num_push_const_regs = ALIGN(brw->wm.prog_data->nr_params,
+                                  brw->wm.prog_data->dispatch_width) / 8;
+   }
+
+   if (num_push_const_regs == 0) {
       /* Disable the push constant buffers. */
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 | (7 - 2));
@@ -188,8 +206,7 @@ upload_ps_state(struct brw_context *brw)
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 | (7 - 2));
 
-      OUT_BATCH(ALIGN(brw->wm.prog_data->nr_params,
-		      brw->wm.prog_data->dispatch_width) / 8);
+      OUT_BATCH(num_push_const_regs);
       OUT_BATCH(0);
       /* Pointer to the WM constant buffer.  Covered by the set of
        * state flags from gen6_upload_wm_push_constants.
@@ -203,55 +220,81 @@ upload_ps_state(struct brw_context *brw)
 
    dw2 = dw4 = dw5 = 0;
 
-   /* CACHE_NEW_SAMPLER */
-   dw2 |= (ALIGN(brw->sampler.count, 4) / 4) << GEN7_PS_SAMPLER_COUNT_SHIFT;
-
-   /* Use ALT floating point mode for ARB fragment programs, because they
-    * require 0^0 == 1.  Even though _CurrentFragmentProgram is used for
-    * rendering, CurrentFragmentProgram is used for this check to
-    * differentiate between the GLSL and non-GLSL cases.
-    */
-   if (intel->ctx.Shader.CurrentFragmentProgram == NULL)
-      dw2 |= GEN7_PS_FLOATING_POINT_MODE_ALT;
+   dw4 |= (brw->max_wm_threads - 1) << max_threads_shift;
 
    if (intel->is_haswell)
       dw4 |= SET_FIELD(1, HSW_PS_SAMPLE_MASK); /* 1 sample for now */
 
-   dw4 |= (brw->max_wm_threads - 1) << max_threads_shift;
-
-   /* CACHE_NEW_WM_PROG */
-   if (brw->wm.prog_data->nr_params > 0)
-      dw4 |= GEN7_PS_PUSH_CONSTANT_ENABLE;
-
-   /* CACHE_NEW_WM_PROG | _NEW_COLOR
-    *
-    * The hardware wedges if you have this bit set but don't turn on any dual
-    * source blend factors.
-    */
-   if (brw->wm.prog_data->dual_src_blend &&
-       (ctx->Color.BlendEnabled & 1) &&
-       ctx->Color.Blend[0]._UsesDualSrc) {
-      dw4 |= GEN7_PS_DUAL_SOURCE_BLEND_ENABLE;
-   }
-
-   /* BRW_NEW_FRAGMENT_PROGRAM */
-   if (brw->fragment_program->Base.InputsRead != 0)
-      dw4 |= GEN7_PS_ATTRIBUTE_ENABLE;
-
-   dw4 |= GEN7_PS_8_DISPATCH_ENABLE;
-   if (brw->wm.prog_data->prog_offset_16)
+   if (brw->blorp.params) {
+      /* If there's a WM program, we need to do 16-pixel dispatch since that's
+       * what the program is compiled for.  If there isn't, then it shouldn't
+       * matter because no program is actually being run.  However, the
+       * hardware gets angry if we don't enable at least one dispatch mode, so
+       * just enable 16-pixel dispatch unconditionally.
+       */
       dw4 |= GEN7_PS_16_DISPATCH_ENABLE;
 
-   dw5 |= (brw->wm.prog_data->first_curbe_grf <<
-	   GEN7_PS_DISPATCH_START_GRF_SHIFT_0);
-   dw5 |= (brw->wm.prog_data->first_curbe_grf_16 <<
-	   GEN7_PS_DISPATCH_START_GRF_SHIFT_2);
+      if (brw->blorp.params->get_wm_prog) {
+         dw2 |= 1 << GEN7_PS_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
+         dw4 |= GEN7_PS_PUSH_CONSTANT_ENABLE;
+         dw5 |= brw->blorp.prog_data->first_curbe_grf <<
+            GEN7_PS_DISPATCH_START_GRF_SHIFT_0;
+      }
+
+      prog_offset = brw->blorp.params->get_wm_prog ?
+         brw->blorp.prog_offset : 0;
+      prog_offset_2 = 0;
+      scratch_needed = false;
+   } else {
+      /* CACHE_NEW_SAMPLER */
+      dw2 |= (ALIGN(brw->sampler.count, 4) / 4) << GEN7_PS_SAMPLER_COUNT_SHIFT;
+
+      /* Use ALT floating point mode for ARB fragment programs, because they
+       * require 0^0 == 1.  Even though _CurrentFragmentProgram is used for
+       * rendering, CurrentFragmentProgram is used for this check to
+       * differentiate between the GLSL and non-GLSL cases.
+       */
+      if (intel->ctx.Shader.CurrentFragmentProgram == NULL)
+         dw2 |= GEN7_PS_FLOATING_POINT_MODE_ALT;
+
+      /* CACHE_NEW_WM_PROG */
+      if (brw->wm.prog_data->nr_params > 0)
+         dw4 |= GEN7_PS_PUSH_CONSTANT_ENABLE;
+
+      /* CACHE_NEW_WM_PROG | _NEW_COLOR
+       *
+       * The hardware wedges if you have this bit set but don't turn on any
+       * dual source blend factors.
+       */
+      if (brw->wm.prog_data->dual_src_blend &&
+          (ctx->Color.BlendEnabled & 1) &&
+          ctx->Color.Blend[0]._UsesDualSrc) {
+         dw4 |= GEN7_PS_DUAL_SOURCE_BLEND_ENABLE;
+      }
+
+      /* BRW_NEW_FRAGMENT_PROGRAM */
+      if (brw->fragment_program->Base.InputsRead != 0)
+         dw4 |= GEN7_PS_ATTRIBUTE_ENABLE;
+
+      dw4 |= GEN7_PS_8_DISPATCH_ENABLE;
+      if (brw->wm.prog_data->prog_offset_16)
+         dw4 |= GEN7_PS_16_DISPATCH_ENABLE;
+
+      dw5 |= (brw->wm.prog_data->first_curbe_grf <<
+              GEN7_PS_DISPATCH_START_GRF_SHIFT_0);
+      dw5 |= (brw->wm.prog_data->first_curbe_grf_16 <<
+              GEN7_PS_DISPATCH_START_GRF_SHIFT_2);
+
+      prog_offset = brw->wm.prog_offset;
+      prog_offset_2 = brw->wm.prog_offset + brw->wm.prog_data->prog_offset_16;
+      scratch_needed = brw->wm.prog_data->total_scratch;
+   }
 
    BEGIN_BATCH(8);
    OUT_BATCH(_3DSTATE_PS << 16 | (8 - 2));
-   OUT_BATCH(brw->wm.prog_offset);
+   OUT_BATCH(prog_offset);
    OUT_BATCH(dw2);
-   if (brw->wm.prog_data->total_scratch) {
+   if (scratch_needed) {
       OUT_RELOC(brw->wm.scratch_bo,
 		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		ffs(brw->wm.prog_data->total_scratch) - 11);
@@ -261,7 +304,7 @@ upload_ps_state(struct brw_context *brw)
    OUT_BATCH(dw4);
    OUT_BATCH(dw5);
    OUT_BATCH(0); /* kernel 1 pointer */
-   OUT_BATCH(brw->wm.prog_offset + brw->wm.prog_data->prog_offset_16);
+   OUT_BATCH(prog_offset_2);
    ADVANCE_BATCH();
 }
 
