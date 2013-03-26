@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -33,6 +34,20 @@ static void
 upload_sbe_state(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      BEGIN_BATCH(14);
+      OUT_BATCH(_3DSTATE_SBE << 16 | (14 - 2));
+      OUT_BATCH((1 - 1) << GEN7_SBE_NUM_OUTPUTS_SHIFT | /* only position */
+                1 << GEN7_SBE_URB_ENTRY_READ_LENGTH_SHIFT |
+                0 << GEN7_SBE_URB_ENTRY_READ_OFFSET_SHIFT);
+      for (int i = 0; i < 12; ++i)
+         OUT_BATCH(0);
+      ADVANCE_BATCH();
+      return;
+   }
+
    struct gl_context *ctx = &intel->ctx;
    /* BRW_NEW_FRAGMENT_PROGRAM */
    uint32_t num_outputs = _mesa_bitcount_64(brw->fragment_program->Base.InputsRead);
@@ -150,7 +165,8 @@ const struct brw_tracked_state gen7_sbe_state = {
 		_NEW_PROGRAM),
       .brw   = (BRW_NEW_CONTEXT |
 		BRW_NEW_FRAGMENT_PROGRAM |
-                BRW_NEW_VUE_MAP_GEOM_OUT)
+                BRW_NEW_VUE_MAP_GEOM_OUT |
+                BRW_NEW_BLORP)
    },
    .emit = upload_sbe_state,
 };
@@ -159,6 +175,41 @@ static void
 upload_sf_state(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      /* 3DSTATE_SF
+       *
+       * Disable ViewportTransformEnable (dw1.1)
+       *
+       * From the SandyBridge PRM, Volume 2, Part 1, Section 1.3, "3D
+       * Primitives Overview":
+       *     RECTLIST: Viewport Mapping must be DISABLED (as is typical with
+       *     the use of screen- space coordinates).
+       *
+       * A solid rectangle must be rendered, so set FrontFaceFillMode
+       * (dw1.6:5) and BackFaceFillMode (dw1.4:3) to SOLID(0).
+       *
+       * From the Sandy Bridge PRM, Volume 2, Part 1, Section
+       * 6.4.1.1 3DSTATE_SF, Field FrontFaceFillMode:
+       *     SOLID: Any triangle or rectangle object found to be front-facing
+       *     is rendered as a solid object. This setting is required when
+       *     (rendering rectangle (RECTLIST) objects.
+       */
+      BEGIN_BATCH(7);
+      OUT_BATCH(_3DSTATE_SF << 16 | (7 - 2));
+      OUT_BATCH(brw->blorp.params->depth_format <<
+                GEN7_SF_DEPTH_BUFFER_SURFACE_FORMAT_SHIFT);
+      OUT_BATCH(brw->blorp.params->num_samples > 1 ?
+                GEN6_SF_MSRAST_ON_PATTERN : 0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+      return;
+   }
+
    struct gl_context *ctx = &intel->ctx;
    uint32_t dw1, dw2, dw3;
    float point_size;
@@ -311,7 +362,7 @@ const struct brw_tracked_state gen7_sf_state = {
 		_NEW_BUFFERS |
 		_NEW_POINT |
                 _NEW_MULTISAMPLE),
-      .brw   = BRW_NEW_CONTEXT,
+      .brw   = BRW_NEW_CONTEXT | BRW_NEW_BLORP,
       .cache = CACHE_NEW_VS_PROG
    },
    .emit = upload_sf_state,
