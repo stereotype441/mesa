@@ -29,64 +29,15 @@
 #include "brw_state.h"
 #include "brw_defines.h"
 
-static void
-do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depth_offset, uint32_t depthbuffer_format,
-         uint32_t depth_surface_type, struct intel_mipmap_tree *stencil_mt,
-         struct intel_mipmap_tree *hiz_mt, bool separate_stencil,
-         uint32_t width, uint32_t height, uint32_t tile_x, uint32_t tile_y);
-
-static void emit_depthbuffer(struct brw_context *brw)
-{
-   struct intel_context *intel = &brw->intel;
-   struct gl_context *ctx = &intel->ctx;
-   struct gl_framebuffer *fb = ctx->DrawBuffer;
-
-   /* _NEW_BUFFERS */
-   struct intel_renderbuffer *drb = intel_get_renderbuffer(fb, BUFFER_DEPTH);
-   struct intel_renderbuffer *srb = intel_get_renderbuffer(fb, BUFFER_STENCIL);
-   struct intel_mipmap_tree *depth_mt = brw->depthstencil.depth_mt;
-   struct intel_mipmap_tree *stencil_mt = brw->depthstencil.stencil_mt;
-   struct intel_mipmap_tree *hiz_mt = brw->depthstencil.hiz_mt;
-   uint32_t tile_x = brw->depthstencil.tile_x;
-   uint32_t tile_y = brw->depthstencil.tile_y;
-   uint32_t depth_surface_type = BRW_SURFACE_NULL;
-   uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
-   uint32_t depth_offset = 0;
-   uint32_t width = 1, height = 1;
-
-   /* Gen7 only supports separate stencil */
-   assert(!stencil_mt || stencil_mt->format == MESA_FORMAT_S8);
-   assert(!depth_mt || !_mesa_is_format_packed_depth_stencil(depth_mt->format));
-
-   if (depth_mt) {
-      struct intel_region *region = depth_mt->region;
-
-      assert(region->tiling == I915_TILING_Y);
-
-      depthbuffer_format = brw_depthbuffer_format(brw);
-      depth_surface_type = BRW_SURFACE_2D;
-      depth_offset = brw->depthstencil.depth_offset;
-      width = drb->Base.Base.Width;
-      height = drb->Base.Base.Height;
-   } else if (stencil_mt) {
-      /* 3DSTATE_STENCIL_BUFFER inherits surface type and dimensions. */
-      depth_surface_type = BRW_SURFACE_2D;
-      width = srb->Base.Base.Width;
-      height = srb->Base.Base.Height;
-   }
-
-   do_stuff(brw, depth_mt, depth_offset, depthbuffer_format,
-            depth_surface_type, stencil_mt, hiz_mt,
-            true /* separate_stencil */, width, height, tile_x, tile_y);
-}
-
-static void
-do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depth_offset, uint32_t depthbuffer_format,
-         uint32_t depth_surface_type, struct intel_mipmap_tree *stencil_mt,
-         struct intel_mipmap_tree *hiz_mt, bool separate_stencil,
-         uint32_t width, uint32_t height, uint32_t tile_x, uint32_t tile_y)
+void
+gen7_emit_depth_stencil_hiz(struct brw_context *brw,
+                            struct intel_mipmap_tree *depth_mt,
+                            uint32_t depth_offset, uint32_t depthbuffer_format,
+                            uint32_t depth_surface_type,
+                            struct intel_mipmap_tree *stencil_mt,
+                            struct intel_mipmap_tree *hiz_mt,
+                            bool separate_stencil, uint32_t width,
+                            uint32_t height, uint32_t tile_x, uint32_t tile_y)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
@@ -184,5 +135,5 @@ const struct brw_tracked_state gen7_depthbuffer = {
       .brw = BRW_NEW_BATCH,
       .cache = 0,
    },
-   .emit = emit_depthbuffer,
+   .emit = brw_emit_depthbuffer,
 };

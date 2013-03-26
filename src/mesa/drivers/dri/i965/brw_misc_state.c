@@ -561,14 +561,8 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
    }
 }
 
-static void
-do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depth_offset, uint32_t depthbuffer_format,
-         uint32_t depth_surface_type, struct intel_mipmap_tree *stencil_mt,
-         struct intel_mipmap_tree *hiz_mt, bool separate_stencil,
-         uint32_t width, uint32_t height, uint32_t tile_x, uint32_t tile_y);
-
-static void emit_depthbuffer(struct brw_context *brw)
+void
+brw_emit_depthbuffer(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
@@ -639,17 +633,21 @@ static void emit_depthbuffer(struct brw_context *brw)
       height = stencil_irb->Base.Base.Height;
    }
 
-   do_stuff(brw, depth_mt, depth_offset, depthbuffer_format,
-            depth_surface_type, stencil_mt, hiz_mt, separate_stencil, width,
-            height, tile_x, tile_y);
+   intel->vtbl.emit_depth_stencil_hiz(brw, depth_mt, depth_offset,
+                                      depthbuffer_format, depth_surface_type,
+                                      stencil_mt, hiz_mt, separate_stencil,
+                                      width, height, tile_x, tile_y);
 }
 
-static void
-do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
-         uint32_t depth_offset, uint32_t depthbuffer_format,
-         uint32_t depth_surface_type, struct intel_mipmap_tree *stencil_mt,
-         struct intel_mipmap_tree *hiz_mt, bool separate_stencil,
-         uint32_t width, uint32_t height, uint32_t tile_x, uint32_t tile_y)
+void
+brw_emit_depth_stencil_hiz(struct brw_context *brw,
+                           struct intel_mipmap_tree *depth_mt,
+                           uint32_t depth_offset, uint32_t depthbuffer_format,
+                           uint32_t depth_surface_type,
+                           struct intel_mipmap_tree *stencil_mt,
+                           struct intel_mipmap_tree *hiz_mt,
+                           bool separate_stencil, uint32_t width,
+                           uint32_t height, uint32_t tile_x, uint32_t tile_y)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -792,7 +790,7 @@ const struct brw_tracked_state brw_depthbuffer = {
       .brw = BRW_NEW_BATCH,
       .cache = 0,
    },
-   .emit = emit_depthbuffer,
+   .emit = brw_emit_depthbuffer,
 };
 
 
