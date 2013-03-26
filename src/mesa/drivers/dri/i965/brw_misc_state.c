@@ -587,8 +587,16 @@ static void emit_depthbuffer(struct brw_context *brw)
    uint32_t depth_offset = 0;
    uint32_t width = 1, height = 1;
 
-   if (stencil_mt && stencil_mt->format == MESA_FORMAT_S8)
-      separate_stencil = true;
+   if (stencil_mt) {
+      separate_stencil = stencil_mt->format == MESA_FORMAT_S8;
+
+      /* Gen7 only supports separate stencil */
+      assert(separate_stencil || intel->gen < 7);
+   }
+
+   /* Gen7 only supports separate stencil */
+   assert(intel->gen < 6 || !depth_mt ||
+          !_mesa_is_format_packed_depth_stencil(depth_mt->format));
 
    /* If there's a packed depth/stencil bound to stencil only, we need to
     * emit the packed depth/stencil buffer packet.
@@ -601,8 +609,8 @@ static void emit_depthbuffer(struct brw_context *brw)
    if (depth_irb) {
       struct intel_region *region = depth_mt->region;
 
-      /* If using separate stencil, hiz must be enabled. */
-      assert(!separate_stencil || hiz_mt);
+      /* Prior to Gen7, if using separate stencil, hiz must be enabled. */
+      assert(intel->gen >= 7 || !separate_stencil || hiz_mt);
 
       assert(intel->gen < 6 || region->tiling == I915_TILING_Y);
       assert(!hiz_mt || region->tiling == I915_TILING_Y);
