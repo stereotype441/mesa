@@ -575,12 +575,12 @@ static void emit_depthbuffer(struct brw_context *brw)
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
    unsigned int len;
-   uint32_t depth_surface_type = BRW_SURFACE_NULL << 29;
    bool separate_stencil = false;
    bool enable_hiz_ss = false;
+   uint32_t depth_surface_type = BRW_SURFACE_NULL;
    uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
    uint32_t depth_offset = 0;
-   uint32_t width = 0, height = 0;
+   uint32_t width = 1, height = 1;
 
    if (stencil_mt && stencil_mt->format == MESA_FORMAT_S8)
       separate_stencil = true;
@@ -604,7 +604,7 @@ static void emit_depthbuffer(struct brw_context *brw)
 
       enable_hiz_ss = hiz_mt;
       depthbuffer_format = brw_depthbuffer_format(brw);
-      depth_surface_type = BRW_SURFACE_2D << 29;
+      depth_surface_type = BRW_SURFACE_2D;
       depth_offset = brw->depthstencil.depth_offset;
       width = depth_irb->Base.Base.Width;
       height = depth_irb->Base.Base.Height;
@@ -632,7 +632,7 @@ static void emit_depthbuffer(struct brw_context *brw)
       assert(intel->has_separate_stencil);
 
       enable_hiz_ss = true;
-      depth_surface_type = BRW_SURFACE_2D << 29;
+      depth_surface_type = BRW_SURFACE_2D;
       width = stencil_irb->Base.Base.Width;
       height = stencil_irb->Base.Base.Height;
    }
@@ -661,7 +661,7 @@ static void emit_depthbuffer(struct brw_context *brw)
              (BRW_TILEWALK_YMAJOR << 26) |
              ((depth_mt ? depth_mt->region->tiling != I915_TILING_NONE : 1)
               << 27) |
-             depth_surface_type);
+             (depth_surface_type << 29));
 
    if (depth_mt) {
       OUT_RELOC(depth_mt->region->bo,

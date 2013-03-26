@@ -43,6 +43,11 @@ static void emit_depthbuffer(struct brw_context *brw)
    struct intel_mipmap_tree *hiz_mt = brw->depthstencil.hiz_mt;
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
+   bool enable_hiz = false;
+   uint32_t depth_surface_type = BRW_SURFACE_NULL;
+   uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
+   uint32_t depth_offset = 0;
+   uint32_t width = 1, height = 1;
 
    /* Gen7 only supports separate stencil */
    assert(!stencil_mt || stencil_mt->format == MESA_FORMAT_S8);
@@ -50,55 +55,48 @@ static void emit_depthbuffer(struct brw_context *brw)
 
    intel_emit_depth_stall_flushes(intel);
 
-   if (depth_mt == NULL) {
-      uint32_t dw1 = BRW_DEPTHFORMAT_D32_FLOAT << 18;
-      uint32_t dw3 = 0;
-
-      if (stencil_mt == NULL) {
-	 dw1 |= (BRW_SURFACE_NULL << 29);
-      } else {
-	 /* _NEW_STENCIL: enable stencil buffer writes */
-	 dw1 |= ((ctx->Stencil.WriteMask != 0) << 27);
-
-	 /* 3DSTATE_STENCIL_BUFFER inherits surface type and dimensions. */
-	 dw1 |= (BRW_SURFACE_2D << 29);
-	 dw3 = ((srb->Base.Base.Width + tile_x - 1) << 4) |
-	       ((srb->Base.Base.Height + tile_y - 1) << 18);
-      }
-
-      BEGIN_BATCH(7);
-      OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-      OUT_BATCH(dw1);
-      OUT_BATCH(0);
-      OUT_BATCH(dw3);
-      OUT_BATCH(0);
-      OUT_BATCH(tile_x | (tile_y << 16));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
-   } else {
+   if (depth_mt) {
       struct intel_region *region = depth_mt->region;
 
       assert(region->tiling == I915_TILING_Y);
 
-      /* _NEW_DEPTH, _NEW_STENCIL */
-      BEGIN_BATCH(7);
-      OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-      OUT_BATCH((region->pitch - 1) |
-		(brw_depthbuffer_format(brw) << 18) |
-		((hiz_mt ? 1 : 0) << 22) | /* hiz enable */
-		((stencil_mt != NULL && ctx->Stencil.WriteMask != 0) << 27) |
-		((ctx->Depth.Mask != 0) << 28) |
-		(BRW_SURFACE_2D << 29));
-      OUT_RELOC(region->bo,
-	        I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
-		brw->depthstencil.depth_offset);
-      OUT_BATCH((((drb->Base.Base.Width + tile_x) - 1) << 4) |
-                (((drb->Base.Base.Height + tile_y) - 1) << 18));
-      OUT_BATCH(0);
-      OUT_BATCH(tile_x | (tile_y << 16));
-      OUT_BATCH(0);
-      ADVANCE_BATCH();
+      depthbuffer_format = brw_depthbuffer_format(brw);
+      enable_hiz = hiz_mt;
+      depth_surface_type = BRW_SURFACE_2D;
+      depth_offset = brw->depthstencil.depth_offset;
+      width = drb->Base.Base.Width;
+      height = drb->Base.Base.Height;
+   } else if (stencil_mt) {
+      /* 3DSTATE_STENCIL_BUFFER inherits surface type and dimensions. */
+      depth_surface_type = BRW_SURFACE_2D;
+      width = srb->Base.Base.Width;
+      height = srb->Base.Base.Height;
    }
+
+   /* _NEW_DEPTH, _NEW_STENCIL */
+   BEGIN_BATCH(7);
+   OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
+   OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
+             (depthbuffer_format << 18) |
+             ((enable_hiz ? 1 : 0) << 22) |
+             ((stencil_mt != NULL && ctx->Stencil.WriteMask != 0) << 27) |
+             ((ctx->Depth.Mask != 0) << 28) |
+             (depth_surface_type << 29));
+
+   if (depth_mt) {
+      OUT_RELOC(depth_mt->region->bo,
+	        I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
+		depth_offset);
+   } else {
+      OUT_BATCH(0);
+   }
+
+   OUT_BATCH(((width + tile_x - 1) << 4) |
+             ((height + tile_y - 1) << 18));
+   OUT_BATCH(0);
+   OUT_BATCH(tile_x | (tile_y << 16));
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
 
    if (hiz_mt == NULL) {
       BEGIN_BATCH(3);
