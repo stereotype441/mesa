@@ -148,61 +148,6 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
 
 
 /**
- * Disable thread dispatch (dw5.19) and enable the HiZ op.
- */
-static void
-gen7_blorp_emit_wm_config(struct brw_context *brw,
-                          const brw_blorp_params *params,
-                          brw_blorp_prog_data *prog_data)
-{
-   struct intel_context *intel = &brw->intel;
-
-   uint32_t dw1 = 0, dw2 = 0;
-
-   switch (params->hiz_op) {
-   case GEN6_HIZ_OP_DEPTH_CLEAR:
-      dw1 |= GEN7_WM_DEPTH_CLEAR;
-      break;
-   case GEN6_HIZ_OP_DEPTH_RESOLVE:
-      dw1 |= GEN7_WM_DEPTH_RESOLVE;
-      break;
-   case GEN6_HIZ_OP_HIZ_RESOLVE:
-      dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
-      break;
-   case GEN6_HIZ_OP_NONE:
-      break;
-   default:
-      assert(0);
-      break;
-   }
-   dw1 |= GEN7_WM_LINE_AA_WIDTH_1_0;
-   dw1 |= GEN7_WM_LINE_END_CAP_AA_WIDTH_0_5;
-   dw1 |= 0 << GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
-   if (params->get_wm_prog) {
-      dw1 |= GEN7_WM_KILL_ENABLE; /* TODO: temporarily smash on */
-      dw1 |= GEN7_WM_DISPATCH_ENABLE; /* We are rendering */
-   }
-
-      if (params->num_samples > 1) {
-         dw1 |= GEN7_WM_MSRAST_ON_PATTERN;
-         if (prog_data && prog_data->persample_msaa_dispatch)
-            dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
-         else
-            dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
-      } else {
-         dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
-         dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
-      }
-
-   BEGIN_BATCH(3);
-   OUT_BATCH(_3DSTATE_WM << 16 | (3 - 2));
-   OUT_BATCH(dw1);
-   OUT_BATCH(dw2);
-   ADVANCE_BATCH();
-}
-
-
-/**
  * 3DSTATE_PS
  *
  * Pixel shader dispatch is disabled above in 3DSTATE_WM, dw1.29. Despite
@@ -518,7 +463,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen7_clip_state.emit(brw);
    gen7_sf_state.emit(brw);
    gen7_sbe_state.emit(brw);
-   gen7_blorp_emit_wm_config(brw, params, brw->blorp.prog_data);
+   gen7_wm_state.emit(brw);
    if (params->get_wm_prog) {
       gen7_blorp_emit_binding_table_pointers_ps(brw, params,
                                                 brw->wm.bind_bo_offset);

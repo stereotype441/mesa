@@ -22,6 +22,7 @@
  */
 
 #include <stdbool.h>
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -45,49 +46,89 @@ upload_wm_state(struct brw_context *brw)
    bool multisampled_fbo = ctx->DrawBuffer->Visual.samples > 1;
 
    dw1 = dw2 = 0;
-   dw1 |= GEN7_WM_STATISTICS_ENABLE;
+   /* BRW_NEW_BLORP */
+   if (!brw->blorp.params)
+      dw1 |= GEN7_WM_STATISTICS_ENABLE;
    dw1 |= GEN7_WM_LINE_AA_WIDTH_1_0;
    dw1 |= GEN7_WM_LINE_END_CAP_AA_WIDTH_0_5;
 
-   /* _NEW_LINE */
-   if (ctx->Line.StippleFlag)
-      dw1 |= GEN7_WM_LINE_STIPPLE_ENABLE;
+   if (brw->blorp.params) {
+      switch (brw->blorp.params->hiz_op) {
+      case GEN6_HIZ_OP_DEPTH_CLEAR:
+         dw1 |= GEN7_WM_DEPTH_CLEAR;
+         break;
+      case GEN6_HIZ_OP_DEPTH_RESOLVE:
+         dw1 |= GEN7_WM_DEPTH_RESOLVE;
+         break;
+      case GEN6_HIZ_OP_HIZ_RESOLVE:
+         dw1 |= GEN7_WM_HIERARCHICAL_DEPTH_RESOLVE;
+         break;
+      case GEN6_HIZ_OP_NONE:
+         break;
+      default:
+         assert(0);
+         break;
+      }
 
-   /* _NEW_POLYGON */
-   if (ctx->Polygon.StippleFlag)
-      dw1 |= GEN7_WM_POLYGON_STIPPLE_ENABLE;
+      dw1 |= 0 << GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
+      if (brw->blorp.params->get_wm_prog) {
+         dw1 |= GEN7_WM_KILL_ENABLE; /* TODO: temporarily smash on */
+         dw1 |= GEN7_WM_DISPATCH_ENABLE; /* We are rendering */
+      }
 
-   /* BRW_NEW_FRAGMENT_PROGRAM */
-   if (fp->program.Base.InputsRead & VARYING_BIT_POS)
-      dw1 |= GEN7_WM_USES_SOURCE_DEPTH | GEN7_WM_USES_SOURCE_W;
-   if (fp->program.Base.OutputsWritten & BITFIELD64_BIT(FRAG_RESULT_DEPTH)) {
-      writes_depth = true;
-      dw1 |= GEN7_WM_PSCDEPTH_ON;
-   }
-   /* CACHE_NEW_WM_PROG */
-   dw1 |= brw->wm.prog_data->barycentric_interp_modes <<
-      GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT;
-
-   /* _NEW_COLOR, _NEW_MULTISAMPLE */
-   if (fp->program.UsesKill || ctx->Color.AlphaEnabled ||
-       ctx->Multisample.SampleAlphaToCoverage)
-      dw1 |= GEN7_WM_KILL_ENABLE;
-
-   /* _NEW_BUFFERS */
-   if (brw_color_buffer_write_enabled(brw) || writes_depth ||
-       dw1 & GEN7_WM_KILL_ENABLE) {
-      dw1 |= GEN7_WM_DISPATCH_ENABLE;
-   }
-   if (multisampled_fbo) {
-      /* _NEW_MULTISAMPLE */
-      if (ctx->Multisample.Enabled)
+      if (brw->blorp.params->num_samples > 1) {
          dw1 |= GEN7_WM_MSRAST_ON_PATTERN;
-      else
+         if (brw->blorp.params->get_wm_prog &&
+             brw->blorp.prog_data->persample_msaa_dispatch)
+            dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+         else
+            dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
+      } else {
          dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
-      dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
+         dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+      }
    } else {
-      dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
-      dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+      /* _NEW_LINE */
+      if (ctx->Line.StippleFlag)
+         dw1 |= GEN7_WM_LINE_STIPPLE_ENABLE;
+
+      /* _NEW_POLYGON */
+      if (ctx->Polygon.StippleFlag)
+         dw1 |= GEN7_WM_POLYGON_STIPPLE_ENABLE;
+
+      /* BRW_NEW_FRAGMENT_PROGRAM */
+      if (fp->program.Base.InputsRead & VARYING_BIT_POS)
+         dw1 |= GEN7_WM_USES_SOURCE_DEPTH | GEN7_WM_USES_SOURCE_W;
+      if (fp->program.Base.OutputsWritten &
+          BITFIELD64_BIT(FRAG_RESULT_DEPTH)) {
+         writes_depth = true;
+         dw1 |= GEN7_WM_PSCDEPTH_ON;
+      }
+      /* CACHE_NEW_WM_PROG */
+      dw1 |= brw->wm.prog_data->barycentric_interp_modes <<
+         GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT;
+
+      /* _NEW_COLOR, _NEW_MULTISAMPLE */
+      if (fp->program.UsesKill || ctx->Color.AlphaEnabled ||
+          ctx->Multisample.SampleAlphaToCoverage)
+         dw1 |= GEN7_WM_KILL_ENABLE;
+
+      /* _NEW_BUFFERS */
+      if (brw_color_buffer_write_enabled(brw) || writes_depth ||
+          dw1 & GEN7_WM_KILL_ENABLE) {
+         dw1 |= GEN7_WM_DISPATCH_ENABLE;
+      }
+      if (multisampled_fbo) {
+         /* _NEW_MULTISAMPLE */
+         if (ctx->Multisample.Enabled)
+            dw1 |= GEN7_WM_MSRAST_ON_PATTERN;
+         else
+            dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
+         dw2 |= GEN7_WM_MSDISPMODE_PERPIXEL;
+      } else {
+         dw1 |= GEN7_WM_MSRAST_OFF_PIXEL;
+         dw2 |= GEN7_WM_MSDISPMODE_PERSAMPLE;
+      }
    }
 
    BEGIN_BATCH(3);
@@ -103,7 +144,8 @@ const struct brw_tracked_state gen7_wm_state = {
 	        _NEW_COLOR | _NEW_BUFFERS |
                 _NEW_MULTISAMPLE),
       .brw   = (BRW_NEW_FRAGMENT_PROGRAM |
-		BRW_NEW_BATCH),
+		BRW_NEW_BATCH |
+                BRW_NEW_BLORP),
       .cache = CACHE_NEW_WM_PROG,
    },
    .emit = upload_wm_state,
