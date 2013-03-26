@@ -260,125 +260,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 
 
 /**
- * Enable or disable thread dispatch and set the HiZ op appropriately.
- */
-static void
-gen6_blorp_emit_wm_config(struct brw_context *brw,
-                          const brw_blorp_params *params,
-                          uint32_t prog_offset,
-                          brw_blorp_prog_data *prog_data)
-{
-   struct intel_context *intel = &brw->intel;
-   uint32_t dw2, dw4, dw5, dw6;
-
-   /* Even when thread dispatch is disabled, max threads (dw5.25:31) must be
-    * nonzero to prevent the GPU from hanging. See the valid ranges in the
-    * BSpec, Volume 2a.11 Windower, Section 3DSTATE_WM, Dword 5.25:31
-    * "Maximum Number Of Threads".
-    *
-    * To be safe (and to minimize extraneous code) we go ahead and fully
-    * configure the WM state whether or not there is a WM program.
-    */
-
-   dw2 = dw4 = dw5 = dw6 = 0;
-   switch (params->hiz_op) {
-   case GEN6_HIZ_OP_DEPTH_CLEAR:
-      dw4 |= GEN6_WM_DEPTH_CLEAR;
-      break;
-   case GEN6_HIZ_OP_DEPTH_RESOLVE:
-      dw4 |= GEN6_WM_DEPTH_RESOLVE;
-      break;
-   case GEN6_HIZ_OP_HIZ_RESOLVE:
-      dw4 |= GEN6_WM_HIERARCHICAL_DEPTH_RESOLVE;
-      break;
-   case GEN6_HIZ_OP_NONE:
-      break;
-   default:
-      assert(0);
-      break;
-   }
-   dw5 |= GEN6_WM_LINE_AA_WIDTH_1_0;
-   dw5 |= GEN6_WM_LINE_END_CAP_AA_WIDTH_0_5;
-   dw5 |= (brw->max_wm_threads - 1) << GEN6_WM_MAX_THREADS_SHIFT;
-   dw6 |= 0 << GEN6_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
-   dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
-   if (params->get_wm_prog) {
-      dw2 |= 1 << GEN6_WM_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
-      dw4 |= prog_data->first_curbe_grf << GEN6_WM_DISPATCH_START_GRF_SHIFT_0;
-      dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
-      dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */
-      dw5 |= GEN6_WM_DISPATCH_ENABLE; /* We are rendering */
-   }
-
-   if (params->num_samples > 1) {
-      dw6 |= GEN6_WM_MSRAST_ON_PATTERN;
-      if (prog_data && prog_data->persample_msaa_dispatch)
-         dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE;
-      else
-         dw6 |= GEN6_WM_MSDISPMODE_PERPIXEL;
-   } else {
-      dw6 |= GEN6_WM_MSRAST_OFF_PIXEL;
-      dw6 |= GEN6_WM_MSDISPMODE_PERSAMPLE;
-   }
-
-   BEGIN_BATCH(9);
-   OUT_BATCH(_3DSTATE_WM << 16 | (9 - 2));
-   OUT_BATCH(params->get_wm_prog ? prog_offset : 0);
-   OUT_BATCH(dw2);
-   OUT_BATCH(0); /* No scratch needed */
-   OUT_BATCH(dw4);
-   OUT_BATCH(dw5);
-   OUT_BATCH(dw6);
-   OUT_BATCH(0); /* No other programs */
-   OUT_BATCH(0); /* No other programs */
-   ADVANCE_BATCH();
-}
-
-
-static void
-gen6_blorp_emit_constant_ps(struct brw_context *brw,
-                            const brw_blorp_params *params,
-                            uint32_t wm_push_const_offset)
-{
-   struct intel_context *intel = &brw->intel;
-
-   /* Make sure the push constants fill an exact integer number of
-    * registers.
-    */
-   assert(sizeof(brw_blorp_wm_push_constants) % 32 == 0);
-
-   /* There must be at least one register worth of push constant data. */
-   assert(BRW_BLORP_NUM_PUSH_CONST_REGS > 0);
-
-   /* Enable push constant buffer 0. */
-   BEGIN_BATCH(5);
-   OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 |
-             GEN6_CONSTANT_BUFFER_0_ENABLE |
-             (5 - 2));
-   OUT_BATCH(wm_push_const_offset + (BRW_BLORP_NUM_PUSH_CONST_REGS - 1));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-static void
-gen6_blorp_emit_constant_ps_disable(struct brw_context *brw,
-                                    const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   /* Disable the push constant buffers. */
-   BEGIN_BATCH(5);
-   OUT_BATCH(_3DSTATE_CONSTANT_PS << 16 | (5 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-/**
  * 3DSTATE_BINDING_TABLE_POINTERS
  */
 static void
@@ -636,12 +517,7 @@ gen6_blorp_exec(struct intel_context *intel,
    gen6_gs_state.emit(brw);
    gen6_clip_state.emit(brw);
    gen6_sf_state.emit(brw);
-   if (params->get_wm_prog)
-      gen6_blorp_emit_constant_ps(brw, params, brw->wm.push_const_offset);
-   else
-      gen6_blorp_emit_constant_ps_disable(brw, params);
-   gen6_blorp_emit_wm_config(brw, params, brw->blorp.prog_offset,
-                             brw->blorp.prog_data);
+   gen6_wm_state.emit(brw);
    if (params->get_wm_prog) {
       gen6_blorp_emit_binding_table_pointers(brw, params,
                                              brw->wm.bind_bo_offset);
