@@ -575,18 +575,15 @@ static void emit_depthbuffer(struct brw_context *brw)
    uint32_t tile_x = brw->depthstencil.tile_x;
    uint32_t tile_y = brw->depthstencil.tile_y;
    unsigned int len;
+   uint32_t depth_surface_type = BRW_SURFACE_NULL << 29;
    bool separate_stencil = false;
+   bool enable_hiz_ss = false;
+   uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
+   uint32_t depth_offset = 0;
+   uint32_t width = 0, height = 0;
 
    if (stencil_mt && stencil_mt->format == MESA_FORMAT_S8)
       separate_stencil = true;
-
-   /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
-    * non-pipelined state that will need the PIPE_CONTROL workaround.
-    */
-   if (intel->gen == 6) {
-      intel_emit_post_sync_nonzero_flush(intel);
-      intel_emit_depth_stall_flushes(intel);
-   }
 
    /* If there's a packed depth/stencil bound to stencil only, we need to
     * emit the packed depth/stencil buffer packet.
@@ -596,31 +593,22 @@ static void emit_depthbuffer(struct brw_context *brw)
       depth_mt = stencil_mt;
    }
 
-   if (intel->gen >= 6)
-      len = 7;
-   else if (intel->is_g4x || intel->gen == 5)
-      len = 6;
-   else
-      len = 5;
+   if (depth_irb) {
+      struct intel_region *region = depth_mt->region;
 
-   if (!depth_irb && !separate_stencil) {
-      BEGIN_BATCH(len);
-      OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
-      OUT_BATCH((BRW_DEPTHFORMAT_D32_FLOAT << 18) |
-		(BRW_SURFACE_NULL << 29));
-      OUT_BATCH(0);
-      OUT_BATCH(0);
-      OUT_BATCH(0);
+      /* If using separate stencil, hiz must be enabled. */
+      assert(!separate_stencil || hiz_mt);
 
-      if (intel->is_g4x || intel->gen >= 5)
-         OUT_BATCH(0);
+      assert(intel->gen < 6 || region->tiling == I915_TILING_Y);
+      assert(!hiz_mt || region->tiling == I915_TILING_Y);
 
-      if (intel->gen >= 6)
-	 OUT_BATCH(0);
-
-      ADVANCE_BATCH();
-
-   } else if (!depth_irb && separate_stencil) {
+      enable_hiz_ss = hiz_mt;
+      depthbuffer_format = brw_depthbuffer_format(brw);
+      depth_surface_type = BRW_SURFACE_2D << 29;
+      depth_offset = brw->depthstencil.depth_offset;
+      width = depth_irb->Base.Base.Width;
+      height = depth_irb->Base.Base.Height;
+   } else if (separate_stencil) {
       /*
        * There exists a separate stencil buffer but no depth buffer.
        *
@@ -643,65 +631,59 @@ static void emit_depthbuffer(struct brw_context *brw)
        */
       assert(intel->has_separate_stencil);
 
-      BEGIN_BATCH(len);
-      OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
-      OUT_BATCH((BRW_DEPTHFORMAT_D32_FLOAT << 18) |
-	        (1 << 21) | /* separate stencil enable */
-	        (1 << 22) | /* hiz enable */
-	        (BRW_TILEWALK_YMAJOR << 26) |
-	        (1 << 27) | /* tiled surface */
-	        (BRW_SURFACE_2D << 29));
-      OUT_BATCH(0);
-      OUT_BATCH(((stencil_irb->Base.Base.Width + tile_x - 1) << 6) |
-	         (stencil_irb->Base.Base.Height + tile_y - 1) << 19);
-      OUT_BATCH(0);
-
-      if (intel->is_g4x || intel->gen >= 5)
-         OUT_BATCH(tile_x | (tile_y << 16));
-      else
-	 assert(tile_x == 0 && tile_y == 0);
-
-      if (intel->gen >= 6)
-	 OUT_BATCH(0);
-
-      ADVANCE_BATCH();
-
-   } else {
-      struct intel_region *region = depth_mt->region;
-
-      /* If using separate stencil, hiz must be enabled. */
-      assert(!separate_stencil || hiz_mt);
-
-      assert(intel->gen < 6 || region->tiling == I915_TILING_Y);
-      assert(!hiz_mt || region->tiling == I915_TILING_Y);
-
-      BEGIN_BATCH(len);
-      OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
-      OUT_BATCH((region->pitch - 1) |
-		(brw_depthbuffer_format(brw) << 18) |
-		((hiz_mt ? 1 : 0) << 21) | /* separate stencil enable */
-		((hiz_mt ? 1 : 0) << 22) | /* hiz enable */
-		(BRW_TILEWALK_YMAJOR << 26) |
-		((region->tiling != I915_TILING_NONE) << 27) |
-		(BRW_SURFACE_2D << 29));
-      OUT_RELOC(region->bo,
-		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
-		brw->depthstencil.depth_offset);
-      OUT_BATCH((BRW_SURFACE_MIPMAPLAYOUT_BELOW << 1) |
-		(((depth_irb->Base.Base.Width + tile_x) - 1) << 6) |
-		(((depth_irb->Base.Base.Height + tile_y) - 1) << 19));
-      OUT_BATCH(0);
-
-      if (intel->is_g4x || intel->gen >= 5)
-         OUT_BATCH(tile_x | (tile_y << 16));
-      else
-	 assert(tile_x == 0 && tile_y == 0);
-
-      if (intel->gen >= 6)
-	 OUT_BATCH(0);
-
-      ADVANCE_BATCH();
+      enable_hiz_ss = true;
+      depth_surface_type = BRW_SURFACE_2D << 29;
+      width = stencil_irb->Base.Base.Width;
+      height = stencil_irb->Base.Base.Height;
    }
+
+   /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
+    * non-pipelined state that will need the PIPE_CONTROL workaround.
+    */
+   if (intel->gen == 6) {
+      intel_emit_post_sync_nonzero_flush(intel);
+      intel_emit_depth_stall_flushes(intel);
+   }
+
+   if (intel->gen >= 6)
+      len = 7;
+   else if (intel->is_g4x || intel->gen == 5)
+      len = 6;
+   else
+      len = 5;
+
+   BEGIN_BATCH(len);
+   OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
+   OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
+             (depthbuffer_format << 18) |
+             ((enable_hiz_ss ? 1 : 0) << 21) | /* separate stencil enable */
+             ((enable_hiz_ss ? 1 : 0) << 22) | /* hiz enable */
+             (BRW_TILEWALK_YMAJOR << 26) |
+             ((depth_mt ? depth_mt->region->tiling != I915_TILING_NONE : 1)
+              << 27) |
+             depth_surface_type);
+
+   if (depth_mt) {
+      OUT_RELOC(depth_mt->region->bo,
+		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
+		depth_offset);
+   } else {
+      OUT_BATCH(0);
+   }
+
+   OUT_BATCH(((width + tile_x - 1) << 6) |
+             ((height + tile_y - 1) << 19));
+   OUT_BATCH(0);
+
+   if (intel->is_g4x || intel->gen >= 5)
+      OUT_BATCH(tile_x | (tile_y << 16));
+   else
+      assert(tile_x == 0 && tile_y == 0);
+
+   if (intel->gen >= 6)
+      OUT_BATCH(0);
+
+   ADVANCE_BATCH();
 
    if (hiz_mt || separate_stencil) {
       /*
