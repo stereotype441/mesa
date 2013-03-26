@@ -59,8 +59,6 @@ static void emit_depthbuffer(struct brw_context *brw)
    assert(!stencil_mt || stencil_mt->format == MESA_FORMAT_S8);
    assert(!depth_mt || !_mesa_is_format_packed_depth_stencil(depth_mt->format));
 
-   intel_emit_depth_stall_flushes(intel);
-
    if (depth_mt) {
       struct intel_region *region = depth_mt->region;
 
@@ -92,6 +90,8 @@ do_stuff(struct brw_context *brw, struct intel_mipmap_tree *depth_mt,
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
+
+   intel_emit_depth_stall_flushes(intel);
 
    /* _NEW_DEPTH, _NEW_STENCIL */
    BEGIN_BATCH(7);
