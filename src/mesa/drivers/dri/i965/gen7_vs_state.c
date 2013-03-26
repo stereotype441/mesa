@@ -39,19 +39,19 @@ upload_vs_state(struct brw_context *brw)
 
    gen7_emit_vs_workaround_flush(intel);
 
-   /* BRW_NEW_VS_BINDING_TABLE */
+   /* BRW_NEW_BLORP, BRW_NEW_VS_BINDING_TABLE */
    BEGIN_BATCH(2);
    OUT_BATCH(_3DSTATE_BINDING_TABLE_POINTERS_VS << 16 | (2 - 2));
-   OUT_BATCH(brw->vs.bind_bo_offset);
+   OUT_BATCH(brw->blorp.params ? 0 : brw->vs.bind_bo_offset);
    ADVANCE_BATCH();
 
    /* CACHE_NEW_SAMPLER */
    BEGIN_BATCH(2);
    OUT_BATCH(_3DSTATE_SAMPLER_STATE_POINTERS_VS << 16 | (2 - 2));
-   OUT_BATCH(brw->sampler.offset);
+   OUT_BATCH(brw->blorp.params ? 0 : brw->sampler.offset);
    ADVANCE_BATCH();
 
-   if (brw->vs.push_const_size == 0) {
+   if (brw->blorp.params || brw->vs.push_const_size == 0) {
       /* Disable the push constant buffers. */
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_CONSTANT_VS << 16 | (7 - 2));
@@ -75,6 +75,18 @@ upload_vs_state(struct brw_context *brw)
       OUT_BATCH(0);
       OUT_BATCH(0);
       ADVANCE_BATCH();
+   }
+
+   if (brw->blorp.params) {
+      BEGIN_BATCH(6);
+      OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+      return;
    }
 
    /* Use ALT floating point mode for ARB vertex programs, because they
@@ -113,7 +125,8 @@ const struct brw_tracked_state gen7_vs_state = {
       .brw   = (BRW_NEW_CONTEXT |
 		BRW_NEW_VERTEX_PROGRAM |
 		BRW_NEW_VS_BINDING_TABLE |
-		BRW_NEW_BATCH),
+		BRW_NEW_BATCH |
+                BRW_NEW_BLORP),
       .cache = CACHE_NEW_VS_PROG | CACHE_NEW_SAMPLER
    },
    .emit = upload_vs_state,

@@ -259,48 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_VS
- *
- * Disable vertex shader.
- */
-void
-gen6_blorp_emit_vs_disable(struct brw_context *brw,
-                           const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   if (intel->gen == 6) {
-      /* From the BSpec, Volume 2a, Part 3 "Vertex Shader", Section
-       * 3DSTATE_VS, Dword 5.0 "VS Function Enable":
-       *
-       *   [DevSNB] A pipeline flush must be programmed prior to a
-       *   3DSTATE_VS command that causes the VS Function Enable to
-       *   toggle. Pipeline flush can be executed by sending a PIPE_CONTROL
-       *   command with CS stall bit set and a post sync operation.
-       */
-      intel_emit_post_sync_nonzero_flush(intel);
-   }
-
-   /* Disable the push constant buffers. */
-   BEGIN_BATCH(5);
-   OUT_BATCH(_3DSTATE_CONSTANT_VS << 16 | (5 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-
-   BEGIN_BATCH(6);
-   OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /* 3DSTATE_GS
  *
  * Disable the geometry shader.
@@ -771,7 +729,7 @@ gen6_blorp_exec(struct intel_context *intel,
    brw_wm_binding_table.emit(brw);
    brw_samplers.emit(brw);
    gen6_sampler_state.emit(brw);
-   gen6_blorp_emit_vs_disable(brw, params);
+   gen6_vs_state.emit(brw);
    gen6_blorp_emit_gs_disable(brw, params);
    gen6_blorp_emit_clip_disable(brw, params);
    gen6_blorp_emit_sf_config(brw, params);

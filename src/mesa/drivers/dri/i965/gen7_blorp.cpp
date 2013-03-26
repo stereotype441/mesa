@@ -147,37 +147,6 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_VS
- *
- * Disable vertex shader.
- */
-static void
-gen7_blorp_emit_vs_disable(struct brw_context *brw,
-                           const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(7);
-   OUT_BATCH(_3DSTATE_CONSTANT_VS << 16 | (7 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-
-   BEGIN_BATCH(6);
-   OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /* 3DSTATE_HS
  *
  * Disable the hull shader.
@@ -724,7 +693,7 @@ gen7_blorp_exec(struct intel_context *intel,
    brw_texture_surfaces.emit(brw);
    brw_wm_binding_table.emit(brw);
    gen7_samplers.emit(brw);
-   gen7_blorp_emit_vs_disable(brw, params);
+   gen7_vs_state.emit(brw);
    gen7_blorp_emit_hs_disable(brw, params);
    gen7_blorp_emit_te_disable(brw, params);
    gen7_blorp_emit_ds_disable(brw, params);

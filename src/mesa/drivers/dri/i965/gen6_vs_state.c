@@ -111,7 +111,8 @@ upload_vs_state(struct brw_context *brw)
     */
    intel_emit_post_sync_nonzero_flush(intel);
 
-   if (brw->vs.push_const_size == 0) {
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params || brw->vs.push_const_size == 0) {
       /* Disable the push constant buffers. */
       BEGIN_BATCH(5);
       OUT_BATCH(_3DSTATE_CONSTANT_VS << 16 | (5 - 2));
@@ -134,6 +135,18 @@ upload_vs_state(struct brw_context *brw)
       OUT_BATCH(0);
       OUT_BATCH(0);
       ADVANCE_BATCH();
+   }
+
+   if (brw->blorp.params) {
+      BEGIN_BATCH(6);
+      OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+      return;
    }
 
    /* Use ALT floating point mode for ARB vertex programs, because they
@@ -199,7 +212,8 @@ const struct brw_tracked_state gen6_vs_state = {
       .mesa  = _NEW_TRANSFORM | _NEW_PROGRAM_CONSTANTS,
       .brw   = (BRW_NEW_CONTEXT |
 		BRW_NEW_VERTEX_PROGRAM |
-		BRW_NEW_BATCH),
+		BRW_NEW_BATCH |
+                BRW_NEW_BLORP),
       .cache = CACHE_NEW_VS_PROG | CACHE_NEW_SAMPLER
    },
    .emit = upload_vs_state,
