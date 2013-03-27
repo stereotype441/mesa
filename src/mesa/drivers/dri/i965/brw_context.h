@@ -1194,6 +1194,8 @@ struct brw_context
       /** Offset in the program cache to the GS program */
       uint32_t prog_offset;
 
+      struct brw_push_const_info push_const;
+
       uint32_t bind_bo_offset;
    } vec4_gs;
 
