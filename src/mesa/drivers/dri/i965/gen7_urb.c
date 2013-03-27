@@ -30,12 +30,12 @@
 /**
  * The following diagram shows how we partition the URB:
  *
- *      8kB         8kB              Rest of the URB space
- *   ____-____   ____-____   _________________-_________________
- *  /         \ /         \ /                                   \
+ *        16kB or 32kB               Rest of the URB space
+ *   __________-__________   _________________-_________________
+ *  /                     \ /                                   \
  * +-------------------------------------------------------------+
- * | VS Push   | FS Push   | VS                                  |
- * | Constants | Constants | Handles                             |
+ * |     VS/FS/GS Push     |              VS/GS URB              |
+ * |       Constants       |               Entries               |
  * +-------------------------------------------------------------+
  *
  * Notably, push constants must be stored at the beginning of the URB
@@ -43,8 +43,12 @@
  * GT1/GT2 have a maximum constant buffer size of 16kB, while Haswell GT3
  * doubles this (32kB).
  *
- * Currently we split the constant buffer space evenly between VS and FS.
- * This is probably not ideal, but simple.
+ * Ivybridge and Haswell GT1/GT2 allow push constants to be located (and
+ * sized) in increments of 1kB.  Haswell GT3 requires them to be located and
+ * sized in increments of 2kB.
+ *
+ * Currently we split the constant buffer space evenly among whatever stages
+ * are active.  This is probably not ideal, but simple.
  *
  * Ivybridge GT1 and Haswell GT1 have 128kB of URB space.
  * Ivybridge GT2 and Haswell GT2 have 256kB of URB space.
@@ -53,21 +57,90 @@
  * See "Volume 2a: 3D Pipeline," section 1.8, "Volume 1b: Configurations",
  * and the documentation for 3DSTATE_PUSH_CONSTANT_ALLOC_xS.
  */
-void
+static void
 gen7_allocate_push_constants(struct brw_context *brw)
 {
-   unsigned size = 8;
-   if (brw->is_haswell && brw->gt == 3)
-      size = 16;
+   unsigned avail_size = 16;
+   unsigned multiplier = (brw->is_haswell && brw->gt == 3) ? 2 : 1;
 
-   BEGIN_BATCH(4);
+   /* BRW_NEW_GEOMETRY_PROGRAM */
+   bool gs_present = brw->geometry_program;
+
+   unsigned vs_size, gs_size;
+   if (gs_present) {
+      vs_size = avail_size / 3;
+      avail_size -= vs_size;
+      gs_size = avail_size / 2;
+      avail_size -= gs_size;
+   } else {
+      vs_size = avail_size / 2;
+      avail_size -= vs_size;
+      gs_size = 0;
+   }
+   unsigned fs_size = avail_size;
+
+   gen7_emit_push_constant_state(brw, multiplier * vs_size,
+                                 multiplier * gs_size, multiplier * fs_size);
+}
+
+void
+gen7_emit_push_constant_state(struct brw_context *brw, unsigned vs_size,
+                              unsigned gs_size, unsigned fs_size)
+{
+   unsigned offset = 0;
+
+   BEGIN_BATCH(6);
    OUT_BATCH(_3DSTATE_PUSH_CONSTANT_ALLOC_VS << 16 | (2 - 2));
-   OUT_BATCH(size);
+   OUT_BATCH(vs_size | offset << GEN7_PUSH_CONSTANT_BUFFER_OFFSET_SHIFT);
+   offset += vs_size;
+
+   OUT_BATCH(_3DSTATE_PUSH_CONSTANT_ALLOC_GS << 16 | (2 - 2));
+   OUT_BATCH(gs_size | offset << GEN7_PUSH_CONSTANT_BUFFER_OFFSET_SHIFT);
+   offset += gs_size;
 
    OUT_BATCH(_3DSTATE_PUSH_CONSTANT_ALLOC_PS << 16 | (2 - 2));
-   OUT_BATCH(size | size << GEN7_PUSH_CONSTANT_BUFFER_OFFSET_SHIFT);
+   OUT_BATCH(offset | fs_size << GEN7_PUSH_CONSTANT_BUFFER_OFFSET_SHIFT);
    ADVANCE_BATCH();
+
+   /* From p292 of the Ivy Bridge PRM (11.2.4 3DSTATE_PUSH_CONSTANT_ALLOC_PS):
+    *
+    *     A PIPE_CONTOL command with the CS Stall bit set must be programmed
+    *     in the ring after this instruction.
+    *
+    * No such restriction exists for Haswell.
+    */
+   if (!brw->is_haswell) {
+      BEGIN_BATCH(4);
+      OUT_BATCH(_3DSTATE_PIPE_CONTROL | (4 - 2));
+      /* From p61 of the Ivy Bridge PRM (1.10.4 PIPE_CONTROL Command: DW1[20]
+       * CS Stall):
+       *
+       *     One of the following must also be set:
+       *     - Render Target Cache Flush Enable ([12] of DW1)
+       *     - Depth Cache Flush Enable ([0] of DW1)
+       *     - Stall at Pixel Scoreboard ([1] of DW1)
+       *     - Depth Stall ([13] of DW1)
+       *     - Post-Sync Operation ([13] of DW1)
+       *
+       * We choose to do a Post-Sync Operation (Write Immediate Data), since
+       * it seems like it will incur the least additional performance penalty.
+       */
+      OUT_BATCH(PIPE_CONTROL_CS_STALL | PIPE_CONTROL_WRITE_IMMEDIATE);
+      OUT_RELOC(brw->batch.workaround_bo,
+                I915_GEM_DOMAIN_INSTRUCTION, I915_GEM_DOMAIN_INSTRUCTION, 0);
+      OUT_BATCH(0);
+      ADVANCE_BATCH();
+   }
 }
+
+const struct brw_tracked_state gen7_push_constant_space = {
+   .dirty = {
+      .mesa = 0,
+      .brw = BRW_NEW_CONTEXT | BRW_NEW_GEOMETRY_PROGRAM,
+      .cache = 0,
+   },
+   .emit = gen7_allocate_push_constants,
+};
 
 static void
 gen7_upload_urb(struct brw_context *brw)
