@@ -835,6 +835,16 @@ struct brw_query_object {
 
 
 /**
+ * Info that is common to the configuration of VS and GS push constants.
+ */
+struct brw_push_const_info
+{
+   uint32_t offset; /* Offset in the batchbuffer */
+   int size; /* in 256-bit register increments */
+};
+
+
+/**
  * brw_context is derived from gl_context.
  */
 struct brw_context 
@@ -1146,8 +1156,7 @@ struct brw_context
       uint32_t prog_offset;
       uint32_t state_offset;
 
-      uint32_t push_const_offset; /* Offset in the batchbuffer */
-      int push_const_size; /* in 256-bit register increments */
+      struct brw_push_const_info push_const;
 
       /** @{ register allocator */
 
@@ -1630,6 +1639,13 @@ void
 brw_setup_vec4_key_clip_info(struct brw_context *brw,
                              struct brw_vec4_prog_key *key,
                              bool program_uses_clip_distance);
+
+void
+gen6_upload_vec4_push_constants(struct brw_context *brw,
+                                const struct gl_program *prog,
+                                const struct brw_vec4_prog_data *prog_data,
+                                struct brw_push_const_info *const_info,
+                                enum state_struct_type type);
 
 #ifdef __cplusplus
 }
