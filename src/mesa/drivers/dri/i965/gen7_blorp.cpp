@@ -185,6 +185,6 @@ gen7_blorp_exec(struct intel_context *intel,
    brw_cc_vp.emit(brw);
    gen7_cc_viewport_state_pointer.emit(brw);
    gen7_depthbuffer.emit(brw);
-   gen6_blorp_emit_drawing_rectangle(brw, params);
+   brw_drawing_rect.emit(brw);
    gen7_blorp_emit_primitive(brw, params);
 }

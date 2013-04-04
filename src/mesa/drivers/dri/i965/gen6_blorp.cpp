@@ -259,23 +259,6 @@ gen6_blorp_emit_surface_state(struct brw_context *brw,
 }
 
 
-/* 3DSTATE_DRAWING_RECTANGLE */
-void
-gen6_blorp_emit_drawing_rectangle(struct brw_context *brw,
-                                  const brw_blorp_params *params)
-{
-   struct intel_context *intel = &brw->intel;
-
-   BEGIN_BATCH(4);
-   OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
-   OUT_BATCH(0);
-   OUT_BATCH(((params->x1 - 1) & 0xffff) |
-             ((params->y1 - 1) << 16));
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-}
-
-
 /* 3DPRIMITIVE */
 static void
 gen6_blorp_emit_primitive(struct brw_context *brw,
@@ -337,7 +320,7 @@ gen6_blorp_exec(struct intel_context *intel,
    brw_cc_vp.emit(brw);
    gen6_viewport_state.emit(brw);
    brw_depthbuffer.emit(brw);
-   gen6_blorp_emit_drawing_rectangle(brw, params);
+   brw_drawing_rect.emit(brw);
    gen6_blorp_emit_primitive(brw, params);
 }
 

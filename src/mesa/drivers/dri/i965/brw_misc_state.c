@@ -49,12 +49,22 @@ static void upload_drawing_rect(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
+   unsigned width, height;
+
+   /* BRW_NEW_BLORP */
+   if (brw->blorp.params) {
+      width = brw->blorp.params->x1;
+      height = brw->blorp.params->y1;
+   } else {
+      width = ctx->DrawBuffer->Width;
+      height = ctx->DrawBuffer->Height;
+   }
 
    BEGIN_BATCH(4);
    OUT_BATCH(_3DSTATE_DRAWING_RECTANGLE << 16 | (4 - 2));
    OUT_BATCH(0); /* xmin, ymin */
-   OUT_BATCH(((ctx->DrawBuffer->Width - 1) & 0xffff) |
-	    ((ctx->DrawBuffer->Height - 1) << 16));
+   OUT_BATCH(((width - 1) & 0xffff) |
+             ((height - 1) << 16));
    OUT_BATCH(0);
    ADVANCE_BATCH();
 }
@@ -62,7 +72,7 @@ static void upload_drawing_rect(struct brw_context *brw)
 const struct brw_tracked_state brw_drawing_rect = {
    .dirty = {
       .mesa = _NEW_BUFFERS,
-      .brw = BRW_NEW_CONTEXT,
+      .brw = BRW_NEW_CONTEXT | BRW_NEW_BLORP,
       .cache = 0
    },
    .emit = upload_drawing_rect
