@@ -218,15 +218,19 @@ struct intel_context
        * Send the appropriate state packets to configure depth, stencil, and
        * HiZ buffers (i965+ only)
        */
-      void (*emit_depth_stencil_hiz)(struct brw_context *brw,
+      void (*emit_depth_stencil_hiz)(struct intel_context *intel,
                                      struct intel_mipmap_tree *depth_mt,
                                      uint32_t depth_offset,
                                      uint32_t depthbuffer_format,
                                      uint32_t depth_surface_type,
                                      struct intel_mipmap_tree *stencil_mt,
-                                     bool hiz, bool separate_stencil,
+                                     uint32_t stencil_offset, bool hiz,
+                                     uint32_t hiz_offset,
+                                     bool separate_stencil,
                                      uint32_t width, uint32_t height,
-                                     uint32_t tile_x, uint32_t tile_y);
+                                     uint32_t tile_x, uint32_t tile_y,
+                                     bool depth_write_enable /* Gen7+ */,
+                                     bool stencil_write_enable /* Gen7+ */);
 
    } vtbl;
 

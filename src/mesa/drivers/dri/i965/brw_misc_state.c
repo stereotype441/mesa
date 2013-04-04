@@ -581,10 +581,14 @@ brw_emit_depthbuffer(struct brw_context *brw)
    uint32_t depth_surface_type = BRW_SURFACE_NULL;
    uint32_t depthbuffer_format = BRW_DEPTHFORMAT_D32_FLOAT;
    uint32_t depth_offset = 0;
+   uint32_t stencil_offset = 0;
+   uint32_t hiz_offset = 0;
    uint32_t width = 1, height = 1;
+   bool depth_write_enable = true, stencil_write_enable = true;
 
    if (stencil_mt) {
       separate_stencil = stencil_mt->format == MESA_FORMAT_S8;
+      stencil_offset = brw->depthstencil.stencil_offset;
 
       /* Gen7 supports only separate stencil */
       assert(separate_stencil || intel->gen < 7);
@@ -620,6 +624,7 @@ brw_emit_depthbuffer(struct brw_context *brw)
       depthbuffer_format = brw_depthbuffer_format(brw);
       depth_surface_type = BRW_SURFACE_2D;
       depth_offset = brw->depthstencil.depth_offset;
+      hiz_offset = brw->depthstencil.hiz_offset;
       width = depth_irb->Base.Base.Width;
       height = depth_irb->Base.Base.Height;
    } else if (separate_stencil) {
@@ -641,23 +646,37 @@ brw_emit_depthbuffer(struct brw_context *brw)
       height = stencil_irb->Base.Base.Height;
    }
 
-   intel->vtbl.emit_depth_stencil_hiz(brw, depth_mt, depth_offset,
+   if (intel->gen >= 7) {
+      /* _NEW_DEPTH, _NEW_STENCIL */
+      depth_write_enable = (ctx->Depth.Mask != 0);
+      stencil_write_enable =
+         (stencil_mt != NULL && ctx->Stencil._WriteEnabled);
+   }
+
+   intel->vtbl.emit_depth_stencil_hiz(intel, depth_mt, depth_offset,
                                       depthbuffer_format, depth_surface_type,
-                                      stencil_mt, hiz, separate_stencil,
-                                      width, height, tile_x, tile_y);
+                                      stencil_mt, stencil_offset,
+                                      hiz, hiz_offset, separate_stencil,
+                                      width, height, tile_x, tile_y,
+                                      depth_write_enable,
+                                      stencil_write_enable);
 }
 
 void
-brw_emit_depth_stencil_hiz(struct brw_context *brw,
+brw_emit_depth_stencil_hiz(struct intel_context *intel,
                            struct intel_mipmap_tree *depth_mt,
                            uint32_t depth_offset, uint32_t depthbuffer_format,
                            uint32_t depth_surface_type,
                            struct intel_mipmap_tree *stencil_mt,
-                           bool hiz, bool separate_stencil,
-                           uint32_t width, uint32_t height,
-                           uint32_t tile_x, uint32_t tile_y)
+                           uint32_t stencil_offset,
+                           bool hiz, uint32_t hiz_offset,
+                           bool separate_stencil, uint32_t width,
+                           uint32_t height, uint32_t tile_x, uint32_t tile_y,
+                           bool depth_write_enable /* Gen7+ */,
+                           bool stencil_write_enable /* Gen7+ */)
 {
-   struct intel_context *intel = &brw->intel;
+   (void) depth_write_enable;
+   (void) stencil_write_enable;
 
    /* Enable the hiz bit if we're doing separate stencil, because it and the
     * separate stencil bit must have the same value. From Section 2.11.5.6.1.1
@@ -737,7 +756,7 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
 	 OUT_BATCH(hiz_mt->region->pitch - 1);
 	 OUT_RELOC(hiz_mt->region->bo,
 		   I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
-		   brw->depthstencil.hiz_offset);
+		   hiz_offset);
 	 ADVANCE_BATCH();
       } else {
 	 BEGIN_BATCH(3);
@@ -761,7 +780,7 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
 	 OUT_BATCH(2 * region->pitch - 1);
 	 OUT_RELOC(region->bo,
 		   I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
-		   brw->depthstencil.stencil_offset);
+		   stencil_offset);
 	 ADVANCE_BATCH();
       } else {
 	 BEGIN_BATCH(3);

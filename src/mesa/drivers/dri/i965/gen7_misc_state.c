@@ -30,28 +30,27 @@
 #include "brw_defines.h"
 
 void
-gen7_emit_depth_stencil_hiz(struct brw_context *brw,
+gen7_emit_depth_stencil_hiz(struct intel_context *intel,
                             struct intel_mipmap_tree *depth_mt,
                             uint32_t depth_offset, uint32_t depthbuffer_format,
                             uint32_t depth_surface_type,
                             struct intel_mipmap_tree *stencil_mt,
-                            bool hiz, bool separate_stencil,
-                            uint32_t width, uint32_t height,
-                            uint32_t tile_x, uint32_t tile_y)
+                            uint32_t stencil_offset,
+                            bool hiz, uint32_t hiz_offset,
+                            bool separate_stencil, uint32_t width,
+                            uint32_t height, uint32_t tile_x, uint32_t tile_y,
+                            bool depth_write_enable /* Gen7+ */,
+                            bool stencil_write_enable /* Gen7+ */)
 {
-   struct intel_context *intel = &brw->intel;
-   struct gl_context *ctx = &intel->ctx;
-
    intel_emit_depth_stall_flushes(intel);
 
-   /* _NEW_DEPTH, _NEW_STENCIL */
    BEGIN_BATCH(7);
    OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
    OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
              (depthbuffer_format << 18) |
              ((hiz ? 1 : 0) << 22) |
-             ((stencil_mt != NULL && ctx->Stencil._WriteEnabled) << 27) |
-             ((ctx->Depth.Mask != 0) << 28) |
+             (stencil_write_enable << 27) |
+             (depth_write_enable << 28) |
              (depth_surface_type << 29));
 
    if (depth_mt) {
@@ -83,7 +82,7 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
       OUT_RELOC(hiz_mt->region->bo,
                 I915_GEM_DOMAIN_RENDER,
                 I915_GEM_DOMAIN_RENDER,
-                brw->depthstencil.hiz_offset);
+                hiz_offset);
       ADVANCE_BATCH();
    }
 
@@ -116,7 +115,7 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
 	        (2 * stencil_mt->region->pitch - 1));
       OUT_RELOC(stencil_mt->region->bo,
 	        I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
-		brw->depthstencil.stencil_offset);
+		stencil_offset);
       ADVANCE_BATCH();
    }
 
