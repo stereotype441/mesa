@@ -155,9 +155,9 @@ static GLuint trim(GLenum prim, GLuint length)
 }
 
 
-static void brw_emit_prim(struct brw_context *brw,
-			  const struct _mesa_prim *prim,
-			  uint32_t hw_prim)
+void brw_emit_prim(struct brw_context *brw,
+                   const struct _mesa_prim *prim,
+                   uint32_t hw_prim)
 {
    struct intel_context *intel = &brw->intel;
    int verts_per_instance;
@@ -216,9 +216,9 @@ static void brw_emit_prim(struct brw_context *brw,
    }
 }
 
-static void gen7_emit_prim(struct brw_context *brw,
-			   const struct _mesa_prim *prim,
-			   uint32_t hw_prim)
+void gen7_emit_prim(struct brw_context *brw,
+                    const struct _mesa_prim *prim,
+                    uint32_t hw_prim)
 {
    struct intel_context *intel = &brw->intel;
    int verts_per_instance;

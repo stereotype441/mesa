@@ -49,6 +49,12 @@ void brw_draw_prims( struct gl_context *ctx,
 
 void brw_draw_init( struct brw_context *brw );
 void brw_draw_destroy( struct brw_context *brw );
+void brw_emit_prim(struct brw_context *brw,
+                   const struct _mesa_prim *prim,
+                   uint32_t hw_prim);
+void gen7_emit_prim(struct brw_context *brw,
+                    const struct _mesa_prim *prim,
+                    uint32_t hw_prim);
 
 /* brw_draw_current.c
  */
