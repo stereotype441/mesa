@@ -31,6 +31,10 @@
 #include "main/mtypes.h"		/* for struct gl_context... */
 #include "vbo/vbo.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct brw_context;
 
 
@@ -57,5 +61,9 @@ brw_handle_primitive_restart(struct gl_context *ctx,
                              const struct _mesa_prim *prim,
                              GLuint nr_prims,
                              const struct _mesa_index_buffer *ib);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
