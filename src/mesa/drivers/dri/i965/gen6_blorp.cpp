@@ -29,6 +29,7 @@
 
 #include "brw_context.h"
 #include "brw_defines.h"
+#include "brw_draw.h"
 #include "brw_state.h"
 
 #include "brw_blorp.h"
@@ -126,6 +127,12 @@ gen6_blorp_emit_vertices(struct brw_context *brw,
                                               GEN6_BLORP_VBO_SIZE, 32,
                                               &vertex_offset);
       memcpy(vertex_data, vertices, GEN6_BLORP_VBO_SIZE);
+
+      /* Set brw->vb.start_vertex_bias to 0 so that when brw_emit_prim (or
+       * gen7_emit_prim) emits the primitive, it will know that the vertex
+       * data is at the beginning of the vertex buffer.
+       */
+      brw->vb.start_vertex_bias = 0;
    }
 
    /* 3DSTATE_VERTEX_BUFFERS */
@@ -265,17 +272,26 @@ gen6_blorp_emit_primitive(struct brw_context *brw,
                           const brw_blorp_params *params)
 {
    struct intel_context *intel = &brw->intel;
+   struct _mesa_prim prim;
+   memset(&prim, sizeof(prim), 0);
 
-   BEGIN_BATCH(6);
-   OUT_BATCH(CMD_3D_PRIM << 16 | (6 - 2) |
-             _3DPRIM_RECTLIST << GEN4_3DPRIM_TOPOLOGY_TYPE_SHIFT |
-             GEN4_3DPRIM_VERTEXBUFFER_ACCESS_SEQUENTIAL);
-   OUT_BATCH(3); /* vertex count per instance */
-   OUT_BATCH(0);
-   OUT_BATCH(1); /* instance count */
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
+   /* This is a white lie--instead of triangles we're actually going to use
+    * _3DPRIM_RECTLIST (a hardware-specific primitive that doesn't correspond
+    * to anything in the GL API).  But the only reason the *_emit_prim()
+    * functions care about the primitive mode is so that they can trim
+    * dangling vertices from quads and quad strips.  We're going to be sending
+    * 3 vertices down the pipeline (that's what _3DPRIM_RECTLIST expects) so
+    * GL_TRIANGLES is a good enough approximation.
+    */
+   prim.mode = GL_TRIANGLES;
+
+   prim.count = 3;
+   prim.num_instances = 1;
+
+   if (intel->gen >= 7)
+      gen7_emit_prim(brw, &prim, _3DPRIM_RECTLIST);
+   else
+      brw_emit_prim(brw, &prim, _3DPRIM_RECTLIST);
 }
 
 
