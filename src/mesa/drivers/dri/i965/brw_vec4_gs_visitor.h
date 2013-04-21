@@ -96,6 +96,7 @@ private:
    int setup_varying_inputs(int payload_reg, int *attribute_map);
 
    src_reg vertex_count;
+   src_reg cut_bits;
    const struct brw_vec4_gs_compile * const c;
 };
 
