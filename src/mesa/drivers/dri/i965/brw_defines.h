@@ -847,6 +847,27 @@ enum opcode {
     * scratch reads and writes to operate correctly.
     */
    GS_OPCODE_SET_DWORD_2_IMMED,
+
+   /**
+    * Prepare the dst register for storage in the "Channel Mask" fields of a
+    * URB_WRITE message header.
+    *
+    * DWORD 4 of dst is shifted left by 4 bits, so that later,
+    * GS_OPCODE_SET_CHANNEL_MASKS can OR DWORDs 0 and 4 together to form the
+    * final channel mask.
+    */
+   GS_OPCODE_PREPARE_CHANNEL_MASKS,
+
+   /**
+    * Set the "Channel Mask" fields of a URB_WRITE message header.
+    *
+    * - dst is the MRF containing the message header.
+    *
+    * - src.x is the channel mask, as prepared by
+    *   GS_OPCODE_PREPARE_CHANNEL_MASKS.  DWORDs 0 and 4 are OR'ed together to
+    *   form the final channel mask.
+    */
+   GS_OPCODE_SET_CHANNEL_MASKS,
 };
 
 #define BRW_PREDICATE_NONE             0
