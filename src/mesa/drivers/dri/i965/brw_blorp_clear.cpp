@@ -49,7 +49,8 @@ public:
    brw_blorp_clear_params(struct brw_context *brw,
                           struct gl_framebuffer *fb,
                           struct gl_renderbuffer *rb,
-                          GLubyte *color_mask);
+                          GLubyte *color_mask,
+                          bool partial_clear);
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
                                 brw_blorp_prog_data **prog_data) const;
@@ -105,10 +106,33 @@ brw_blorp_clear_program::~brw_blorp_clear_program()
    ralloc_free(mem_ctx);
 }
 
+
+/**
+ * Determine if fast color clear supports the given clear color.
+ *
+ * Fast color clear can only clear to color values of 1.0 or 0.0.  At the
+ * moment we only support 0.0, and we only support floating point buffers.
+ */
+static bool
+is_color_fast_clear_compatible(gl_format format,
+                               const union gl_color_union *color)
+{
+   if (_mesa_is_format_integer_color(format))
+      return false;
+
+   for (int i = 0; i < 4; i++) {
+      if (color->f[i] != 0.0)
+         return false;
+   }
+   return true;
+}
+
+
 brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
                                                struct gl_framebuffer *fb,
                                                struct gl_renderbuffer *rb,
-                                               GLubyte *color_mask)
+                                               GLubyte *color_mask,
+                                               bool partial_clear)
 {
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
@@ -160,6 +184,56 @@ brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
          color_write_disable[i] = true;
          wm_prog_key.use_simd16_replicated_data = false;
       }
+   }
+
+   /* If we can do this as a fast color clear, do so. */
+   if (irb->mt->mcs_mt && !partial_clear &&
+       wm_prog_key.use_simd16_replicated_data &&
+       is_color_fast_clear_compatible(format, &ctx->Color.ClearColor)) {
+      memset(push_consts, 0xff, 4*sizeof(float));
+      fast_clear_op = GEN7_FAST_CLEAR_OP_FAST_CLEAR;
+
+      /* From the Ivy Bridge PRM, Vol2 Part1 11.7 "MCS Buffer for Render
+       * Target(s)", beneath the "Fast Color Clear" bullet (p327):
+       *
+       *     Clear pass must have a clear rectangle that must follow alignment
+       *     rules in terms of pixels and lines as shown in the table
+       *     below. Further, the clear-rectangle height and width must be
+       *     multiple of the following dimensions. If the height and width of
+       *     the render target being cleared do not meet these requirements,
+       *     an MCS buffer can be created such that it follows the requirement
+       *     and covers the RT.
+       *
+       * The alignment size in the table that follows is related to the
+       * alignment size returned by intel_get_non_msrt_mcs_alignment(), but
+       * with X alignment multiplied by 16 and Y alignment multiplied by 32.
+       */
+      unsigned x_align, y_align;
+      intel_get_non_msrt_mcs_alignment(irb->mt, &x_align, &y_align);
+      x_align *= 16;
+      y_align *= 32;
+      x0 = ROUND_DOWN_TO(x0, x_align);
+      y0 = ROUND_DOWN_TO(y0, y_align);
+      x1 = ALIGN(x1, x_align);
+      y1 = ALIGN(y1, y_align);
+
+      /* From the Ivy Bridge PRM, Vol2 Part1 11.7 "MCS Buffer for Render
+       * Target(s)", beneath the "Fast Color Clear" bullet (p327):
+       *
+       *     In order to optimize the performance MCS buffer (when bound to 1X
+       *     RT) clear similarly to MCS buffer clear for MSRT case, clear rect
+       *     is required to be scaled by the following factors in the
+       *     horizontal and vertical directions:
+       *
+       * The X and Y scale down factors in the table that follows are each
+       * equal to half the alignment value computed above.
+       */
+      unsigned x_scaledown = x_align / 2;
+      unsigned y_scaledown = y_align / 2;
+      x0 /= x_scaledown;
+      y0 /= y_scaledown;
+      x1 /= x_scaledown;
+      y1 /= y_scaledown;
    }
 }
 
@@ -264,7 +338,8 @@ brw_blorp_clear_program::compile(struct brw_context *brw,
 
 extern "C" {
 bool
-brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb)
+brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb,
+                      bool partial_clear)
 {
    struct gl_context *ctx = &intel->ctx;
    struct brw_context *brw = brw_context(ctx);
@@ -295,10 +370,23 @@ brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb)
       if (rb == NULL)
          continue;
 
-      brw_blorp_clear_params params(brw, fb, rb, ctx->Color.ColorMask[buf]);
+      brw_blorp_clear_params params(brw, fb, rb, ctx->Color.ColorMask[buf],
+                                    partial_clear);
+
+      /* If we are fast clearing, and the buffer is already in
+       * INTEL_FAST_CLEAR_STATE_CLEAR, the clear is redundant and can be
+       * skipped.
+       */
+      bool is_fast_clear =
+         (params.fast_clear_op == GEN7_FAST_CLEAR_OP_FAST_CLEAR);
+      if (is_fast_clear &&
+          irb->mt->fast_clear_state == INTEL_FAST_CLEAR_STATE_CLEAR) {
+         continue;
+      }
+
       brw_blorp_exec(intel, &params);
 
-      intel_miptree_set_needs_color_resolve(irb->mt, false);
+      intel_miptree_set_needs_color_resolve(irb->mt, is_fast_clear);
    }
 
    return true;
