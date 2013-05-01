@@ -448,6 +448,10 @@ struct intel_mipmap_tree
 
 
 
+void
+intel_get_non_msrt_mcs_alignment(const struct intel_mipmap_tree *mt,
+                                 unsigned *width_px, unsigned *height);
+
 struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLenum target,
 					       gl_format format,
