@@ -584,7 +584,7 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
 
    surf[4] = gen7_surface_msaa_bits(irb->mt->num_samples, irb->mt->msaa_layout);
 
-   if (irb->mt->msaa_layout == INTEL_MSAA_LAYOUT_CMS) {
+   if (irb->mt->mcs_mt) {
       gen7_set_surface_mcs_info(brw, surf, brw->wm.surf_offset[unit],
                                 irb->mt->mcs_mt, true /* is RT */);
    }
