@@ -198,9 +198,9 @@ intel_get_non_msrt_mcs_alignment(const struct intel_mipmap_tree *mt,
  *     - MCS buffer for non-MSRT is supported only for RT formats 32bpp,
  *       64bpp, and 128bpp.
  */
-static inline bool
-is_non_msrt_mcs_buffer_supported(const struct intel_context *intel,
-                                 const struct intel_mipmap_tree *mt)
+bool
+intel_is_non_msrt_mcs_buffer_supported(const struct intel_context *intel,
+                                       const struct intel_mipmap_tree *mt)
 {
    /* MCS support does not exist prior to Gen7 */
    if (intel->gen < 7)
@@ -597,7 +597,8 @@ intel_miptree_create_for_region(struct intel_context *intel,
 
 
 /**
- * For a singlesample DRI2 buffer, this simply wraps the given region with a miptree.
+ * For a singlesample DRI2 buffer, this simply wraps the given region with a
+ * miptree, and creates an MCS buffer if the hardware supports it.
  *
  * For a multisample DRI2 buffer, this wraps the given region with
  * a singlesample miptree, then creates a multisample miptree into which the
@@ -627,8 +628,17 @@ intel_miptree_create_for_dri2_buffer(struct intel_context *intel,
    if (!singlesample_mt)
       return NULL;
 
-   if (num_samples == 0)
+   if (num_samples == 0) {
+      if (intel_is_non_msrt_mcs_buffer_supported(intel, singlesample_mt)) {
+         bool ok = intel_miptree_alloc_non_msrt_mcs(intel, singlesample_mt);
+         if (!ok) {
+            intel_miptree_release(&singlesample_mt);
+            return NULL;
+         }
+      }
+
       return singlesample_mt;
+   }
 
    multisample_mt = intel_miptree_create_for_renderbuffer(intel,
                                                           format,
@@ -677,6 +687,11 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
 
    if (mt->msaa_layout == INTEL_MSAA_LAYOUT_CMS) {
       ok = intel_miptree_alloc_mcs(intel, mt, num_samples);
+      if (!ok)
+         goto fail;
+   } else if (mt->msaa_layout == INTEL_MSAA_LAYOUT_NONE &&
+              intel_is_non_msrt_mcs_buffer_supported(intel, mt)) {
+      ok = intel_miptree_alloc_non_msrt_mcs(intel, mt);
       if (!ok)
          goto fail;
    }
@@ -1113,6 +1128,61 @@ intel_miptree_alloc_mcs(struct intel_context *intel,
 
    return mt->mcs_mt;
 }
+
+
+bool
+intel_miptree_alloc_non_msrt_mcs(struct intel_context *intel,
+                                 struct intel_mipmap_tree *mt)
+{
+   assert(mt->mcs_mt == NULL);
+
+   /* The format of the MCS buffer is opaque to the driver; all that matters
+    * is that we get its size and pitch right.  We'll pretend that the format
+    * is R32.  Since an MCS tile covers 128 blocks horizontally, and a Y-tiled
+    * R32 buffer is 32 pixels across, we'll need to scale the width down by
+    * the block width and then a further factor of 4.  Since an MCS tile
+    * covers 256 blocks vertically, and a Y-tiled R32 buffer is 32 rows high,
+    * we'll need to scale the height down by the block height and then a
+    * further factor of 8.
+    */
+   const gl_format format = MESA_FORMAT_R_UINT32;
+   unsigned block_width_px;
+   unsigned block_height;
+   intel_get_non_msrt_mcs_alignment(mt, &block_width_px, &block_height);
+   unsigned width_divisor = block_width_px * 4;
+   unsigned height_divisor = block_height * 8;
+   unsigned mcs_width =
+      ALIGN(mt->logical_width0, width_divisor) / width_divisor;
+   unsigned mcs_height =
+      ALIGN(mt->logical_height0, height_divisor) / height_divisor;
+   assert(mt->logical_depth0 == 1);
+   mt->mcs_mt = intel_miptree_create(intel,
+                                     mt->target,
+                                     format,
+                                     mt->first_level,
+                                     mt->last_level,
+                                     mcs_width,
+                                     mcs_height,
+                                     mt->logical_depth0,
+                                     true,
+                                     0 /* num_samples */,
+                                     true /* force_y_tiling */);
+
+   /* Place the miptree in a consistent initial state.  Since the contents of
+    * a newly-allocated buffer are undefined by OpenGL, we choose the state
+    * that leads to the most efficient execution, which is the fast clear
+    * state.
+    *
+    * Note: the clear value for MCS buffers is all 1's, so we memset to 0xff.
+    */
+   void *data = intel_miptree_map_raw(intel, mt->mcs_mt);
+   memset(data, 0xff, mt->mcs_mt->region->bo->size);
+   intel_miptree_unmap_raw(intel, mt->mcs_mt);
+   mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_CLEAR;
+
+   return mt->mcs_mt;
+}
+
 
 /**
  * Helper for intel_miptree_alloc_hiz() that sets

@@ -93,17 +93,30 @@ intel_miptree_create_for_teximage(struct intel_context *intel,
       }
    }
 
-   return intel_miptree_create(intel,
-			       intelObj->base.Target,
-			       intelImage->base.Base.TexFormat,
-			       firstLevel,
-			       lastLevel,
-			       width,
-			       height,
-			       depth,
-			       expect_accelerated_upload,
-                               intelImage->base.Base.NumSamples,
-                               false /* force_y_tiling */);
+   struct intel_mipmap_tree *mt =
+      intel_miptree_create(intel,
+                           intelObj->base.Target,
+                           intelImage->base.Base.TexFormat,
+                           firstLevel,
+                           lastLevel,
+                           width,
+                           height,
+                           depth,
+                           expect_accelerated_upload,
+                           intelImage->base.Base.NumSamples,
+                           false /* force_y_tiling */);
+
+   /* If fast clears are supported for this surface, allocate an MCS buffer. */
+   if (mt->msaa_layout == INTEL_MSAA_LAYOUT_NONE &&
+       intel_is_non_msrt_mcs_buffer_supported(intel, mt)) {
+      bool ok = intel_miptree_alloc_non_msrt_mcs(intel, mt);
+      if (!ok) {
+         intel_miptree_release(&mt);
+         return NULL;
+      }
+   }
+
+   return mt;
 }
 
 /* XXX: Do this for TexSubImage also:
