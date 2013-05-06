@@ -692,6 +692,10 @@ intel_miptree_all_slices_resolve_depth(struct intel_context *intel,
 /**\}*/
 
 void
+intel_miptree_resolve_color(struct intel_context *intel,
+                            struct intel_mipmap_tree *mt);
+
+void
 intel_miptree_downsample(struct intel_context *intel,
                          struct intel_mipmap_tree *mt);
 
