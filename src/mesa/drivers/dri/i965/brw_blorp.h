@@ -199,6 +199,7 @@ struct brw_blorp_prog_data
 enum gen7_fast_clear_op {
    GEN7_FAST_CLEAR_OP_NONE,
    GEN7_FAST_CLEAR_OP_FAST_CLEAR,
+   GEN7_FAST_CLEAR_OP_RESOLVE,
 };
 
 
