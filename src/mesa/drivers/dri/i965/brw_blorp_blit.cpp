@@ -169,6 +169,7 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
 
    intel_renderbuffer_set_needs_hiz_resolve(dst_irb);
    intel_renderbuffer_set_needs_downsample(dst_irb);
+   intel_miptree_set_needs_color_resolve(dst_irb->mt, false);
 }
 
 

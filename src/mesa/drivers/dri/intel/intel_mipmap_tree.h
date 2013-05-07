@@ -200,6 +200,57 @@ enum intel_msaa_layout
    INTEL_MSAA_LAYOUT_CMS,
 };
 
+
+/**
+ * Enum for keeping track when fast clear related operations are needed.
+ *
+ * Fast clear works by deferring the memory writes that would be used to clear
+ * the buffer, so that instead of performing them at the time of the clear
+ * operation, the hardware automatically performs them at the time that the
+ * buffer is later accessed for rendering.  The MCS buffer keeps track of
+ * which regions of the buffer still have pending clear writes.
+ *
+ * This enum keeps track of the driver's knowledge of the state of the MCS
+ * buffer.
+ *
+ * Fast clear functionality is only supported on Gen7+.
+ */
+enum intel_fast_clear_state
+{
+   /**
+    * No deferred clears are pending.  The contents of the color buffer are
+    * entirely correct, and the contents of the MCS buffer are undefined.
+    *
+    * In this state, the color buffer can be used for purposes other than
+    * rendering without needing a render target resolve.
+    */
+   INTEL_FAST_CLEAR_STATE_RESOLVED,
+
+   /**
+    * Deferred clears are pending for some regions of the color buffer, as
+    * indicated by the MCS buffer.  The contents of the color buffer are only
+    * correct for the regions where the MCS buffer doesn't indicate a deferred
+    * clear.
+    *
+    * In this state, a render target resolve must be performed before the
+    * color buffer can be used for purposes other than rendering.
+    */
+   INTEL_FAST_CLEAR_STATE_UNRESOLVED,
+
+   /**
+    * Deferred clears are pending for the entire color buffer, and the
+    * contents of the MCS buffer reflect this.  The contents of the color
+    * buffer are undefined.
+    *
+    * In this state, a render target resolve must be performed before the
+    * color buffer can be used for purposes other than rendering.
+    *
+    * If the client attempts to clear a buffer which is already in this state,
+    * the clear can be safely skipped, since the buffer is already clear.
+    */
+   INTEL_FAST_CLEAR_STATE_CLEAR,
+};
+
 struct intel_mipmap_tree
 {
    /* Effectively the key:
@@ -382,6 +433,12 @@ struct intel_mipmap_tree
     */
    struct intel_mipmap_tree *mcs_mt;
 
+   /**
+    * Fast clear state for this buffer.  Ignored for buffers in which mcs_mt
+    * is NULL or num_samples > 1.
+    */
+   enum intel_fast_clear_state fast_clear_state;
+
    /* These are also refcounted:
     */
    GLuint refcount;
@@ -555,6 +612,10 @@ void
 intel_miptree_slice_set_needs_depth_resolve(struct intel_mipmap_tree *mt,
                                             uint32_t level,
 					    uint32_t depth);
+
+void
+intel_miptree_set_needs_color_resolve(struct intel_mipmap_tree *mt,
+                                      bool is_fast_clear);
 
 /**
  * \return false if no resolve was needed

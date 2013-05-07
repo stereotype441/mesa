@@ -286,6 +286,7 @@ brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb)
 
    for (unsigned buf = 0; buf < ctx->DrawBuffer->_NumColorDrawBuffers; buf++) {
       struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[buf];
+      struct intel_renderbuffer *irb = intel_renderbuffer(rb);
 
       /* If this is an ES2 context or GL_ARB_ES2_compatibility is supported,
        * the framebuffer can be complete with some attachments missing.  In
@@ -296,6 +297,8 @@ brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb)
 
       brw_blorp_clear_params params(brw, fb, rb, ctx->Color.ColorMask[buf]);
       brw_blorp_exec(intel, &params);
+
+      intel_miptree_set_needs_color_resolve(irb->mt, false);
    }
 
    return true;

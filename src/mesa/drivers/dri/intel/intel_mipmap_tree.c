@@ -1142,6 +1142,18 @@ intel_miptree_slice_set_needs_depth_resolve(struct intel_mipmap_tree *mt,
 			 level, layer, GEN6_HIZ_OP_DEPTH_RESOLVE);
 }
 
+
+void
+intel_miptree_set_needs_color_resolve(struct intel_mipmap_tree *mt,
+                                      bool is_fast_clear)
+{
+   if (is_fast_clear)
+      mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_CLEAR;
+   else if (mt->fast_clear_state == INTEL_FAST_CLEAR_STATE_CLEAR)
+      mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_UNRESOLVED;
+}
+
+
 static bool
 intel_miptree_slice_resolve(struct intel_context *intel,
 			    struct intel_mipmap_tree *mt,

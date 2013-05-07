@@ -349,6 +349,16 @@ static void brw_postdraw_set_buffers_need_resolve(struct brw_context *brw)
       intel_renderbuffer_set_needs_downsample(back_irb);
    if (depth_irb && ctx->Depth.Mask)
       intel_renderbuffer_set_needs_depth_resolve(depth_irb);
+
+   /* Update the fast clear state of color draw buffers to indicate that
+    * rendering has been done.
+    */
+   for (int i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++) {
+      struct intel_renderbuffer *irb =
+         intel_renderbuffer(ctx->DrawBuffer->_ColorDrawBuffers[i]);
+      if (irb)
+         intel_miptree_set_needs_color_resolve(irb->mt, false);
+   }
 }
 
 static int
