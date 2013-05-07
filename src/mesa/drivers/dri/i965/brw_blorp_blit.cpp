@@ -155,8 +155,12 @@ do_blorp_blit(struct intel_context *intel, GLbitfield buffer_bit,
    struct intel_mipmap_tree *dst_mt = find_miptree(buffer_bit, dst_irb);
 
    /* Get ready to blit.  This includes depth resolving the src and dst
-    * buffers if necessary.
+    * buffers if necessary.  Note: it's not necessary to do a color resolve on
+    * the destination buffer because we use the standard render path to render
+    * to destination color buffers, and the standard render path is
+    * fast-color-aware.
     */
+   intel_miptree_resolve_color(intel, src_irb->mt);
    intel_renderbuffer_resolve_depth(intel, src_irb);
    intel_renderbuffer_resolve_depth(intel, dst_irb);
 

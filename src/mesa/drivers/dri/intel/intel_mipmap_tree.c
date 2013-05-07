@@ -1328,6 +1328,20 @@ intel_miptree_all_slices_resolve_depth(struct intel_context *intel,
 					   GEN6_HIZ_OP_DEPTH_RESOLVE);
 }
 
+
+void
+intel_miptree_resolve_color(struct intel_context *intel,
+                            struct intel_mipmap_tree *mt)
+{
+#ifndef I915
+   if (mt->mcs_mt && mt->num_samples <= 1 &&
+       mt->fast_clear_state != INTEL_FAST_CLEAR_STATE_RESOLVED) {
+      brw_blorp_resolve_color(intel, mt);
+   }
+#endif
+}
+
+
 /**
  * \brief Get pointer offset into stencil buffer.
  *
@@ -1989,6 +2003,7 @@ intel_miptree_map_singlesample(struct intel_context *intel,
       return;
    }
 
+   intel_miptree_resolve_color(intel, mt);
    intel_miptree_slice_resolve_depth(intel, mt, level, slice);
    if (map->mode & GL_MAP_WRITE_BIT) {
       intel_miptree_slice_set_needs_hiz_resolve(mt, level, slice);
