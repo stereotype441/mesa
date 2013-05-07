@@ -470,6 +470,8 @@ void brw_upload_state(struct brw_context *brw)
 
    intel_check_front_buffer_rendering(intel);
 
+   brw->state_emission_in_progress = true;
+
    if (unlikely(INTEL_DEBUG)) {
       /* Debug version which enforces various sanity checks on the
        * state flags which are generated and checked to help ensure
@@ -507,6 +509,8 @@ void brw_upload_state(struct brw_context *brw)
 	 }
       }
    }
+
+   brw->state_emission_in_progress = false;
 
    if (unlikely(INTEL_DEBUG & DEBUG_STATE)) {
       brw_update_dirty_count(mesa_bits, state->mesa);

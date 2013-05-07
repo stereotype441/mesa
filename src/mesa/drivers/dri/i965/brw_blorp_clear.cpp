@@ -509,6 +509,14 @@ void
 brw_blorp_resolve_color(struct intel_context *intel, struct intel_mipmap_tree *mt)
 {
    struct brw_context *brw = brw_context(&intel->ctx);
+
+   /* We can't safely resolve the render target while emitting 3D state.  If
+    * the following assertion fails, that indicates that the render target
+    * resolve should have been performed earlier, e.g. by
+    * brw_predraw_resolve_buffers().
+    */
+   assert(!brw->state_emission_in_progress);
+
    brw_blorp_rt_resolve_params params(brw, mt);
    brw_blorp_exec(intel, &params);
    mt->mcs_state = INTEL_MCS_STATE_RESOLVED;

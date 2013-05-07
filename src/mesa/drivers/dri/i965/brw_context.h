@@ -1119,6 +1119,8 @@ struct brw_context
       int max_entries;
       double report_time;
    } shader_time;
+
+   bool state_emission_in_progress;
 };
 
 /*======================================================================

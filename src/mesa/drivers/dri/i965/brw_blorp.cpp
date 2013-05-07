@@ -172,6 +172,7 @@ void
 brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
 {
    struct brw_context *brw = brw_context(&intel->ctx);
+   brw->state_emission_in_progress = true;
 
    switch (intel->gen) {
    case 6:
@@ -185,6 +186,8 @@ brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
       assert(false);
       break;
    }
+
+   brw->state_emission_in_progress = false;
 
    if (unlikely(intel->always_flush_batch))
       intel_batchbuffer_flush(intel);
