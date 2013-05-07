@@ -802,7 +802,7 @@ intel_miptree_get_region(struct intel_context *intel,
    case INTEL_MIPTREE_ACCESS_BLIT:
    case INTEL_MIPTREE_ACCESS_MAP:
    case INTEL_MIPTREE_ACCESS_TEX:
-      /* TODO: perform a render target resolve. */
+      intel_miptree_resolve_color(intel, mt);
       break;
    case INTEL_MIPTREE_ACCESS_SHARED:
       /* TODO: resolve and then discard MCS buffer since fast color clears are
