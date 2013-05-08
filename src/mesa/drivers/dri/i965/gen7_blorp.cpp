@@ -199,11 +199,13 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
                                 is_render_target);
    }
 
+   surf[7] = surface->mt->fast_clear_color_value;
+
    if (intel->is_haswell) {
-      surf[7] = SET_FIELD(HSW_SCS_RED,   GEN7_SURFACE_SCS_R) |
-                SET_FIELD(HSW_SCS_GREEN, GEN7_SURFACE_SCS_G) |
-                SET_FIELD(HSW_SCS_BLUE,  GEN7_SURFACE_SCS_B) |
-                SET_FIELD(HSW_SCS_ALPHA, GEN7_SURFACE_SCS_A);
+      surf[7] |= (SET_FIELD(HSW_SCS_RED,   GEN7_SURFACE_SCS_R) |
+                  SET_FIELD(HSW_SCS_GREEN, GEN7_SURFACE_SCS_G) |
+                  SET_FIELD(HSW_SCS_BLUE,  GEN7_SURFACE_SCS_B) |
+                  SET_FIELD(HSW_SCS_ALPHA, GEN7_SURFACE_SCS_A));
    }
 
    /* Emit relocation to surface contents */

@@ -441,6 +441,15 @@ struct intel_mipmap_tree
     */
    enum intel_fast_clear_state fast_clear_state;
 
+   /**
+    * The SURFACE_STATE bits associated with the last fast color clear to this
+    * color mipmap tree, if any.
+    *
+    * This value will only ever contain ones in bits 28-31, so it is safe to
+    * OR into dword 7 of SURFACE_STATE.
+    */
+   uint32_t fast_clear_color_value;
+
    /* These are also refcounted:
     */
    GLuint refcount;

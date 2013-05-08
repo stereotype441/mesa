@@ -134,7 +134,7 @@ brw_blorp_const_color_program::~brw_blorp_const_color_program()
  * Determine if fast color clear supports the given clear color.
  *
  * Fast color clear can only clear to color values of 1.0 or 0.0.  At the
- * moment we only support 0.0, and we only support floating point buffers.
+ * moment we only support floating point buffers.
  */
 static bool
 is_color_fast_clear_compatible(gl_format format,
@@ -144,10 +144,26 @@ is_color_fast_clear_compatible(gl_format format,
       return false;
 
    for (int i = 0; i < 4; i++) {
-      if (color->f[i] != 0.0)
+      if (color->f[i] != 0.0 && color->f[i] != 1.0)
          return false;
    }
    return true;
+}
+
+
+/**
+ * Convert the given color to a bitfield suitable for ORing into DWORD 7 of
+ * SURFACE_STATE.
+ */
+static uint32_t
+compute_fast_clear_color_bits(const union gl_color_union *color)
+{
+   uint32_t bits = 0;
+   for (int i = 0; i < 4; i++) {
+      if (color->f[i] != 0.0)
+         bits |= 1 << (GEN7_SURFACE_CLEAR_COLOR_SHIFT + (3 - i));
+   }
+   return bits;
 }
 
 
@@ -438,15 +454,25 @@ brw_blorp_clear_color(struct intel_context *intel, struct gl_framebuffer *fb,
       brw_blorp_clear_params params(brw, fb, rb, ctx->Color.ColorMask[buf],
                                     partial_clear);
 
-      /* If we are fast clearing, and the buffer is already in
-       * INTEL_FAST_CLEAR_STATE_CLEAR, the clear is redundant and can be
-       * skipped.
-       */
       bool is_fast_clear =
          (params.fast_clear_op == GEN7_FAST_CLEAR_OP_FAST_CLEAR);
-      if (is_fast_clear &&
-          irb->mt->fast_clear_state == INTEL_FAST_CLEAR_STATE_CLEAR) {
-         continue;
+      if (is_fast_clear) {
+         /* Record the clear color in the miptree so that it will be
+          * programmed in SURFACE_STATE by later rendering and resolve
+          * operations.
+          */
+         uint32_t new_color_value =
+            compute_fast_clear_color_bits(&ctx->Color.ClearColor);
+         if (irb->mt->fast_clear_color_value != new_color_value) {
+            irb->mt->fast_clear_color_value = new_color_value;
+            brw->state.dirty.brw |= BRW_NEW_SURFACES;
+         }
+
+         /* If the buffer is already in INTEL_FAST_CLEAR_STATE_CLEAR, the
+          * clear is redundant and can be skipped.
+          */
+         if (irb->mt->fast_clear_state == INTEL_FAST_CLEAR_STATE_CLEAR)
+            continue;
       }
 
       brw_blorp_exec(intel, &params);

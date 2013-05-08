@@ -510,6 +510,7 @@
 #define GEN7_SURFACE_MCS_PITCH_MASK             INTEL_MASK(11, 3)
 
 /* Surface state DW7 */
+#define GEN7_SURFACE_CLEAR_COLOR_SHIFT		28
 #define GEN7_SURFACE_SCS_R_SHIFT                25
 #define GEN7_SURFACE_SCS_R_MASK                 INTEL_MASK(27, 25)
 #define GEN7_SURFACE_SCS_G_SHIFT                22
