@@ -42,9 +42,10 @@ intel_drawbuf_region(struct intel_context *intel)
 {
    struct intel_renderbuffer *irbColor =
       intel_renderbuffer(intel->ctx.DrawBuffer->_ColorDrawBuffers[0]);
-   if (irbColor && irbColor->mt)
+   if (irbColor && irbColor->mt) {
+      intel_miptree_resolve_color(intel, irbColor->mt);
       return irbColor->mt->region;
-   else
+   } else
       return NULL;
 }
 
