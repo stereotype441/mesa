@@ -109,7 +109,7 @@ intel_miptree_create_for_teximage(struct intel_context *intel,
    /* If fast clears are supported for this surface, allocate an MCS buffer. */
    if (mt->msaa_layout == INTEL_MSAA_LAYOUT_NONE &&
        intel_is_non_msrt_mcs_buffer_supported(intel, mt)) {
-      bool ok = intel_miptree_alloc_non_msrt_mcs(intel, mt);
+      bool ok = intel_miptree_alloc_non_msrt_mcs(intel, mt, false);
       if (!ok) {
          intel_miptree_release(&mt);
          return NULL;

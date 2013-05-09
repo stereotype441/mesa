@@ -467,7 +467,8 @@ intel_get_non_msrt_mcs_alignment(const struct intel_mipmap_tree *mt,
 
 bool
 intel_miptree_alloc_non_msrt_mcs(struct intel_context *intel,
-                                 struct intel_mipmap_tree *mt);
+                                 struct intel_mipmap_tree *mt,
+                                 bool preserve_buffer_contents);
 
 struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLenum target,

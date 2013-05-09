@@ -642,7 +642,8 @@ intel_miptree_create_for_dri2_buffer(struct intel_context *intel,
 
    if (num_samples == 0) {
       if (intel_is_non_msrt_mcs_buffer_supported(intel, singlesample_mt)) {
-         bool ok = intel_miptree_alloc_non_msrt_mcs(intel, singlesample_mt);
+         bool ok = intel_miptree_alloc_non_msrt_mcs(intel, singlesample_mt,
+                                                    true);
          if (!ok) {
             intel_miptree_release(&singlesample_mt);
             return NULL;
@@ -703,7 +704,7 @@ intel_miptree_create_for_renderbuffer(struct intel_context *intel,
          goto fail;
    } else if (mt->msaa_layout == INTEL_MSAA_LAYOUT_NONE &&
               intel_is_non_msrt_mcs_buffer_supported(intel, mt)) {
-      ok = intel_miptree_alloc_non_msrt_mcs(intel, mt);
+      ok = intel_miptree_alloc_non_msrt_mcs(intel, mt, false);
       if (!ok)
          goto fail;
    }
@@ -1144,7 +1145,8 @@ intel_miptree_alloc_mcs(struct intel_context *intel,
 
 bool
 intel_miptree_alloc_non_msrt_mcs(struct intel_context *intel,
-                                 struct intel_mipmap_tree *mt)
+                                 struct intel_mipmap_tree *mt,
+                                 bool preserve_buffer_contents)
 {
    assert(mt->mcs_mt == NULL);
 
@@ -1180,17 +1182,24 @@ intel_miptree_alloc_non_msrt_mcs(struct intel_context *intel,
                                      0 /* num_samples */,
                                      true /* force_y_tiling */);
 
-   /* Place the miptree in a consistent initial state.  Since the contents of
-    * a newly-allocated buffer are undefined by OpenGL, we choose the state
-    * that leads to the most efficient execution, which is the fast clear
-    * state.
-    *
-    * Note: the clear value for MCS buffers is all 1's, so we memset to 0xff.
-    */
-   void *data = intel_miptree_map_raw(intel, mt->mcs_mt);
-   memset(data, 0xff, mt->mcs_mt->region->bo->size);
-   intel_miptree_unmap_raw(intel, mt->mcs_mt);
-   mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_CLEAR;
+   if (preserve_buffer_contents) {
+      /* We need to preserve the contents of the buffer (e.g. because it's a
+       * front buffer that came back from the X server), so go into
+       * INTEL_FAST_CLEAR_STATE_RESOLVED.
+       */
+      mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_RESOLVED;
+   } else {
+      /* We don't need to preserve the contents of the buffer, so go into the
+       * state that leads to the most efficient execution (the fast clear
+       * state).
+       *
+       * Note: the clear value for MCS buffers is all 1's, so we memset to 0xff.
+       */
+      void *data = intel_miptree_map_raw(intel, mt->mcs_mt);
+      memset(data, 0xff, mt->mcs_mt->region->bo->size);
+      intel_miptree_unmap_raw(intel, mt->mcs_mt);
+      mt->fast_clear_state = INTEL_FAST_CLEAR_STATE_CLEAR;
+   }
 
    return mt->mcs_mt;
 }
