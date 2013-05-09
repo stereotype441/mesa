@@ -152,6 +152,12 @@ do_blit_copypixels(struct gl_context * ctx,
 
    intel_prepare_render(intel);
 
+   /* Blitter doesn't understand about fast clears, so resolve the source and
+    * destination buffers before blitting.
+    */
+   intel_miptree_resolve_color(intel, read_irb->mt);
+   intel_miptree_resolve_color(intel, draw_irb->mt);
+
    intel_flush(&intel->ctx);
 
    /* Clip to destination buffer. */
