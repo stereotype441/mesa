@@ -199,9 +199,14 @@ intel_get_non_msrt_mcs_alignment(const struct intel_mipmap_tree *mt,
  *       64bpp, and 128bpp.
  */
 bool
-intel_is_non_msrt_mcs_buffer_supported(const struct intel_context *intel,
+intel_is_non_msrt_mcs_buffer_supported(struct intel_context *intel,
                                        const struct intel_mipmap_tree *mt)
 {
+#ifdef I915
+   return false;
+#else
+   struct brw_context *brw = brw_context(&intel->ctx);
+
    /* MCS support does not exist prior to Gen7 */
    if (intel->gen < 7)
       return false;
@@ -216,7 +221,14 @@ intel_is_non_msrt_mcs_buffer_supported(const struct intel_context *intel,
    if (mt->physical_depth0 != 1)
       return false;
 
+   /* There's no point in using an MCS buffer if the surface isn't in a
+    * renderable format.
+    */
+   if (!brw->format_supported_as_render_target[mt->format])
+      return false;
+
    return true;
+#endif
 }
 
 

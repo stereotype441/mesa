@@ -458,7 +458,7 @@ struct intel_mipmap_tree
 
 
 bool
-intel_is_non_msrt_mcs_buffer_supported(const struct intel_context *intel,
+intel_is_non_msrt_mcs_buffer_supported(struct intel_context *intel,
                                        const struct intel_mipmap_tree *mt);
 
 void
