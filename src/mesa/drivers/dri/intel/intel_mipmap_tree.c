@@ -211,6 +211,14 @@ intel_is_non_msrt_mcs_buffer_supported(struct intel_context *intel,
    if (intel->gen < 7)
       return false;
 
+   /* MCS is only supported for color buffers */
+   switch (_mesa_get_format_base_format(mt->format)) {
+   case GL_DEPTH_COMPONENT:
+   case GL_DEPTH_STENCIL:
+   case GL_STENCIL_INDEX:
+      return false;
+   }
+
    if (mt->region->tiling != I915_TILING_X &&
        mt->region->tiling != I915_TILING_Y)
       return false;
