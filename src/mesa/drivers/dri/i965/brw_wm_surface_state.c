@@ -985,15 +985,17 @@ brw_update_texture_surface(struct gl_context *ctx,
 				    sampler->sRGBDecode) <<
 	       BRW_SURFACE_FORMAT_SHIFT));
 
-   surf[1] = intelObj->mt->region->bo->offset + intelObj->mt->offset; /* reloc */
+   struct intel_region *region =
+      intel_miptree_get_region(intel, intelObj->mt, INTEL_MIPTREE_ACCESS_TEX);
+   surf[1] = region->bo->offset + intelObj->mt->offset; /* reloc */
 
    surf[2] = ((intelObj->_MaxLevel - tObj->BaseLevel) << BRW_SURFACE_LOD_SHIFT |
 	      (width - 1) << BRW_SURFACE_WIDTH_SHIFT |
 	      (height - 1) << BRW_SURFACE_HEIGHT_SHIFT);
 
-   surf[3] = (brw_get_surface_tiling_bits(intelObj->mt->region->tiling) |
+   surf[3] = (brw_get_surface_tiling_bits(region->tiling) |
 	      (depth - 1) << BRW_SURFACE_DEPTH_SHIFT |
-	      (intelObj->mt->region->pitch - 1) <<
+	      (region->pitch - 1) <<
 	      BRW_SURFACE_PITCH_SHIFT);
 
    surf[4] = brw_get_surface_num_multisamples(intelObj->mt->num_samples);
@@ -1013,7 +1015,7 @@ brw_update_texture_surface(struct gl_context *ctx,
    /* Emit relocation to surface contents */
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
 			   binding_table[surf_index] + 4,
-			   intelObj->mt->region->bo,
+			   region->bo,
                            intelObj->mt->offset,
 			   I915_GEM_DOMAIN_SAMPLER, 0);
 }
@@ -1329,7 +1331,7 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
    gl_format rb_format = _mesa_get_render_format(ctx, intel_rb_format(irb));
 
    if (rb->TexImage && !brw->has_surface_tile_offset) {
-      intel_renderbuffer_tile_offsets(irb, &tile_x, &tile_y);
+      intel_renderbuffer_tile_offsets(intel, irb, &tile_x, &tile_y);
 
       if (tile_x != 0 || tile_y != 0) {
 	 /* Original gen4 hardware couldn't draw to a non-tile-aligned
@@ -1343,7 +1345,8 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
       }
    }
 
-   region = irb->mt->region;
+   region = intel_miptree_get_region(intel, irb->mt,
+                                     INTEL_MIPTREE_ACCESS_RENDER);
 
    surf = brw_state_batch(brw, AUB_TRACE_SURFACE_STATE,
 			  6 * 4, 32, &brw->wm.surf_offset[unit]);
@@ -1358,7 +1361,7 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
 	      format << BRW_SURFACE_FORMAT_SHIFT);
 
    /* reloc */
-   surf[1] = (intel_renderbuffer_tile_offsets(irb, &tile_x, &tile_y) +
+   surf[1] = (intel_renderbuffer_tile_offsets(intel, irb, &tile_x, &tile_y) +
 	      region->bo->offset);
 
    surf[2] = ((rb->Width - 1) << BRW_SURFACE_WIDTH_SHIFT |

@@ -148,9 +148,11 @@ i830_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
    intel_miptree_get_image_offset(intelObj->mt, tObj->BaseLevel, 0,
 				  &dst_x, &dst_y);
 
-   drm_intel_bo_reference(intelObj->mt->region->bo);
-   i830->state.tex_buffer[unit] = intelObj->mt->region->bo;
-   pitch = intelObj->mt->region->pitch;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, intelObj->mt, INTEL_MIPTREE_ACCESS_TEX);
+   drm_intel_bo_reference(region->bo);
+   i830->state.tex_buffer[unit] = region->bo;
+   pitch = region->pitch;
 
    /* XXX: This calculation is probably broken for tiled images with
     * a non-page-aligned offset.
@@ -166,9 +168,9 @@ i830_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
       (((firstImage->Height - 1) << TM0S1_HEIGHT_SHIFT) |
        ((firstImage->Width - 1) << TM0S1_WIDTH_SHIFT) | format);
 
-   if (intelObj->mt->region->tiling != I915_TILING_NONE) {
+   if (region->tiling != I915_TILING_NONE) {
       state[I830_TEXREG_TM0S1] |= TM0S1_TILED_SURFACE;
-      if (intelObj->mt->region->tiling == I915_TILING_Y)
+      if (region->tiling == I915_TILING_Y)
 	 state[I830_TEXREG_TM0S1] |= TM0S1_TILE_WALK;
    }
 

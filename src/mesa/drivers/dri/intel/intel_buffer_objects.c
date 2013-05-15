@@ -746,14 +746,19 @@ intel_texture_object_purgeable(struct gl_context * ctx,
 {
    struct intel_texture_object *intel;
 
-   (void) ctx;
    (void) option;
 
    intel = intel_texture_object(obj);
-   if (intel->mt == NULL || intel->mt->region == NULL)
+   if (intel->mt == NULL)
       return GL_RELEASED_APPLE;
 
-   return intel_buffer_purgeable(intel->mt->region->bo);
+   struct intel_region *region =
+      intel_miptree_get_region(intel_context(ctx), intel->mt,
+                               INTEL_MIPTREE_ACCESS_NONE);
+   if (region == NULL)
+      return GL_RELEASED_APPLE;
+
+   return intel_buffer_purgeable(region->bo);
 }
 
 static GLenum
@@ -763,14 +768,16 @@ intel_render_object_purgeable(struct gl_context * ctx,
 {
    struct intel_renderbuffer *intel;
 
-   (void) ctx;
    (void) option;
 
    intel = intel_renderbuffer(obj);
    if (intel->mt == NULL)
       return GL_RELEASED_APPLE;
 
-   return intel_buffer_purgeable(intel->mt->region->bo);
+   struct intel_region *region =
+      intel_miptree_get_region(intel_context(ctx), intel->mt,
+                               INTEL_MIPTREE_ACCESS_NONE);
+   return intel_buffer_purgeable(region->bo);
 }
 
 static GLenum
@@ -803,14 +810,19 @@ intel_texture_object_unpurgeable(struct gl_context * ctx,
 {
    struct intel_texture_object *intel;
 
-   (void) ctx;
    (void) option;
 
    intel = intel_texture_object(obj);
-   if (intel->mt == NULL || intel->mt->region == NULL)
+   if (intel->mt == NULL)
       return GL_UNDEFINED_APPLE;
 
-   return intel_buffer_unpurgeable(intel->mt->region->bo);
+   struct intel_region *region =
+      intel_miptree_get_region(intel_context(ctx), intel->mt,
+                               INTEL_MIPTREE_ACCESS_NONE);
+   if (region == NULL)
+      return GL_UNDEFINED_APPLE;
+
+   return intel_buffer_unpurgeable(region->bo);
 }
 
 static GLenum
@@ -820,14 +832,16 @@ intel_render_object_unpurgeable(struct gl_context * ctx,
 {
    struct intel_renderbuffer *intel;
 
-   (void) ctx;
    (void) option;
 
    intel = intel_renderbuffer(obj);
    if (intel->mt == NULL)
       return GL_UNDEFINED_APPLE;
+   struct intel_region *region =
+      intel_miptree_get_region(intel_context(ctx), intel->mt,
+                               INTEL_MIPTREE_ACCESS_NONE);
 
-   return intel_buffer_unpurgeable(intel->mt->region->bo);
+   return intel_buffer_unpurgeable(region->bo);
 }
 
 void

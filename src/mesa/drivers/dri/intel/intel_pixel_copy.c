@@ -194,16 +194,20 @@ do_blit_copypixels(struct gl_context * ctx,
    dstx += draw_irb->draw_x;
    dsty += draw_irb->draw_y;
 
-   uint32_t src_pitch = read_irb->mt->region->pitch;
+   struct intel_region *read_region =
+      intel_miptree_get_region(intel, read_irb->mt, INTEL_MIPTREE_ACCESS_BLIT);
+   struct intel_region *draw_region =
+      intel_miptree_get_region(intel, draw_irb->mt, INTEL_MIPTREE_ACCESS_BLIT);
+   uint32_t src_pitch = read_region->pitch;
    if (flip)
       src_pitch = -src_pitch;
 
    if (!intelEmitCopyBlit(intel,
                           draw_irb->mt->cpp,
-                          src_pitch, read_irb->mt->region->bo,
-                          0, read_irb->mt->region->tiling,
-                          draw_irb->mt->region->pitch, draw_irb->mt->region->bo,
-                          0, draw_irb->mt->region->tiling,
+                          src_pitch, read_region->bo,
+                          0, read_region->tiling,
+                          draw_region->pitch, draw_region->bo,
+                          0, draw_region->tiling,
                           srcx, srcy,
                           dstx, dsty,
                           width, height,

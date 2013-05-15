@@ -58,14 +58,18 @@ static struct gl_renderbuffer *
 intel_new_renderbuffer(struct gl_context * ctx, GLuint name);
 
 struct intel_region*
-intel_get_rb_region(struct gl_framebuffer *fb, GLuint attIndex)
+intel_get_rb_region(struct intel_context *intel, struct gl_framebuffer *fb,
+                    GLuint attIndex,
+                    enum intel_miptree_access_type access_type)
 {
    struct intel_renderbuffer *irb = intel_get_renderbuffer(fb, attIndex);
    if (irb && irb->mt) {
+      struct intel_mipmap_tree *mt;
       if (attIndex == BUFFER_STENCIL && irb->mt->stencil_mt)
-	 return irb->mt->stencil_mt->region;
+         mt = irb->mt->stencil_mt;
       else
-	 return irb->mt->region;
+	 mt = irb->mt;
+      return intel_miptree_get_region(intel, mt, access_type);
    } else
       return NULL;
 }
@@ -545,11 +549,13 @@ intel_renderbuffer_set_draw_offset(struct intel_renderbuffer *irb)
  * from there.
  */
 uint32_t
-intel_renderbuffer_tile_offsets(struct intel_renderbuffer *irb,
+intel_renderbuffer_tile_offsets(struct intel_context *intel,
+                                struct intel_renderbuffer *irb,
 				uint32_t *tile_x,
 				uint32_t *tile_y)
 {
-   struct intel_region *region = irb->mt->region;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, irb->mt, INTEL_MIPTREE_ACCESS_NONE);
    uint32_t mask_x, mask_y;
 
    intel_region_get_tile_masks(region, &mask_x, &mask_y, false);

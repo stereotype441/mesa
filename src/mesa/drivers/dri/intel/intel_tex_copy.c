@@ -69,7 +69,8 @@ intel_copy_texsubimage(struct intel_context *intel,
 		 __FUNCTION__, intelImage->mt, irb, internalFormat);
       return false;
    } else {
-      region = irb->mt->region;
+      region = intel_miptree_get_region(intel, irb->mt,
+                                        INTEL_MIPTREE_ACCESS_BLIT);
       assert(region);
    }
 
@@ -124,6 +125,9 @@ intel_copy_texsubimage(struct intel_context *intel,
    {
       GLuint image_x, image_y;
       GLshort src_pitch;
+      struct intel_region *image_region =
+         intel_miptree_get_region(intel, intelImage->mt,
+                                  INTEL_MIPTREE_ACCESS_BLIT);
 
       /* get dest x/y in destination texture */
       intel_miptree_get_image_offset(intelImage->mt,
@@ -132,7 +136,7 @@ intel_copy_texsubimage(struct intel_context *intel,
 				     &image_x, &image_y);
 
       /* The blitter can't handle Y-tiled buffers. */
-      if (intelImage->mt->region->tiling == I915_TILING_Y) {
+      if (image_region->tiling == I915_TILING_Y) {
 	 return false;
       }
 
@@ -152,10 +156,10 @@ intel_copy_texsubimage(struct intel_context *intel,
 			     region->bo,
 			     0,
 			     region->tiling,
-			     intelImage->mt->region->pitch,
-			     intelImage->mt->region->bo,
+			     image_region->pitch,
+			     image_region->bo,
 			     0,
-			     intelImage->mt->region->tiling,
+			     image_region->tiling,
 			     irb->draw_x + x, irb->draw_y + y,
 			     image_x + dstx, image_y + dsty,
 			     width, height,

@@ -270,7 +270,8 @@ brw_depthbuffer_format(struct brw_context *brw)
  * mask, then we're in trouble.
  */
 void
-brw_get_depthstencil_tile_masks(struct intel_mipmap_tree *depth_mt,
+brw_get_depthstencil_tile_masks(struct intel_context *intel,
+                                struct intel_mipmap_tree *depth_mt,
                                 uint32_t depth_level,
                                 uint32_t depth_layer,
                                 struct intel_mipmap_tree *stencil_mt,
@@ -280,12 +281,17 @@ brw_get_depthstencil_tile_masks(struct intel_mipmap_tree *depth_mt,
    uint32_t tile_mask_x = 0, tile_mask_y = 0;
 
    if (depth_mt) {
-      intel_region_get_tile_masks(depth_mt->region,
+      struct intel_region *depth_region =
+         intel_miptree_get_region(intel, depth_mt, INTEL_MIPTREE_ACCESS_NONE);
+      struct intel_region *hiz_region =
+         intel_miptree_get_region(intel, depth_mt->hiz_mt,
+                                  INTEL_MIPTREE_ACCESS_NONE);
+      intel_region_get_tile_masks(depth_region,
                                   &tile_mask_x, &tile_mask_y, false);
 
       if (intel_miptree_slice_has_hiz(depth_mt, depth_level, depth_layer)) {
          uint32_t hiz_tile_mask_x, hiz_tile_mask_y;
-         intel_region_get_tile_masks(depth_mt->hiz_mt->region,
+         intel_region_get_tile_masks(hiz_region,
                                      &hiz_tile_mask_x, &hiz_tile_mask_y, false);
 
          /* Each HiZ row represents 2 rows of pixels */
@@ -305,8 +311,11 @@ brw_get_depthstencil_tile_masks(struct intel_mipmap_tree *depth_mt,
          tile_mask_x |= 63;
          tile_mask_y |= 63;
       } else {
+         struct intel_region *stencil_region =
+            intel_miptree_get_region(intel, stencil_mt,
+                                     INTEL_MIPTREE_ACCESS_NONE);
          uint32_t stencil_tile_mask_x, stencil_tile_mask_y;
-         intel_region_get_tile_masks(stencil_mt->region,
+         intel_region_get_tile_masks(stencil_region,
                                      &stencil_tile_mask_x,
                                      &stencil_tile_mask_y, false);
 
@@ -368,7 +377,7 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
    }
 
    uint32_t tile_mask_x, tile_mask_y;
-   brw_get_depthstencil_tile_masks(depth_mt,
+   brw_get_depthstencil_tile_masks(intel, depth_mt,
                                    depth_mt ? depth_irb->mt_level : 0,
                                    depth_mt ? depth_irb->mt_layer : 0,
                                    stencil_mt,
@@ -532,15 +541,17 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
    brw->depthstencil.stencil_mt = NULL;
    if (depth_irb) {
       depth_mt = depth_irb->mt;
+      struct intel_region *depth_region =
+         intel_miptree_get_region(intel, depth_mt, INTEL_MIPTREE_ACCESS_NONE);
       brw->depthstencil.depth_mt = depth_mt;
       brw->depthstencil.depth_offset =
-         intel_region_get_aligned_offset(depth_mt->region,
+         intel_region_get_aligned_offset(depth_region,
                                          depth_irb->draw_x & ~tile_mask_x,
                                          depth_irb->draw_y & ~tile_mask_y,
                                          false);
       if (intel_renderbuffer_has_hiz(depth_irb)) {
          brw->depthstencil.hiz_offset =
-            intel_region_get_aligned_offset(depth_mt->region,
+            intel_region_get_aligned_offset(depth_region,
                                             depth_irb->draw_x & ~tile_mask_x,
                                             (depth_irb->draw_y & ~tile_mask_y) /
                                             2,
@@ -556,8 +567,11 @@ brw_workaround_depthstencil_alignment(struct brw_context *brw,
           * intel_region_get_aligned_offset(), because stencil_region claims
           * that the region is untiled even though it's W tiled.
           */
+         struct intel_region *stencil_region =
+            intel_miptree_get_region(intel, stencil_mt,
+                                     INTEL_MIPTREE_ACCESS_NONE);
          brw->depthstencil.stencil_offset =
-            (stencil_draw_y & ~tile_mask_y) * stencil_mt->region->pitch +
+            (stencil_draw_y & ~tile_mask_y) * stencil_region->pitch +
             (stencil_draw_x & ~tile_mask_x) * 64;
       }
    }
@@ -614,8 +628,10 @@ brw_emit_depthbuffer(struct brw_context *brw)
       /* Prior to Gen7, if using separate stencil, hiz must be enabled. */
       assert(intel->gen >= 7 || !separate_stencil || hiz);
 
-      assert(intel->gen < 6 || depth_mt->region->tiling == I915_TILING_Y);
-      assert(!hiz || depth_mt->region->tiling == I915_TILING_Y);
+      struct intel_region *depth_region =
+         intel_miptree_get_region(intel, depth_mt, INTEL_MIPTREE_ACCESS_NONE);
+      assert(intel->gen < 6 || depth_region->tiling == I915_TILING_Y);
+      assert(!hiz || depth_region->tiling == I915_TILING_Y);
 
       depthbuffer_format = brw_depthbuffer_format(brw);
       depth_surface_type = BRW_SURFACE_2D;
@@ -670,6 +686,10 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
     */
    bool enable_hiz_ss = hiz || separate_stencil;
 
+   struct intel_region *depth_region = depth_mt ?
+      intel_miptree_get_region(intel, depth_mt, INTEL_MIPTREE_ACCESS_RENDER) :
+      NULL;
+
 
    /* 3DSTATE_DEPTH_BUFFER, 3DSTATE_STENCIL_BUFFER are both
     * non-pipelined state that will need the PIPE_CONTROL workaround.
@@ -689,17 +709,17 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
 
    BEGIN_BATCH(len);
    OUT_BATCH(_3DSTATE_DEPTH_BUFFER << 16 | (len - 2));
-   OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
+   OUT_BATCH((depth_mt ? depth_region->pitch - 1 : 0) |
              (depthbuffer_format << 18) |
              ((enable_hiz_ss ? 1 : 0) << 21) | /* separate stencil enable */
              ((enable_hiz_ss ? 1 : 0) << 22) | /* hiz enable */
              (BRW_TILEWALK_YMAJOR << 26) |
-             ((depth_mt ? depth_mt->region->tiling != I915_TILING_NONE : 1)
+             ((depth_mt ? depth_region->tiling != I915_TILING_NONE : 1)
               << 27) |
              (depth_surface_type << 29));
 
    if (depth_mt) {
-      OUT_RELOC(depth_mt->region->bo,
+      OUT_RELOC(depth_region->bo,
 		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		depth_offset);
    } else {
@@ -732,10 +752,13 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
       /* Emit hiz buffer. */
       if (hiz) {
          struct intel_mipmap_tree *hiz_mt = depth_mt->hiz_mt;
+         struct intel_region *hiz_region =
+            intel_miptree_get_region(intel, hiz_mt,
+                                     INTEL_MIPTREE_ACCESS_RENDER);
 	 BEGIN_BATCH(3);
 	 OUT_BATCH((_3DSTATE_HIER_DEPTH_BUFFER << 16) | (3 - 2));
-	 OUT_BATCH(hiz_mt->region->pitch - 1);
-	 OUT_RELOC(hiz_mt->region->bo,
+	 OUT_BATCH(hiz_region->pitch - 1);
+	 OUT_RELOC(hiz_region->bo,
 		   I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		   brw->depthstencil.hiz_offset);
 	 ADVANCE_BATCH();
@@ -749,7 +772,9 @@ brw_emit_depth_stencil_hiz(struct brw_context *brw,
 
       /* Emit stencil buffer. */
       if (separate_stencil) {
-	 struct intel_region *region = stencil_mt->region;
+	 struct intel_region *region =
+            intel_miptree_get_region(intel, stencil_mt,
+                                     INTEL_MIPTREE_ACCESS_RENDER);
 
 	 BEGIN_BATCH(3);
 	 OUT_BATCH((_3DSTATE_STENCIL_BUFFER << 16) | (3 - 2));

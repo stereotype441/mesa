@@ -168,8 +168,10 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
     */
    firstImage = tObj->Image[0][tObj->BaseLevel];
 
-   drm_intel_bo_reference(intelObj->mt->region->bo);
-   i915->state.tex_buffer[unit] = intelObj->mt->region->bo;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, intelObj->mt, INTEL_MIPTREE_ACCESS_TEX);
+   drm_intel_bo_reference(region->bo);
+   i915->state.tex_buffer[unit] = region->bo;
    i915->state.tex_offset[unit] = intelObj->mt->offset;
 
    format = translate_texture_format(firstImage->TexFormat,
@@ -179,9 +181,9 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
       (((firstImage->Height - 1) << MS3_HEIGHT_SHIFT) |
        ((firstImage->Width - 1) << MS3_WIDTH_SHIFT) | format);
 
-   if (intelObj->mt->region->tiling != I915_TILING_NONE) {
+   if (region->tiling != I915_TILING_NONE) {
       state[I915_TEXREG_MS3] |= MS3_TILED_SURFACE;
-      if (intelObj->mt->region->tiling == I915_TILING_Y)
+      if (region->tiling == I915_TILING_Y)
 	 state[I915_TEXREG_MS3] |= MS3_TILE_WALK;
    }
 
@@ -191,7 +193,7 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
     */
    maxlod = MIN2(sampler->MaxLod, tObj->_MaxLevel - tObj->BaseLevel);
    state[I915_TEXREG_MS4] =
-      ((((intelObj->mt->region->pitch / 4) - 1) << MS4_PITCH_SHIFT) |
+      ((((region->pitch / 4) - 1) << MS4_PITCH_SHIFT) |
        MS4_CUBE_FACE_ENA_MASK |
        (U_FIXED(CLAMP(maxlod, 0.0, 11.0), 2) << MS4_MAX_LOD_SHIFT) |
        ((firstImage->Depth - 1) << MS4_VOLUME_DEPTH_SHIFT));

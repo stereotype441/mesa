@@ -101,19 +101,22 @@ void
 gen7_set_surface_mcs_info(struct brw_context *brw,
                           uint32_t *surf,
                           uint32_t surf_offset,
-                          const struct intel_mipmap_tree *mcs_mt,
+                          struct intel_mipmap_tree *mcs_mt,
                           bool is_render_target)
 {
+   struct intel_region *region =
+      intel_miptree_get_region(&brw->intel, mcs_mt, INTEL_MIPTREE_ACCESS_MCS);
+
    /* From the Ivy Bridge PRM, Vol4 Part1 p76, "MCS Base Address":
     *
     *     "The MCS surface must be stored as Tile Y."
     */
-   assert(mcs_mt->region->tiling == I915_TILING_Y);
+   assert(region->tiling == I915_TILING_Y);
 
    /* Compute the pitch in units of tiles.  To do this we need to divide the
     * pitch in bytes by 128, since a single Y-tile is 128 bytes wide.
     */
-   unsigned pitch_tiles = mcs_mt->region->pitch / 128;
+   unsigned pitch_tiles = region->pitch / 128;
 
    /* The upper 20 bits of surface state DWORD 6 are the upper 20 bits of the
     * GPU address of the MCS buffer; the lower 12 bits contain other control
@@ -121,15 +124,15 @@ gen7_set_surface_mcs_info(struct brw_context *brw,
     * thus have their lower 12 bits zero), we can use an ordinary reloc to do
     * the necessary address translation.
     */
-   assert ((mcs_mt->region->bo->offset & 0xfff) == 0);
+   assert ((region->bo->offset & 0xfff) == 0);
 
    surf[6] = GEN7_SURFACE_MCS_ENABLE |
              SET_FIELD(pitch_tiles - 1, GEN7_SURFACE_MCS_PITCH) |
-             mcs_mt->region->bo->offset;
+             region->bo->offset;
 
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
                            surf_offset + 6 * 4,
-                           mcs_mt->region->bo,
+                           region->bo,
                            surf[6] & 0xfff,
                            is_render_target ? I915_GEM_DOMAIN_RENDER
                            : I915_GEM_DOMAIN_SAMPLER,
@@ -302,6 +305,9 @@ gen7_update_texture_surface(struct gl_context *ctx,
       return;
    }
 
+   struct intel_region *region =
+      intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_TEX);
+
    intel_miptree_get_dimensions_for_image(firstImage, &width, &height, &depth);
 
    uint32_t *surf = brw_state_batch(brw, AUB_TRACE_SURFACE_STATE,
@@ -316,7 +322,7 @@ gen7_update_texture_surface(struct gl_context *ctx,
 
    surf[0] = translate_tex_target(tObj->Target) << BRW_SURFACE_TYPE_SHIFT |
              tex_format << BRW_SURFACE_FORMAT_SHIFT |
-             gen7_surface_tiling_mode(mt->region->tiling) |
+             gen7_surface_tiling_mode(region->tiling) |
              BRW_SURFACE_CUBEFACE_ENABLES;
 
    if (mt->align_h == 4)
@@ -330,12 +336,12 @@ gen7_update_texture_surface(struct gl_context *ctx,
    if (mt->array_spacing_lod0)
       surf[0] |= GEN7_SURFACE_ARYSPC_LOD0;
 
-   surf[1] = mt->region->bo->offset + mt->offset; /* reloc */
+   surf[1] = region->bo->offset + mt->offset; /* reloc */
 
    surf[2] = SET_FIELD(width - 1, GEN7_SURFACE_WIDTH) |
              SET_FIELD(height - 1, GEN7_SURFACE_HEIGHT);
    surf[3] = SET_FIELD(depth - 1, BRW_SURFACE_DEPTH) |
-             ((intelObj->mt->region->pitch) - 1);
+             ((region->pitch) - 1);
 
    surf[4] = gen7_surface_msaa_bits(mt->num_samples, mt->msaa_layout);
 
@@ -372,7 +378,7 @@ gen7_update_texture_surface(struct gl_context *ctx,
    /* Emit relocation to surface contents */
    drm_intel_bo_emit_reloc(brw->intel.batch.bo,
 			   binding_table[surf_index] + 4,
-			   intelObj->mt->region->bo, intelObj->mt->offset,
+			   region->bo, intelObj->mt->offset,
 			   I915_GEM_DOMAIN_SAMPLER, 0);
 
    gen7_check_surface_setup(surf, false /* is_render_target */);
@@ -527,7 +533,8 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
    struct intel_renderbuffer *irb = intel_renderbuffer(rb);
-   struct intel_region *region = irb->mt->region;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, irb->mt, INTEL_MIPTREE_ACCESS_RENDER);
    uint32_t tile_x, tile_y;
    uint32_t format;
    /* _NEW_BUFFERS */
@@ -559,7 +566,7 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
       surf[0] |= GEN7_SURFACE_HALIGN_8;
 
    /* reloc */
-   surf[1] = intel_renderbuffer_tile_offsets(irb, &tile_x, &tile_y) +
+   surf[1] = intel_renderbuffer_tile_offsets(intel, irb, &tile_x, &tile_y) +
              region->bo->offset; /* reloc */
 
    assert(brw->has_surface_tile_offset);

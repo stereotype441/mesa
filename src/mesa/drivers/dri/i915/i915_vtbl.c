@@ -758,14 +758,20 @@ i915_update_draw_buffer(struct intel_context *intel)
    } else {
       struct intel_renderbuffer *irb;
       irb = intel_renderbuffer(fb->_ColorDrawBuffers[0]);
-      colorRegion = (irb && irb->mt) ? irb->mt->region : NULL;
+      if (irb && irb->mt) {
+         colorRegion = intel_miptree_get_region(intel, irb->mt,
+                                                INTEL_MIPTREE_ACCESS_RENDER);
+      } else {
+         colorRegion = NULL;
+      }
       FALLBACK(intel, INTEL_FALLBACK_DRAW_BUFFER, false);
    }
 
    /* Check for depth fallback. */
    if (irbDepth && irbDepth->mt) {
       FALLBACK(intel, INTEL_FALLBACK_DEPTH_BUFFER, false);
-      depthRegion = irbDepth->mt->region;
+      depthRegion = intel_miptree_get_region(intel, irbDepth->mt,
+                                             INTEL_MIPTREE_ACCESS_RENDER);
    } else if (irbDepth && !irbDepth->mt) {
       FALLBACK(intel, INTEL_FALLBACK_DEPTH_BUFFER, true);
       depthRegion = NULL;
@@ -791,7 +797,8 @@ i915_update_draw_buffer(struct intel_context *intel)
     */
    if (depthRegion == NULL && irbStencil && irbStencil->mt
        && intel_rb_format(irbStencil) == MESA_FORMAT_S8_Z24) {
-      depthRegion = irbStencil->mt->region;
+      depthRegion = intel_miptree_get_region(intel, irbStencil->mt,
+                                             INTEL_MIPTREE_ACCESS_RENDER);
    }
 
    /*

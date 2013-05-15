@@ -313,7 +313,8 @@ intelClearWithBlit(struct gl_context *ctx, GLbitfield mask)
 
       irb = intel_get_renderbuffer(fb, buf);
       if (irb && irb->mt) {
-	 region = irb->mt->region;
+	 region = intel_miptree_get_region(intel, irb->mt,
+                                           INTEL_MIPTREE_ACCESS_BLIT);
 	 assert(region);
 	 assert(region->bo);
       } else {
@@ -574,7 +575,9 @@ intel_set_teximage_alpha_to_one(struct gl_context *ctx,
    uint32_t BR13, CMD;
    int pitch, cpp;
    drm_intel_bo *aper_array[2];
-   struct intel_region *region = intel_image->mt->region;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, intel_image->mt,
+                               INTEL_MIPTREE_ACCESS_BLIT);
    int width, height, depth;
    BATCH_LOCALS;
 
@@ -603,7 +606,7 @@ intel_set_teximage_alpha_to_one(struct gl_context *ctx,
 
    DBG("%s dst:buf(%p)/%d %d,%d sz:%dx%d\n",
        __FUNCTION__,
-       intel_image->mt->region->bo, pitch,
+       region->bo, pitch,
        x1, y1, x2 - x1, y2 - y1);
 
    BR13 = br13_for_cpp(cpp) | 0xf0 << 16;

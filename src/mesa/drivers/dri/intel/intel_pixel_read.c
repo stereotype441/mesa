@@ -76,7 +76,8 @@ do_blit_readpixels(struct gl_context * ctx,
                    const struct gl_pixelstore_attrib *pack, GLvoid * pixels)
 {
    struct intel_context *intel = intel_context(ctx);
-   struct intel_region *src = intel_readbuf_region(intel);
+   struct intel_region *src =
+      intel_readbuf_region(intel, INTEL_MIPTREE_ACCESS_BLIT);
    struct intel_buffer_object *dst = intel_buffer_object(pack->BufferObj);
    GLuint dst_offset;
    drm_intel_bo *dst_buffer;

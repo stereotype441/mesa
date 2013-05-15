@@ -49,6 +49,7 @@
 #include "intel_buffers.h"
 #include "intel_pixel.h"
 #include "intel_reg.h"
+#include "intel_mipmap_tree.h"
 
 
 #define FILE_DEBUG_FLAG DEBUG_PIXEL
@@ -200,7 +201,7 @@ do_blit_bitmap( struct gl_context *ctx,
    }
 
    intel_prepare_render(intel);
-   dst = intel_drawbuf_region(intel);
+   dst = intel_drawbuf_region(intel, INTEL_MIPTREE_ACCESS_BLIT);
 
    if (!dst)
        return false;
