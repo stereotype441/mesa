@@ -287,9 +287,13 @@ struct intel_mipmap_tree
     */
    struct intel_mipmap_level level[MAX_TEXTURE_LEVELS];
 
-   /* The data is held here:
+   /**
+    * The data is held here.  Please don't access this field directly except
+    * in low-level intel_mipmap_tree functions; instead, use
+    * intel_miptree_get_region(), which takes care of updating fast color
+    * clear state appropriately.
     */
-   struct intel_region *region;
+   struct intel_region *region_private;
 
    /* Offset into region bo where miptree starts:
     */
@@ -639,6 +643,70 @@ intel_miptree_unmap(struct intel_context *intel,
 		    struct intel_mipmap_tree *mt,
 		    unsigned int level,
 		    unsigned int slice);
+
+
+/**
+ * Enum describing possible ways in which a miptree's region can be accessed.
+ * This is used by intel_miptree_get_region() to update the fast color clear
+ * state appropriately for the type of access.
+ */
+enum intel_miptree_access_type {
+   /**
+    * The contents of the region won't need to be accessed, just the metadata
+    * (pitch, cpp, bo->size, etc.)
+    */
+   INTEL_MIPTREE_ACCESS_NONE,
+
+   /**
+    * The contents of the region will be accessed by the hardware blitter.
+    */
+   INTEL_MIPTREE_ACCESS_BLIT,
+
+   /**
+    * The contents of the region will be mapped into memory and accessed by
+    * the CPU.
+    */
+   INTEL_MIPTREE_ACCESS_MAP,
+
+   /**
+    * The contents of the region will be used as a source for texturing
+    * operations.
+    */
+   INTEL_MIPTREE_ACCESS_TEX,
+
+   /**
+    * The contents of the region will be shared between multiple miptrees, or
+    * with an entity outside of Mesa (other than the display server or
+    * compositor).
+    */
+   INTEL_MIPTREE_ACCESS_SHARED,
+
+   /**
+    * The contents of the region will be used as a destination color buffer,
+    * depth buffer, or stencil buffer for 3D rendering operations.
+    */
+   INTEL_MIPTREE_ACCESS_RENDER,
+
+   /**
+    * The contents of the region will be used as an MCS buffer for some other
+    * buffer.
+    */
+   INTEL_MIPTREE_ACCESS_MCS,
+};
+
+
+/**
+ * Obtain the intel_region corresponding to this miptree, updating fast color
+ * clear state as appropriate.
+ */
+static inline struct intel_region *
+intel_miptree_get_region(struct intel_context *intel,
+                         struct intel_mipmap_tree *mt,
+                         enum intel_miptree_access_type access_type)
+{
+   return mt->region_private;
+}
+
 
 #ifdef I915
 static inline void

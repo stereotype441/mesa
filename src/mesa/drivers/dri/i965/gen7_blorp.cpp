@@ -137,7 +137,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
                               const brw_blorp_params *params,
                               const brw_blorp_surface_info *surface,
                               uint32_t read_domains, uint32_t write_domain,
-                              bool is_render_target)
+                              bool is_render_target,
+                              enum intel_miptree_access_type access_type)
 {
    struct intel_context *intel = &brw->intel;
 
@@ -149,7 +150,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
     * to divide them by 2 as we do for Gen6 (see
     * gen6_blorp_emit_surface_state).
     */
-   struct intel_region *region = surface->mt->region;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, surface->mt, access_type);
    uint32_t tile_x, tile_y;
 
    uint32_t tiling = surface->map_stencil_as_y_tiled
@@ -175,7 +177,8 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
 
    /* reloc */
    surf[1] =
-      surface->compute_tile_offsets(&tile_x, &tile_y) + region->bo->offset;
+      surface->compute_tile_offsets(intel, &tile_x, &tile_y) +
+      region->bo->offset;
 
    /* Note that the low bits of these fields are missing, so
     * there's the possibility of getting in trouble.
@@ -680,7 +683,7 @@ gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
    uint32_t draw_y = params->depth.y_offset;
    uint32_t tile_mask_x, tile_mask_y;
 
-   brw_get_depthstencil_tile_masks(params->depth.mt,
+   brw_get_depthstencil_tile_masks(intel, params->depth.mt,
                                    params->depth.level,
                                    params->depth.layer,
                                    NULL,
@@ -688,10 +691,13 @@ gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
 
    /* 3DSTATE_DEPTH_BUFFER */
    {
+      struct intel_region *depth_region =
+         intel_miptree_get_region(intel, params->depth.mt,
+                                  INTEL_MIPTREE_ACCESS_RENDER);
       uint32_t tile_x = draw_x & tile_mask_x;
       uint32_t tile_y = draw_y & tile_mask_y;
       uint32_t offset =
-         intel_region_get_aligned_offset(params->depth.mt->region,
+         intel_region_get_aligned_offset(depth_region,
                                          draw_x & ~tile_mask_x,
                                          draw_y & ~tile_mask_y, false);
 
@@ -720,12 +726,12 @@ gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
 
       BEGIN_BATCH(7);
       OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-      OUT_BATCH((params->depth.mt->region->pitch - 1) |
+      OUT_BATCH((depth_region->pitch - 1) |
                 params->depth_format << 18 |
                 1 << 22 | /* hiz enable */
                 1 << 28 | /* depth write */
                 BRW_SURFACE_2D << 29);
-      OUT_RELOC(params->depth.mt->region->bo,
+      OUT_RELOC(depth_region->bo,
                 I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
                 offset);
       OUT_BATCH((params->depth.width + tile_x - 1) << 4 |
@@ -739,7 +745,9 @@ gen7_blorp_emit_depth_stencil_config(struct brw_context *brw,
 
    /* 3DSTATE_HIER_DEPTH_BUFFER */
    {
-      struct intel_region *hiz_region = params->depth.mt->hiz_mt->region;
+      struct intel_region *hiz_region =
+         intel_miptree_get_region(intel, params->depth.mt->hiz_mt,
+                                  INTEL_MIPTREE_ACCESS_RENDER);
       uint32_t hiz_offset =
          intel_region_get_aligned_offset(hiz_region,
                                          draw_x & ~tile_mask_x,
@@ -867,12 +875,14 @@ gen7_blorp_exec(struct intel_context *intel,
          gen7_blorp_emit_surface_state(brw, params, &params->dst,
                                        I915_GEM_DOMAIN_RENDER,
                                        I915_GEM_DOMAIN_RENDER,
-                                       true /* is_render_target */);
+                                       true /* is_render_target */,
+                                       INTEL_MIPTREE_ACCESS_RENDER);
       if (params->src.mt) {
          wm_surf_offset_texture =
             gen7_blorp_emit_surface_state(brw, params, &params->src,
                                           I915_GEM_DOMAIN_SAMPLER, 0,
-                                          false /* is_render_target */);
+                                          false /* is_render_target */,
+                                          INTEL_MIPTREE_ACCESS_TEX);
       }
       wm_bind_bo_offset =
          gen6_blorp_emit_binding_table(brw, params,

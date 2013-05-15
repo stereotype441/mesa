@@ -50,6 +50,7 @@
 #include "intel_buffers.h"
 #include "intel_pixel.h"
 #include "intel_reg.h"
+#include "intel_mipmap_tree.h"
 
 
 #define FILE_DEBUG_FLAG DEBUG_PIXEL
@@ -284,15 +285,19 @@ do_blit_bitmap( struct gl_context *ctx,
          if (count == 0)
 	    continue;
 
+         struct intel_region *region =
+            intel_miptree_get_region(intel, irb->mt,
+                                     INTEL_MIPTREE_ACCESS_BLIT);
+
 	 if (!intelEmitImmediateColorExpandBlit(intel,
 						irb->mt->cpp,
 						(GLubyte *)stipple,
 						sz,
 						color,
-						irb->mt->region->pitch,
-						irb->mt->region->bo,
+						region->pitch,
+						region->bo,
 						0,
-						irb->mt->region->tiling,
+						region->tiling,
 						dstx + px,
 						dsty + py,
 						w, h,

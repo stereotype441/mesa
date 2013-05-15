@@ -111,6 +111,11 @@ intel_miptree_blit(struct intel_context *intel,
                    uint32_t width, uint32_t height,
                    GLenum logicop)
 {
+   struct intel_region *src_region =
+      intel_miptree_get_region(intel, src_mt, INTEL_MIPTREE_ACCESS_BLIT);
+   struct intel_region *dst_region =
+      intel_miptree_get_region(intel, dst_mt, INTEL_MIPTREE_ACCESS_BLIT);
+
    /* We don't assert on format because we may blit from ARGB8888 to XRGB8888,
     * for example.
     */
@@ -134,8 +139,8 @@ intel_miptree_blit(struct intel_context *intel,
     * As a result of these two limitations, we can only use the blitter to do
     * this copy when the region's pitch is less than 32k.
     */
-   if (src_mt->region->pitch > 32768 ||
-       dst_mt->region->pitch > 32768) {
+   if (src_region->pitch > 32768 ||
+       dst_region->pitch > 32768) {
       perf_debug("Falling back due to >32k pitch\n");
       return false;
    }
@@ -152,7 +157,7 @@ intel_miptree_blit(struct intel_context *intel,
    if (dst_flip)
       dst_y = dst_mt->level[dst_level].height - dst_y - height;
 
-   int src_pitch = src_mt->region->pitch;
+   int src_pitch = src_region->pitch;
    if (src_flip != dst_flip)
       src_pitch = -src_pitch;
 
@@ -171,11 +176,11 @@ intel_miptree_blit(struct intel_context *intel,
    return intelEmitCopyBlit(intel,
                             src_mt->cpp,
                             src_pitch,
-                            src_mt->region->bo, src_mt->offset,
-                            src_mt->region->tiling,
-                            dst_mt->region->pitch,
-                            dst_mt->region->bo, dst_mt->offset,
-                            dst_mt->region->tiling,
+                            src_region->bo, src_mt->offset,
+                            src_region->tiling,
+                            dst_region->pitch,
+                            dst_region->bo, dst_mt->offset,
+                            dst_region->tiling,
                             src_x, src_y,
                             dst_x, dst_y,
                             width, height,
@@ -410,7 +415,8 @@ intelClearWithBlit(struct gl_context *ctx, GLbitfield mask)
 
       irb = intel_get_renderbuffer(fb, buf);
       if (irb && irb->mt) {
-	 region = irb->mt->region;
+	 region = intel_miptree_get_region(intel, irb->mt,
+                                           INTEL_MIPTREE_ACCESS_BLIT);
 	 assert(region);
 	 assert(region->bo);
       } else {
@@ -671,7 +677,9 @@ intel_set_teximage_alpha_to_one(struct gl_context *ctx,
    uint32_t BR13, CMD;
    int pitch, cpp;
    drm_intel_bo *aper_array[2];
-   struct intel_region *region = intel_image->mt->region;
+   struct intel_region *region =
+      intel_miptree_get_region(intel, intel_image->mt,
+                               INTEL_MIPTREE_ACCESS_BLIT);
    int width, height, depth;
    BATCH_LOCALS;
 
@@ -700,7 +708,7 @@ intel_set_teximage_alpha_to_one(struct gl_context *ctx,
 
    DBG("%s dst:buf(%p)/%d %d,%d sz:%dx%d\n",
        __FUNCTION__,
-       intel_image->mt->region->bo, pitch,
+       region->bo, pitch,
        x1, y1, x2 - x1, y2 - y1);
 
    BR13 = br13_for_cpp(cpp) | 0xf0 << 16;

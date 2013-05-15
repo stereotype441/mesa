@@ -262,7 +262,7 @@ intel_set_texture_image_region(struct gl_context *ctx,
                                                  true, 0 /* num_samples */);
    if (intel_image->mt == NULL)
        return;
-   intel_region_reference(&intel_image->mt->region, region);
+   intel_region_reference(&intel_image->mt->region_private, region);
    intel_image->mt->total_width = width;
    intel_image->mt->total_height = height;
    intel_image->mt->level[0].slice[0].x_offset = tile_x;
@@ -342,10 +342,12 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
 
    _mesa_lock_texture(&intel->ctx, texObj);
    texImage = _mesa_get_tex_image(ctx, texObj, target, level);
-   intel_set_texture_image_region(ctx, texImage, rb->mt->region, target,
+   struct intel_region *region =
+      intel_miptree_get_region(intel, rb->mt, INTEL_MIPTREE_ACCESS_SHARED);
+   intel_set_texture_image_region(ctx, texImage, region, target,
                                   internalFormat, texFormat, 0,
-                                  rb->mt->region->width,
-                                  rb->mt->region->height,
+                                  region->width,
+                                  region->height,
                                   0, 0);
    _mesa_unlock_texture(&intel->ctx, texObj);
 }

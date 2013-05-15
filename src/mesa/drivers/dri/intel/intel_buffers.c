@@ -38,12 +38,13 @@
  * Return pointer to current color reading region, or NULL.
  */
 struct intel_region *
-intel_readbuf_region(struct intel_context *intel)
+intel_readbuf_region(struct intel_context *intel,
+                     enum intel_miptree_access_type access_type)
 {
    struct intel_renderbuffer *irb
       = intel_renderbuffer(intel->ctx.ReadBuffer->_ColorReadBuffer);
    if (irb && irb->mt)
-      return irb->mt->region;
+      return intel_miptree_get_region(intel, irb->mt, access_type);
    else
       return NULL;
 }

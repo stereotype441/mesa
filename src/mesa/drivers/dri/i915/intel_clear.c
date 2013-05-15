@@ -37,6 +37,7 @@
 #include "intel_clear.h"
 #include "intel_fbo.h"
 #include "intel_regions.h"
+#include "intel_mipmap_tree.h"
 
 #define FILE_DEBUG_FLAG DEBUG_BLIT
 
@@ -129,7 +130,8 @@ intelClear(struct gl_context *ctx, GLbitfield mask)
    /* HW stencil */
    if (mask & BUFFER_BIT_STENCIL) {
       const struct intel_region *stencilRegion
-         = intel_get_rb_region(fb, BUFFER_STENCIL);
+         = intel_get_rb_region(intel, fb, BUFFER_STENCIL,
+                               INTEL_MIPTREE_ACCESS_NONE);
       if (stencilRegion) {
          /* have hw stencil */
          if (stencilRegion->tiling == I915_TILING_Y ||
@@ -149,7 +151,9 @@ intelClear(struct gl_context *ctx, GLbitfield mask)
 
    /* HW depth */
    if (mask & BUFFER_BIT_DEPTH) {
-      const struct intel_region *irb = intel_get_rb_region(fb, BUFFER_DEPTH);
+      const struct intel_region *irb =
+         intel_get_rb_region(intel, fb, BUFFER_DEPTH,
+                             INTEL_MIPTREE_ACCESS_NONE);
 
       /* clear depth with whatever method is used for stencil (see above) */
       if (irb->tiling == I915_TILING_Y || tri_mask & BUFFER_BIT_STENCIL)
