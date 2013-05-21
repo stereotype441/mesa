@@ -602,6 +602,16 @@ intel_miptree_create(struct intel_context *intel,
        return NULL;
    }
 
+#ifndef I915
+   /* If this miptree is capable of supporting fast color clears, set
+    * mcs_state appropriately to ensure that fast clears will occur.
+    * Allocation of the MCS miptree will be deferred until the first fast
+    * clear actually occurs.
+    */
+   if (intel_is_non_msrt_mcs_buffer_supported(intel, mt))
+      mt->mcs_state = INTEL_MCS_STATE_RESOLVED;
+#endif
+
    return mt;
 }
 
@@ -656,6 +666,16 @@ intel_miptree_create_for_dri2_buffer(struct intel_context *intel,
                                                      format, region);
    if (!singlesample_mt)
       return NULL;
+
+#ifndef I915
+   /* If this miptree is capable of supporting fast color clears, set
+    * mcs_state appropriately to ensure that fast clears will occur.
+    * Allocation of the MCS miptree will be deferred until the first fast
+    * clear actually occurs.
+    */
+   if (intel_is_non_msrt_mcs_buffer_supported(intel, singlesample_mt))
+      singlesample_mt->mcs_state = INTEL_MCS_STATE_RESOLVED;
+#endif
 
    if (num_samples == 0)
       return singlesample_mt;
