@@ -815,9 +815,14 @@ intel_miptree_get_region(struct intel_context *intel,
       intel_miptree_resolve_color(intel, mt);
       break;
    case INTEL_MIPTREE_ACCESS_SHARED:
-      /* TODO: resolve and then discard MCS buffer since fast color clears are
-       * unsafe with shared buffers.
+      /* Fast color clears are unsafe with shared buffers, so resolve and then
+       * discard the MCS buffer, if present.  Also set the mcs_state to
+       * INTEL_MCS_STATE_NONE to ensure that no MCS buffer gets allocated in
+       * the future.
        */
+      intel_miptree_resolve_color(intel, mt);
+      intel_miptree_release(&mt->mcs_mt);
+      mt->mcs_state = INTEL_MCS_STATE_NONE;
       break;
    case INTEL_MIPTREE_ACCESS_RENDER:
       /* If the buffer was previously in fast clear state, change it to
