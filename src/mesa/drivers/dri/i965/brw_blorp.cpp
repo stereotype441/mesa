@@ -139,14 +139,14 @@ brw_blorp_surface_info::compute_tile_offsets(uint32_t *tile_x,
 
 
 brw_blorp_params::brw_blorp_params()
-   : x0(0),
+   : get_wm_prog(NULL),
+     x0(0),
      y0(0),
      x1(0),
      y1(0),
      depth_format(0),
      hiz_op(GEN6_HIZ_OP_NONE),
-     num_samples(0),
-     use_wm_prog(false)
+     num_samples(0)
 {
    color_write_disable[0] = false;
    color_write_disable[1] = false;
@@ -248,11 +248,4 @@ brw_hiz_op_params::brw_hiz_op_params(struct intel_mipmap_tree *mt,
    case MESA_FORMAT_X8_Z24:    depth_format = BRW_DEPTHFORMAT_D24_UNORM_X8_UINT; break;
    default:                    assert(0); break;
    }
-}
-
-uint32_t
-brw_hiz_op_params::get_wm_prog(struct brw_context *brw,
-                               brw_blorp_prog_data **prog_data) const
-{
-   return 0;
 }

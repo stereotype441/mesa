@@ -194,13 +194,17 @@ struct brw_blorp_prog_data
    bool persample_msaa_dispatch;
 };
 
-class brw_blorp_params
+struct brw_blorp_params
 {
-public:
    brw_blorp_params();
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw,
-                                brw_blorp_prog_data **prog_data) const = 0;
+   /**
+    * If non-NULL, call this function to obtain the WM program for this blorp
+    * operation.  If NULL, this blorp operation does not use a WM program.
+    */
+   uint32_t (*get_wm_prog)(struct brw_context *brw,
+                           const struct brw_blorp_params *params,
+                           brw_blorp_prog_data **prog_data);
 
    uint32_t x0;
    uint32_t y0;
@@ -212,7 +216,6 @@ public:
    brw_blorp_surface_info dst;
    enum gen6_hiz_op hiz_op;
    unsigned num_samples;
-   bool use_wm_prog;
    brw_blorp_wm_push_constants wm_push_consts;
    bool color_write_disable[4];
 };
@@ -231,15 +234,11 @@ brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params);
  *   - 7.5.3.2 Depth Buffer Resolve
  *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
  */
-class brw_hiz_op_params : public brw_blorp_params
+struct brw_hiz_op_params : public brw_blorp_params
 {
-public:
    brw_hiz_op_params(struct intel_mipmap_tree *mt,
                      unsigned int level, unsigned int layer,
                      gen6_hiz_op op);
-
-   virtual uint32_t get_wm_prog(struct brw_context *brw,
-                                brw_blorp_prog_data **prog_data) const;
 };
 
 struct brw_blorp_blit_prog_key
@@ -309,9 +308,8 @@ struct brw_blorp_blit_prog_key
    bool persample_msaa_dispatch;
 };
 
-class brw_blorp_blit_params : public brw_blorp_params
+struct brw_blorp_blit_params : public brw_blorp_params
 {
-public:
    brw_blorp_blit_params(struct brw_context *brw,
                          struct intel_mipmap_tree *src_mt,
                          unsigned src_level, unsigned src_layer,
@@ -322,10 +320,6 @@ public:
                          GLuint width, GLuint height,
                          bool mirror_x, bool mirror_y);
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw,
-                                brw_blorp_prog_data **prog_data) const;
-
-private:
    brw_blorp_blit_prog_key wm_prog_key;
 };
 

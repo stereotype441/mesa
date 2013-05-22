@@ -43,18 +43,13 @@ struct brw_blorp_clear_prog_key
    bool pad[3];
 };
 
-class brw_blorp_clear_params : public brw_blorp_params
+struct brw_blorp_clear_params : public brw_blorp_params
 {
-public:
    brw_blorp_clear_params(struct brw_context *brw,
                           struct gl_framebuffer *fb,
                           struct gl_renderbuffer *rb,
                           GLubyte *color_mask);
 
-   virtual uint32_t get_wm_prog(struct brw_context *brw,
-                                brw_blorp_prog_data **prog_data) const;
-
-private:
    brw_blorp_clear_prog_key wm_prog_key;
 };
 
@@ -105,6 +100,11 @@ brw_blorp_clear_program::~brw_blorp_clear_program()
    ralloc_free(mem_ctx);
 }
 
+static uint32_t
+brw_blorp_clear_params_get_wm_prog(struct brw_context *brw,
+                                   const struct brw_blorp_params *params,
+                                   brw_blorp_prog_data **prog_data);
+
 brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
                                                struct gl_framebuffer *fb,
                                                struct gl_renderbuffer *rb,
@@ -137,7 +137,7 @@ brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
    push_consts[2] = ctx->Color.ClearColor.f[2];
    push_consts[3] = ctx->Color.ClearColor.f[3];
 
-   use_wm_prog = true;
+   get_wm_prog = brw_blorp_clear_params_get_wm_prog;
 
    memset(&wm_prog_key, 0, sizeof(wm_prog_key));
 
@@ -163,19 +163,22 @@ brw_blorp_clear_params::brw_blorp_clear_params(struct brw_context *brw,
    }
 }
 
-uint32_t
-brw_blorp_clear_params::get_wm_prog(struct brw_context *brw,
-                                   brw_blorp_prog_data **prog_data) const
+static uint32_t
+brw_blorp_clear_params_get_wm_prog(struct brw_context *brw,
+                                   const struct brw_blorp_params *params,
+                                   brw_blorp_prog_data **prog_data)
 {
    uint32_t prog_offset;
+   const brw_blorp_clear_prog_key *prog_key =
+      &((const struct brw_blorp_clear_params *) params)->wm_prog_key;
    if (!brw_search_cache(&brw->cache, BRW_BLORP_CLEAR_PROG,
-                         &this->wm_prog_key, sizeof(this->wm_prog_key),
+                         prog_key, sizeof(*prog_key),
                          &prog_offset, prog_data)) {
-      brw_blorp_clear_program prog(brw, &this->wm_prog_key);
+      brw_blorp_clear_program prog(brw, prog_key);
       GLuint program_size;
       const GLuint *program = prog.compile(brw, &program_size);
       brw_upload_cache(&brw->cache, BRW_BLORP_CLEAR_PROG,
-                       &this->wm_prog_key, sizeof(this->wm_prog_key),
+                       prog_key, sizeof(*prog_key),
                        program, program_size,
                        &prog.prog_data, sizeof(prog.prog_data),
                        &prog_offset, prog_data);

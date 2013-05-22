@@ -519,7 +519,7 @@ gen7_blorp_emit_wm_config(struct brw_context *brw,
    dw1 |= GEN7_WM_LINE_AA_WIDTH_1_0;
    dw1 |= GEN7_WM_LINE_END_CAP_AA_WIDTH_0_5;
    dw1 |= 0 << GEN7_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
-   if (params->use_wm_prog) {
+   if (params->get_wm_prog) {
       dw1 |= GEN7_WM_KILL_ENABLE; /* TODO: temporarily smash on */
       dw1 |= GEN7_WM_DISPATCH_ENABLE; /* We are rendering */
    }
@@ -578,7 +578,7 @@ gen7_blorp_emit_ps_config(struct brw_context *brw,
 
    if (intel->is_haswell)
       dw4 |= SET_FIELD(1, HSW_PS_SAMPLE_MASK); /* 1 sample for now */
-   if (params->use_wm_prog) {
+   if (params->get_wm_prog) {
       dw2 |= 1 << GEN7_PS_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
       dw4 |= GEN7_PS_PUSH_CONSTANT_ENABLE;
       dw5 |= prog_data->first_curbe_grf << GEN7_PS_DISPATCH_START_GRF_SHIFT_0;
@@ -586,7 +586,7 @@ gen7_blorp_emit_ps_config(struct brw_context *brw,
 
    BEGIN_BATCH(8);
    OUT_BATCH(_3DSTATE_PS << 16 | (8 - 2));
-   OUT_BATCH(params->use_wm_prog ? prog_offset : 0);
+   OUT_BATCH(params->get_wm_prog ? prog_offset : 0);
    OUT_BATCH(dw2);
    OUT_BATCH(0);
    OUT_BATCH(dw4);
@@ -841,8 +841,10 @@ gen7_blorp_exec(struct intel_context *intel,
    uint32_t wm_push_const_offset = 0;
    uint32_t wm_bind_bo_offset = 0;
    uint32_t sampler_offset = 0;
+   uint32_t prog_offset = 0;
 
-   uint32_t prog_offset = params->get_wm_prog(brw, &prog_data);
+   if (params->get_wm_prog)
+      prog_offset = params->get_wm_prog(brw, params, &prog_data);
    gen6_blorp_emit_batch_head(brw, params);
    gen7_allocate_push_constants(brw);
    gen6_emit_3dstate_multisample(brw, params->num_samples);
@@ -850,7 +852,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_state_base_address(brw, params);
    gen6_blorp_emit_vertices(brw, params);
    gen7_blorp_emit_urb_config(brw, params);
-   if (params->use_wm_prog) {
+   if (params->get_wm_prog) {
       cc_blend_state_offset = gen6_blorp_emit_blend_state(brw, params);
       cc_state_offset = gen6_blorp_emit_cc_state(brw, params);
       gen7_blorp_emit_blend_state_pointer(brw, params, cc_blend_state_offset);
@@ -859,7 +861,7 @@ gen7_blorp_exec(struct intel_context *intel,
    depthstencil_offset = gen6_blorp_emit_depth_stencil_state(brw, params);
    gen7_blorp_emit_depth_stencil_state_pointers(brw, params,
                                                 depthstencil_offset);
-   if (params->use_wm_prog) {
+   if (params->get_wm_prog) {
       uint32_t wm_surf_offset_renderbuffer;
       uint32_t wm_surf_offset_texture = 0;
       wm_push_const_offset = gen6_blorp_emit_wm_constants(brw, params);
@@ -889,7 +891,7 @@ gen7_blorp_exec(struct intel_context *intel,
    gen6_blorp_emit_clip_disable(brw, params);
    gen7_blorp_emit_sf_config(brw, params);
    gen7_blorp_emit_wm_config(brw, params, prog_data);
-   if (params->use_wm_prog) {
+   if (params->get_wm_prog) {
       gen7_blorp_emit_binding_table_pointers_ps(brw, params,
                                                 wm_bind_bo_offset);
       gen7_blorp_emit_sampler_state_pointers_ps(brw, params, sampler_offset);
