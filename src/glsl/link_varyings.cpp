@@ -1199,5 +1199,26 @@ assign_varying_locations(struct gl_context *ctx,
       }
    }
 
+   /* From the ARB_geometry_shader4 spec:
+    *
+    * "[...] the product of the total number of vertices and the sum of all
+    * components of all active varying variables may not exceed the value of
+    * MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS_ARB. LinkProgram will fail if it
+    * determines that the total component limit would be violated."
+    */
+   if (producer->Type == GL_GEOMETRY_SHADER_ARB) {
+      unsigned varying_components = slots_used * 4;
+
+      const unsigned max_components =
+         ctx->Const.MaxGeometryTotalOutputComponents;
+      if (prog->Geom.VerticesOut * varying_components > max_components) {
+         linker_error(prog, "Geometry shader uses too many total output "
+                      "components (%u > %u).\n",
+                      prog->Geom.VerticesOut * varying_components,
+                      max_components);
+         return false;
+      }
+   }
+
    return true;
 }
