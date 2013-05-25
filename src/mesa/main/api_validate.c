@@ -419,9 +419,8 @@ _mesa_validate_DrawElements(struct gl_context *ctx,
       return GL_FALSE;
    }
 
-   if (count <= 0) {
-      if (count < 0)
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glDrawElements(count)" );
+   if (count < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glDrawElements(count)" );
       return GL_FALSE;
    }
 
@@ -453,6 +452,9 @@ _mesa_validate_DrawElements(struct gl_context *ctx,
    if (!check_index_bounds(ctx, count, type, indices, basevertex))
       return GL_FALSE;
 
+   if (count == 0)
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -469,14 +471,14 @@ _mesa_validate_MultiDrawElements(struct gl_context *ctx,
                                  GLuint primcount, const GLint *basevertex)
 {
    unsigned i;
+   GLsizei total_count = 0;
 
    FLUSH_CURRENT(ctx, 0);
 
    for (i = 0; i < primcount; i++) {
-      if (count[i] <= 0) {
-         if (count[i] < 0)
-            _mesa_error(ctx, GL_INVALID_VALUE,
-                        "glMultiDrawElements(count)" );
+      if (count[i] < 0) {
+         _mesa_error(ctx, GL_INVALID_VALUE,
+                     "glMultiDrawElements(count)" );
          return GL_FALSE;
       }
    }
@@ -518,6 +520,11 @@ _mesa_validate_MultiDrawElements(struct gl_context *ctx,
          return GL_FALSE;
    }
 
+   for (i = 0; i < primcount; i++)
+      total_count += count[i];
+   if (total_count == 0)
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -548,9 +555,8 @@ _mesa_validate_DrawRangeElements(struct gl_context *ctx, GLenum mode,
       return GL_FALSE;
    }
 
-   if (count <= 0) {
-      if (count < 0)
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glDrawRangeElements(count)" );
+   if (count < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glDrawRangeElements(count)" );
       return GL_FALSE;
    }
 
@@ -587,6 +593,9 @@ _mesa_validate_DrawRangeElements(struct gl_context *ctx, GLenum mode,
    if (!check_index_bounds(ctx, count, type, indices, basevertex))
       return GL_FALSE;
 
+   if (count == 0)
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -604,9 +613,8 @@ _mesa_validate_DrawArrays(struct gl_context *ctx,
       = ctx->TransformFeedback.CurrentObject;
    FLUSH_CURRENT(ctx, 0);
 
-   if (count <= 0) {
-      if (count < 0)
-         _mesa_error(ctx, GL_INVALID_VALUE, "glDrawArrays(count)" );
+   if (count < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glDrawArrays(count)" );
       return GL_FALSE;
    }
 
@@ -645,6 +653,9 @@ _mesa_validate_DrawArrays(struct gl_context *ctx,
       xfb_obj->GlesRemainingPrims -= prim_count;
    }
 
+   if (count == 0)
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -657,10 +668,9 @@ _mesa_validate_DrawArraysInstanced(struct gl_context *ctx, GLenum mode, GLint fi
       = ctx->TransformFeedback.CurrentObject;
    FLUSH_CURRENT(ctx, 0);
 
-   if (count <= 0) {
-      if (count < 0)
-         _mesa_error(ctx, GL_INVALID_VALUE,
-                     "glDrawArraysInstanced(count=%d)", count);
+   if (count < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE,
+                  "glDrawArraysInstanced(count=%d)", count);
       return GL_FALSE;
    }
 
@@ -713,6 +723,9 @@ _mesa_validate_DrawArraysInstanced(struct gl_context *ctx, GLenum mode, GLint fi
       xfb_obj->GlesRemainingPrims -= prim_count;
    }
 
+   if (count == 0)
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -738,10 +751,9 @@ _mesa_validate_DrawElementsInstanced(struct gl_context *ctx,
       return GL_FALSE;
    }
 
-   if (count <= 0) {
-      if (count < 0)
-	 _mesa_error(ctx, GL_INVALID_VALUE,
-                     "glDrawElementsInstanced(count=%d)", count);
+   if (count < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE,
+                  "glDrawElementsInstanced(count=%d)", count);
       return GL_FALSE;
    }
 
@@ -777,6 +789,9 @@ _mesa_validate_DrawElementsInstanced(struct gl_context *ctx,
       if (!indices)
          return GL_FALSE;
    }
+
+   if (count == 0)
+      return GL_FALSE;
 
    if (!check_index_bounds(ctx, count, type, indices, basevertex))
       return GL_FALSE;
