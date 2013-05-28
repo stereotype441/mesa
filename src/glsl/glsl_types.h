@@ -218,7 +218,7 @@ struct glsl_type {
     */
    const glsl_type *element_type() const
    {
-      return is_array() ? fields.array : NULL;
+      return is_array() ? fields.array : error_type;
    }
 
    /**
