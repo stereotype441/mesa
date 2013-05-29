@@ -143,6 +143,7 @@ DRI2WireToEvent(Display *dpy, XEvent *event, xEvent *wire)
    {
       xDRI2InvalidateBuffers *awire = (xDRI2InvalidateBuffers *)wire;
 
+      printf("DRI2WireToEvent calling dri2InvalidateBuffers\n");
       dri2InvalidateBuffers(dpy, awire->drawable);
       return False;
    }
