@@ -138,6 +138,7 @@ struct _mesa_glsl_parse_state {
 
    void process_version_directive(YYLTYPE *locp, int version,
                                   const char *ident);
+   bool require_gl_Position(void) const;
 
    struct gl_context *const ctx;
    void *scanner;

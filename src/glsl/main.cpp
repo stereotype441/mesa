@@ -194,6 +194,9 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
    shader->CompileStatus = !state->error;
    shader->Version = state->language_version;
    shader->IsES = state->es_shader;
+
+   shader->require_gl_Position_write = state->require_gl_Position();
+
    memcpy(shader->builtins_to_link, state->builtins_to_link,
 	  sizeof(shader->builtins_to_link[0]) * state->num_builtins_to_link);
    shader->num_builtins_to_link = state->num_builtins_to_link;

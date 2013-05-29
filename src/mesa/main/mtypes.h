@@ -2120,6 +2120,14 @@ struct gl_shader
    GLboolean IsES;         /**< True if this shader uses GLSL ES */
 
    /**
+    * True if shader requires writing to gl_Position.
+    *
+    * See _mesa_glsl_parse_state::require_gl_Position
+    * in glsl/glsl_parser_extras.cpp for details.
+    */
+   GLboolean require_gl_Position_write;
+
+   /**
     * \name Sampler tracking
     *
     * \note Each of these fields is only set post-linking.
