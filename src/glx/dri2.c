@@ -520,6 +520,8 @@ void
 DRI2CopyRegion(Display * dpy, XID drawable, XserverRegion region,
                CARD32 dest, CARD32 src)
 {
+   printf("DRI2CopyRegion executing\n");
+
    XExtDisplayInfo *info = DRI2FindDisplay(dpy);
    xDRI2CopyRegionReq *req;
    xDRI2CopyRegionReply rep;

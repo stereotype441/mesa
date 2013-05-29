@@ -333,6 +333,7 @@ intel_process_dri2_buffer(struct intel_context *intel,
 void
 intel_update_renderbuffers(__DRIcontext *context, __DRIdrawable *drawable)
 {
+   printf("intel_update_renderbuffers\n");
    struct gl_framebuffer *fb = drawable->driverPrivate;
    struct intel_renderbuffer *rb;
    struct intel_context *intel = context->driverPrivate;
@@ -1077,6 +1078,7 @@ intel_query_dri2_buffers(struct intel_context *intel,
       intel_flush(&intel->ctx);
       intel_flush_front(&intel->ctx);
 
+      printf("intel_query_dri2_buffers requesting front\n");
       attachments[i++] = __DRI_BUFFER_FRONT_LEFT;
       attachments[i++] = intel_bits_per_pixel(front_rb);
    } else if (front_rb && intel->front_buffer_dirty) {
@@ -1091,6 +1093,7 @@ intel_query_dri2_buffers(struct intel_context *intel,
    }
 
    if (back_rb) {
+      printf("intel_query_dri2_buffers requesting back\n");
       attachments[i++] = __DRI_BUFFER_BACK_LEFT;
       attachments[i++] = intel_bits_per_pixel(back_rb);
    }
@@ -1127,6 +1130,7 @@ intel_process_dri2_buffer(struct intel_context *intel,
 			  struct intel_renderbuffer *rb,
 			  const char *buffer_name)
 {
+   printf("intel_process_dri2_buffer processing %s(%d)\n", buffer_name, buffer->name);
    struct intel_region *region = NULL;
 
    if (!rb)

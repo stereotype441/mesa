@@ -168,6 +168,7 @@ intel_hiz_exec(struct intel_context *intel, struct intel_mipmap_tree *mt,
 void
 brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
 {
+   printf("brw_blorp_exec\n");
    struct brw_context *brw = brw_context(&intel->ctx);
 
    switch (intel->gen) {
@@ -183,7 +184,7 @@ brw_blorp_exec(struct intel_context *intel, const brw_blorp_params *params)
       break;
    }
 
-   if (unlikely(intel->always_flush_batch))
+   //   if (unlikely(intel->always_flush_batch))
       intel_batchbuffer_flush(intel);
 
    /* We've smashed all state compared to what the normal 3D pipeline

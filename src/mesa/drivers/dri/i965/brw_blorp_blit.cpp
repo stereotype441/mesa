@@ -216,7 +216,9 @@ try_blorp_blit(struct intel_context *intel,
    /* Sync up the state of window system buffers.  We need to do this before
     * we go looking for the buffers.
     */
+   intel->front_buffer_dirty = true;
    intel_prepare_render(intel);
+   intel->front_buffer_dirty = true;
 
    const struct gl_framebuffer *read_fb = ctx->ReadBuffer;
    const struct gl_framebuffer *draw_fb = ctx->DrawBuffer;

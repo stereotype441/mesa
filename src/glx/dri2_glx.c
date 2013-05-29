@@ -642,6 +642,7 @@ dri2_wait_x(struct glx_context *gc)
    if (priv == NULL || !priv->have_fake_front)
       return;
 
+   printf("dri2_wait_x: Copy real->fake\n");
    dri2_copy_drawable(priv, DRI2BufferFakeFrontLeft, DRI2BufferFrontLeft);
 }
 
@@ -654,6 +655,7 @@ dri2_wait_gl(struct glx_context *gc)
    if (priv == NULL || !priv->have_fake_front)
       return;
 
+   printf("dri2_wait_gl: Copy fake->real\n");
    dri2_copy_drawable(priv, DRI2BufferFrontLeft, DRI2BufferFakeFrontLeft);
 }
 
