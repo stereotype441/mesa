@@ -548,6 +548,10 @@ validate_geometry_shader_executable(struct gl_shader_program *prog,
    unsigned num_vertices = vertices_per_prim(prog->Geom.InputType);
    prog->Geom.VerticesIn = num_vertices;
 
+   if (prog->Geom.VerticesOut == 0) {
+      linker_error(prog, "Program parameter GL_GEOMETRY_VERTICES_OUT is zero.\n");
+   }
+
    analyze_clip_usage("geometry", prog, shader, &prog->Geom.UsesClipDistance,
                       &prog->Geom.ClipDistanceArraySize);
 
