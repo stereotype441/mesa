@@ -370,6 +370,11 @@ intelClearWithBlit(struct gl_context *ctx, GLbitfield mask)
    GLbitfield fail_mask = 0;
    BATCH_LOCALS;
 
+   /* Note: we don't use this function on Gen7+ hardware, so we can safely
+    * ignore fast color clear issues.
+    */
+   assert(intel->gen < 7);
+
    /*
     * Compute values for clearing the buffers.
     */
