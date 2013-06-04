@@ -197,11 +197,6 @@ intel_texsubimage_tiled_memcpy(struct gl_context * ctx,
        packing->Invert)
       return false;
 
-   /* Since we are going to write raw data to the miptree, we need to resolve
-    * any pending fast color clears before we start.
-    */
-   intel_miptree_resolve_color(intel, image->mt);
-
    if (for_glTexImage)
       ctx->Driver.AllocTextureImageBuffer(ctx, texImage);
 
@@ -210,6 +205,11 @@ intel_texsubimage_tiled_memcpy(struct gl_context * ctx,
       /* The algorithm below is written only for X-tiled memory. */
       return false;
    }
+
+   /* Since we are going to write raw data to the miptree, we need to resolve
+    * any pending fast color clears before we start.
+    */
+   intel_miptree_resolve_color(intel, image->mt);
 
    bo = image->mt->region->bo;
 
