@@ -169,9 +169,7 @@ intel_get_non_msrt_mcs_alignment(struct intel_context *intel,
                                  struct intel_mipmap_tree *mt,
                                  unsigned *width_px, unsigned *height)
 {
-   struct intel_region *region =
-      intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_NONE);
-   switch (region->tiling) {
+   switch (mt->region->tiling) {
    default:
       assert(!"Non-MSRT MCS requires X or Y tiling");
       /* In release builds, fall through */
@@ -210,8 +208,6 @@ intel_is_non_msrt_mcs_buffer_supported(struct intel_context *intel,
    return false;
 #else
    struct brw_context *brw = brw_context(&intel->ctx);
-   struct intel_region *region =
-      intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_NONE);
 
    /* MCS support does not exist prior to Gen7 */
    if (intel->gen < 7)
@@ -225,8 +221,8 @@ intel_is_non_msrt_mcs_buffer_supported(struct intel_context *intel,
       return false;
    }
 
-   if (region->tiling != I915_TILING_X &&
-       region->tiling != I915_TILING_Y)
+   if (mt->region->tiling != I915_TILING_X &&
+       mt->region->tiling != I915_TILING_Y)
       return false;
    if (mt->cpp != 4 && mt->cpp != 8 && mt->cpp != 16)
       return false;
