@@ -35,11 +35,8 @@
 
 struct intel_context;
 struct intel_framebuffer;
-enum intel_miptree_access_type;
 
-extern struct intel_region *
-intel_readbuf_region(struct intel_context *intel,
-                     enum intel_miptree_access_type access_type);
+extern struct intel_region *intel_readbuf_region(struct intel_context *intel);
 
 extern void intel_check_front_buffer_rendering(struct intel_context *intel);
 

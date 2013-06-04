@@ -138,17 +138,14 @@ aub_dump_bmp(struct gl_context *ctx)
 	    continue;
 	 }
 
-         struct intel_region *region =
-            intel_miptree_get_region(intel_context(ctx), irb->mt,
-                                     INTEL_MIPTREE_ACCESS_NONE);
-         assert(region->pitch % region->cpp == 0);
-	 drm_intel_gem_bo_aub_dump_bmp(region->bo,
+         assert(irb->mt->region->pitch % irb->mt->region->cpp == 0);
+	 drm_intel_gem_bo_aub_dump_bmp(irb->mt->region->bo,
 				       irb->draw_x,
 				       irb->draw_y,
 				       irb->Base.Base.Width,
 				       irb->Base.Base.Height,
 				       format,
-				       region->pitch,
+				       irb->mt->region->pitch,
 				       0);
       }
    }
@@ -305,12 +302,9 @@ intel_setup_image_from_mipmap_tree(struct intel_context *intel, __DRIimage *imag
 
    intel_miptree_make_shareable(intel, mt);
 
-   struct intel_region *region =
-      intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_SHARED);
-
    intel_miptree_check_level_layer(mt, level, zoffset);
 
-   intel_region_get_tile_masks(region, &mask_x, &mask_y, false);
+   intel_region_get_tile_masks(mt->region, &mask_x, &mask_y, false);
    intel_miptree_get_image_offset(mt, level, zoffset, &draw_x, &draw_y);
 
    image->width = mt->level[level].width;
@@ -318,12 +312,12 @@ intel_setup_image_from_mipmap_tree(struct intel_context *intel, __DRIimage *imag
    image->tile_x = draw_x & mask_x;
    image->tile_y = draw_y & mask_y;
 
-   image->offset = intel_region_get_aligned_offset(region,
+   image->offset = intel_region_get_aligned_offset(mt->region,
                                                    draw_x & ~mask_x,
                                                    draw_y & ~mask_y,
                                                    false);
 
-   intel_region_reference(&image->region, region);
+   intel_region_reference(&image->region, mt->region);
 }
 
 static void
@@ -413,9 +407,7 @@ intel_create_image_from_renderbuffer(__DRIcontext *context,
    image->format = rb->Format;
    image->offset = 0;
    image->data = loaderPrivate;
-   struct intel_region *region =
-      intel_miptree_get_region(intel, irb->mt, INTEL_MIPTREE_ACCESS_SHARED);
-   intel_region_reference(&image->region, region);
+   intel_region_reference(&image->region, irb->mt->region);
    intel_setup_image_from_dimensions(image);
    image->dri_format = intel_dri_format(image->format);
    image->has_depthstencil = irb->mt->stencil_mt? true : false;

@@ -120,12 +120,10 @@ brw_blorp_surface_info::set(struct brw_context *brw,
  * directly from the adjusted offsets.
  */
 uint32_t
-brw_blorp_surface_info::compute_tile_offsets(struct intel_context *intel,
-                                             uint32_t *tile_x,
+brw_blorp_surface_info::compute_tile_offsets(uint32_t *tile_x,
                                              uint32_t *tile_y) const
 {
-   struct intel_region *region =
-      intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_NONE);
+   struct intel_region *region = mt->region;
    uint32_t mask_x, mask_y;
 
    intel_region_get_tile_masks(region, &mask_x, &mask_y,

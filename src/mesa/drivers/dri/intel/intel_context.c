@@ -1136,14 +1136,14 @@ intel_process_dri2_buffer(struct intel_context *intel,
     */
    if (num_samples == 0) {
        if (rb->mt &&
-           rb->mt->region_private &&
-           rb->mt->region_private->name == buffer->name)
+           rb->mt->region &&
+           rb->mt->region->name == buffer->name)
           return;
    } else {
        if (rb->mt &&
            rb->mt->singlesample_mt &&
-           rb->mt->singlesample_mt->region_private &&
-           rb->mt->singlesample_mt->region_private->name == buffer->name)
+           rb->mt->singlesample_mt->region &&
+           rb->mt->singlesample_mt->region->name == buffer->name)
           return;
    }
 

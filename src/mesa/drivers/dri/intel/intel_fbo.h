@@ -35,7 +35,6 @@
 #include "intel_context.h"
 #include "intel_mipmap_tree.h"
 #include "intel_screen.h"
-#include "intel_mipmap_tree.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -160,9 +159,7 @@ intel_renderbuffer_get_tile_offsets(struct intel_renderbuffer *irb,
 }
 
 struct intel_region*
-intel_get_rb_region(struct intel_context *intel, struct gl_framebuffer *fb,
-                    GLuint attIndex,
-                    enum intel_miptree_access_type access_type);
+intel_get_rb_region(struct gl_framebuffer *fb, GLuint attIndex);
 
 void
 intel_renderbuffer_set_needs_downsample(struct intel_renderbuffer *irb);

@@ -760,13 +760,7 @@ i830_update_draw_buffer(struct intel_context *intel)
 
        for (i = 0; i < fb->_NumColorDrawBuffers; i++) {
            irb = intel_renderbuffer(fb->_ColorDrawBuffers[i]);
-           if (irb && irb->mt) {
-              colorRegions[i] =
-                 intel_miptree_get_region(intel, irb->mt,
-                                          INTEL_MIPTREE_ACCESS_RENDER);
-           } else {
-              colorRegions[i] = NULL;
-           }
+           colorRegions[i] = (irb && irb->mt) ? irb->mt->region : NULL;
        }
    }
    else {
@@ -776,23 +770,15 @@ i830_update_draw_buffer(struct intel_context *intel)
       if (_mesa_is_winsys_fbo(fb)) {
 	 /* drawing to window system buffer */
 	 if (fb->_ColorDrawBufferIndexes[0] == BUFFER_FRONT_LEFT)
-	    colorRegions[0] = intel_get_rb_region(intel, fb, BUFFER_FRONT_LEFT,
-                                                  INTEL_MIPTREE_ACCESS_RENDER);
+	    colorRegions[0] = intel_get_rb_region(fb, BUFFER_FRONT_LEFT);
 	 else
-	    colorRegions[0] = intel_get_rb_region(intel, fb, BUFFER_BACK_LEFT,
-                                                  INTEL_MIPTREE_ACCESS_RENDER);
+	    colorRegions[0] = intel_get_rb_region(fb, BUFFER_BACK_LEFT);
       }
       else {
 	 /* drawing to user-created FBO */
 	 struct intel_renderbuffer *irb;
 	 irb = intel_renderbuffer(fb->_ColorDrawBuffers[0]);
-         if (irb && irb->mt) {
-            colorRegions[0] =
-               intel_miptree_get_region(intel, irb->mt,
-                                        INTEL_MIPTREE_ACCESS_RENDER);
-         } else {
-            colorRegions[0] = NULL;
-         }
+	 colorRegions[0] = (irb && irb->mt->region) ? irb->mt->region : NULL;
       }
    }
 
@@ -806,8 +792,7 @@ i830_update_draw_buffer(struct intel_context *intel)
    /* Check for depth fallback. */
    if (irbDepth && irbDepth->mt) {
       FALLBACK(intel, INTEL_FALLBACK_DEPTH_BUFFER, false);
-      depthRegion = intel_miptree_get_region(intel, irbDepth->mt,
-                                             INTEL_MIPTREE_ACCESS_RENDER);
+      depthRegion = irbDepth->mt->region;
    } else if (irbDepth && !irbDepth->mt) {
       FALLBACK(intel, INTEL_FALLBACK_DEPTH_BUFFER, true);
       depthRegion = NULL;
@@ -833,8 +818,7 @@ i830_update_draw_buffer(struct intel_context *intel)
     */
    if (depthRegion == NULL && irbStencil && irbStencil->mt
        && intel_rb_format(irbStencil) == MESA_FORMAT_S8_Z24) {
-      depthRegion = intel_miptree_get_region(intel, irbStencil->mt,
-                                             INTEL_MIPTREE_ACCESS_RENDER);
+      depthRegion = irbStencil->mt->region;
    }
 
    /*

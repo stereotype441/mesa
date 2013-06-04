@@ -60,12 +60,8 @@ intel_blit_texsubimage(struct gl_context * ctx,
    if (!intelImage->mt)
       return false;
 
-   struct intel_region *region =
-      intel_miptree_get_region(intel, intelImage->mt,
-                               INTEL_MIPTREE_ACCESS_BLIT);
-
    /* The blitter can't handle Y tiling */
-   if (region->tiling == I915_TILING_Y)
+   if (intelImage->mt->region->tiling == I915_TILING_Y)
       return false;
 
    if (texImage->TexObject->Target != GL_TEXTURE_2D)
@@ -77,7 +73,7 @@ intel_blit_texsubimage(struct gl_context * ctx,
    if (intel->gen >= 6)
       return false;
 
-   if (!drm_intel_bo_busy(region->bo))
+   if (!drm_intel_bo_busy(intelImage->mt->region->bo))
       return false;
 
    DBG("BLT subimage %s target %s level %d offset %d,%d %dx%d\n",
@@ -98,8 +94,6 @@ intel_blit_texsubimage(struct gl_context * ctx,
                            false, 0, INTEL_MIPTREE_TILING_NONE);
    if (!temp_mt)
       goto err;
-   struct intel_region *temp_region =
-      intel_miptree_get_region(intel, temp_mt, INTEL_MIPTREE_ACCESS_NONE);
 
    GLubyte *dst = intel_miptree_map_raw(intel, temp_mt);
    if (!dst)
@@ -107,7 +101,7 @@ intel_blit_texsubimage(struct gl_context * ctx,
 
    if (!_mesa_texstore(ctx, 2, texImage->_BaseFormat,
 		       texImage->TexFormat,
-		       temp_region->pitch,
+		       temp_mt->region->pitch,
 		       &dst,
 		       width, height, 1,
 		       format, type, pixels, packing)) {
@@ -211,18 +205,13 @@ intel_texsubimage_tiled_memcpy(struct gl_context * ctx,
    if (for_glTexImage)
       ctx->Driver.AllocTextureImageBuffer(ctx, texImage);
 
-   if (!image->mt)
-      return false;
-
-   struct intel_region *region =
-      intel_miptree_get_region(intel, image->mt, INTEL_MIPTREE_ACCESS_MAP);
-
-   if (region->tiling != I915_TILING_X) {
+   if (!image->mt ||
+       image->mt->region->tiling != I915_TILING_X) {
       /* The algorithm below is written only for X-tiled memory. */
       return false;
    }
 
-   bo = region->bo;
+   bo = image->mt->region->bo;
 
    if (drm_intel_bo_references(intel->batch.bo, bo)) {
       perf_debug("Flushing before mapping a referenced bo.\n");
@@ -265,7 +254,7 @@ intel_texsubimage_tiled_memcpy(struct gl_context * ctx,
    const uint32_t cpp = 4; /* chars per pixel of GL_BGRA */
    const uint32_t swizzle_width_pixels = 16;
 
-   const uint32_t stride_bytes = region->pitch;
+   const uint32_t stride_bytes = image->mt->region->pitch;
    const uint32_t width_tiles = stride_bytes / tile_width_bytes;
 
    for (uint32_t y_pixels = yoffset; y_pixels < y_max_pixels; ++y_pixels) {

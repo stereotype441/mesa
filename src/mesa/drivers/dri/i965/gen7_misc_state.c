@@ -42,16 +42,12 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
    struct intel_context *intel = &brw->intel;
    struct gl_context *ctx = &intel->ctx;
 
-   struct intel_region *depth_region = depth_mt ?
-      intel_miptree_get_region(intel, depth_mt, INTEL_MIPTREE_ACCESS_RENDER) :
-      NULL;
-
    intel_emit_depth_stall_flushes(intel);
 
    /* _NEW_DEPTH, _NEW_STENCIL */
    BEGIN_BATCH(7);
    OUT_BATCH(GEN7_3DSTATE_DEPTH_BUFFER << 16 | (7 - 2));
-   OUT_BATCH((depth_mt ? depth_region->pitch - 1 : 0) |
+   OUT_BATCH((depth_mt ? depth_mt->region->pitch - 1 : 0) |
              (depthbuffer_format << 18) |
              ((hiz ? 1 : 0) << 22) |
              ((stencil_mt != NULL && ctx->Stencil._WriteEnabled) << 27) |
@@ -59,7 +55,7 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
              (depth_surface_type << 29));
 
    if (depth_mt) {
-      OUT_RELOC(depth_region->bo,
+      OUT_RELOC(depth_mt->region->bo,
 	        I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		depth_offset);
    } else {
@@ -81,12 +77,10 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
       ADVANCE_BATCH();
    } else {
       struct intel_mipmap_tree *hiz_mt = depth_mt->hiz_mt;
-      struct intel_region *hiz_region =
-         intel_miptree_get_region(intel, hiz_mt, INTEL_MIPTREE_ACCESS_RENDER);
       BEGIN_BATCH(3);
       OUT_BATCH(GEN7_3DSTATE_HIER_DEPTH_BUFFER << 16 | (3 - 2));
-      OUT_BATCH(hiz_region->pitch - 1);
-      OUT_RELOC(hiz_region->bo,
+      OUT_BATCH(hiz_mt->region->pitch - 1);
+      OUT_RELOC(hiz_mt->region->bo,
                 I915_GEM_DOMAIN_RENDER,
                 I915_GEM_DOMAIN_RENDER,
                 brw->depthstencil.hiz_offset);
@@ -100,9 +94,6 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
       OUT_BATCH(0);
       ADVANCE_BATCH();
    } else {
-      struct intel_region *stencil_region =
-         intel_miptree_get_region(intel, stencil_mt,
-                                  INTEL_MIPTREE_ACCESS_RENDER);
       const int enabled = intel->is_haswell ? HSW_STENCIL_ENABLED : 0;
 
       BEGIN_BATCH(3);
@@ -122,8 +113,8 @@ gen7_emit_depth_stencil_hiz(struct brw_context *brw,
        * indicate that it does.
        */
       OUT_BATCH(enabled |
-	        (2 * stencil_region->pitch - 1));
-      OUT_RELOC(stencil_region->bo,
+	        (2 * stencil_mt->region->pitch - 1));
+      OUT_RELOC(stencil_mt->region->bo,
 	        I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		brw->depthstencil.stencil_offset);
       ADVANCE_BATCH();

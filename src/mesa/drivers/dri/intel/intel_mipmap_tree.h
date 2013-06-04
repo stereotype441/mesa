@@ -355,13 +355,9 @@ struct intel_mipmap_tree
     */
    struct intel_mipmap_level level[MAX_TEXTURE_LEVELS];
 
-   /**
-    * The data is held here.  Please don't access this field directly except
-    * in low-level intel_mipmap_tree functions; instead, use
-    * intel_miptree_get_region(), which takes care of updating fast color
-    * clear state appropriately.
+   /* The data is held here:
     */
-   struct intel_region *region_private;
+   struct intel_region *region;
 
    /* Offset into region bo where miptree starts:
     */
@@ -769,105 +765,6 @@ intel_miptree_unmap(struct intel_context *intel,
 		    struct intel_mipmap_tree *mt,
 		    unsigned int level,
 		    unsigned int slice);
-
-
-/**
- * Enum describing possible ways in which a miptree's region can be accessed.
- * This is used by intel_miptree_get_region() to update the fast color clear
- * state appropriately for the type of access.
- */
-enum intel_miptree_access_type {
-   /**
-    * The contents of the region won't need to be accessed, just the metadata
-    * (pitch, cpp, bo->size, etc.)
-    */
-   INTEL_MIPTREE_ACCESS_NONE,
-
-   /**
-    * The contents of the region will be accessed by the hardware blitter.
-    */
-   INTEL_MIPTREE_ACCESS_BLIT,
-
-   /**
-    * The contents of the region will be mapped into memory and accessed by
-    * the CPU.
-    */
-   INTEL_MIPTREE_ACCESS_MAP,
-
-   /**
-    * The contents of the region will be used as a source for texturing
-    * operations.
-    */
-   INTEL_MIPTREE_ACCESS_TEX,
-
-   /**
-    * The contents of the region will be shared between multiple miptrees, or
-    * with an entity outside of Mesa (other than the display server or
-    * compositor).
-    */
-   INTEL_MIPTREE_ACCESS_SHARED,
-
-   /**
-    * The contents of the region will be used as a destination color buffer,
-    * depth buffer, or stencil buffer for 3D rendering operations.
-    */
-   INTEL_MIPTREE_ACCESS_RENDER,
-
-   /**
-    * The contents of the region will be used as an MCS buffer for some other
-    * buffer.
-    */
-   INTEL_MIPTREE_ACCESS_MCS,
-};
-
-
-/**
- * Obtain the intel_region corresponding to this miptree, updating fast color
- * clear state as appropriate.
- */
-static inline struct intel_region *
-intel_miptree_get_region(struct intel_context *intel,
-                         struct intel_mipmap_tree *mt,
-                         enum intel_miptree_access_type access_type)
-{
-#ifndef I915
-   switch (access_type) {
-   case INTEL_MIPTREE_ACCESS_NONE:
-      break;
-   case INTEL_MIPTREE_ACCESS_BLIT:
-   case INTEL_MIPTREE_ACCESS_MAP:
-   case INTEL_MIPTREE_ACCESS_TEX:
-      intel_miptree_resolve_color(intel, mt);
-      break;
-   case INTEL_MIPTREE_ACCESS_SHARED:
-      /* Fast color clears are unsafe with shared buffers, so resolve and then
-       * discard the MCS buffer, if present.  Also set the mcs_state to
-       * INTEL_MCS_STATE_NONE to ensure that no MCS buffer gets allocated in
-       * the future.
-       */
-      intel_miptree_resolve_color(intel, mt);
-      intel_miptree_release(&mt->mcs_mt);
-      mt->mcs_state = INTEL_MCS_STATE_NONE;
-      break;
-   case INTEL_MIPTREE_ACCESS_RENDER:
-      /* If the buffer was previously in fast clear state, change it to
-       * unresolved state, since it won't be guaranteed to be clear after
-       * rendering occurs.
-       */
-      if (mt->mcs_state == INTEL_MCS_STATE_CLEAR)
-         mt->mcs_state = INTEL_MCS_STATE_UNRESOLVED;
-      break;
-   case INTEL_MIPTREE_ACCESS_MCS:
-      /* MCS buffers don't have their own MCS buffers so we don't need to do
-       * anything.
-       */
-      assert(mt->mcs_mt == NULL);
-      break;
-   }
-#endif
-   return mt->region_private;
-}
-
 
 #ifdef I915
 static inline void
