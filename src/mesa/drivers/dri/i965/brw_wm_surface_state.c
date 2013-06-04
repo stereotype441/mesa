@@ -1348,6 +1348,8 @@ brw_update_renderbuffer_surface(struct brw_context *brw,
       }
    }
 
+   intel_miptree_used_for_rendering(irb->mt);
+
    region = intel_miptree_get_region(intel, irb->mt,
                                      INTEL_MIPTREE_ACCESS_RENDER);
 

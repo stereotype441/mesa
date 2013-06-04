@@ -709,6 +709,27 @@ void
 intel_miptree_make_shareable(struct intel_context *intel,
                              struct intel_mipmap_tree *mt);
 
+/**
+ * Update the fast clear state for a miptree to indicate that it has been used
+ * for rendering.
+ */
+static inline void
+intel_miptree_used_for_rendering(struct intel_mipmap_tree *mt)
+{
+#ifdef I915
+   /* Nothing needs to be done for I915, since it doesn't support fast
+    * clear.
+    */
+#else
+   /* If the buffer was previously in fast clear state, change it to
+    * unresolved state, since it won't be guaranteed to be clear after
+    * rendering occurs.
+    */
+   if (mt->mcs_state == INTEL_MCS_STATE_CLEAR)
+      mt->mcs_state = INTEL_MCS_STATE_UNRESOLVED;
+#endif
+}
+
 void
 intel_miptree_downsample(struct intel_context *intel,
                          struct intel_mipmap_tree *mt);
