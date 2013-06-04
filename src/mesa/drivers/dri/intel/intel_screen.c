@@ -302,6 +302,9 @@ intel_setup_image_from_mipmap_tree(struct intel_context *intel, __DRIimage *imag
 {
    unsigned int draw_x, draw_y;
    uint32_t mask_x, mask_y;
+
+   intel_miptree_make_shareable(intel, mt);
+
    struct intel_region *region =
       intel_miptree_get_region(intel, mt, INTEL_MIPTREE_ACCESS_SHARED);
 
@@ -401,6 +404,7 @@ intel_create_image_from_renderbuffer(__DRIcontext *context,
    }
 
    irb = intel_renderbuffer(rb);
+   intel_miptree_make_shareable(intel, irb->mt);
    image = calloc(1, sizeof *image);
    if (image == NULL)
       return NULL;
