@@ -302,6 +302,53 @@ _mesa_glsl_parse_state::process_version_directive(YYLTYPE *locp, int version,
    }
 }
 
+/* Determine wether the shader requires an export to gl_Position.
+ *
+ * From the GLSL 1.10 spec, page 48:
+ *
+ *     "The variable gl_Position is available only in the vertex
+ *      language and is intended for writing the homogeneous vertex
+ *      position. All executions of a well-formed vertex shader
+ *      executable must write a value into this variable. [...] The
+ *      variable gl_Position is available only in the vertex
+ *      language and is intended for writing the homogeneous vertex
+ *      position. All executions of a well-formed vertex shader
+ *      executable must write a value into this variable."
+ *
+ * while in GLSL 1.40 this text is changed to:
+ *
+ *     "The variable gl_Position is available only in the vertex
+ *      language and is intended for writing the homogeneous vertex
+ *      position. It can be written at any time during shader
+ *      execution. It may also be read back by a vertex shader
+ *      after being written. This value will be used by primitive
+ *      assembly, clipping, culling, and other fixed functionality
+ *      operations, if present, that operate on primitives after
+ *      vertex processing has occurred. Its value is undefined if
+ *      the vertex shader executable does not write gl_Position."
+ *
+ * GLSL ES 3.00 is similar to GLSL 1.40--failing to write to gl_Position is
+ * not an error.
+ *
+ * GL_ARB_geometry_shader4 and GL_EXT_geometry_shader4 also relax this
+ * restriction:
+ *     "Note that writing to gl_Position from either the vertex or
+ *      fragment shader is optional."
+ */
+bool
+_mesa_glsl_parse_state::require_gl_Position(void) const
+{
+   if (this->target != vertex_shader)
+      return false;
+   if (this->ARB_geometry_shader4_enable)
+      return false;
+   if (this->EXT_geometry_shader4_enable)
+      return false;
+   if (this->language_version >= (this->es_shader ? 300 : 140))
+      return false;
+   return true;
+}
+
 const char *
 _mesa_glsl_shader_target_name(enum _mesa_glsl_parser_targets target)
 {
@@ -483,8 +530,8 @@ static const _mesa_glsl_extension _mesa_glsl_supported_extensions[] = {
    EXT(ARB_texture_query_lod,          false, false, true,  true,  false,     ARB_texture_query_lod),
    EXT(ARB_gpu_shader5,                true,  true,  true,  true,  false,     ARB_gpu_shader5),
    EXT(AMD_vertex_shader_layer,        true,  false, false, true,  false,     AMD_vertex_shader_layer),
-   EXT(ARB_geometry_shader4,           false, true,  false, true,  false,     ARB_geometry_shader4),
-   EXT(EXT_geometry_shader4,           false, true,  false, true,  false,     ARB_geometry_shader4),
+   EXT(ARB_geometry_shader4,           true,  true,  true,  true,  false,     ARB_geometry_shader4),
+   EXT(EXT_geometry_shader4,           true,  true,  false, true,  false,     ARB_geometry_shader4),
 };
 
 #undef EXT

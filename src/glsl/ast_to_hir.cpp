@@ -656,6 +656,8 @@ validate_assignment(struct _mesa_glsl_parse_state *state,
 static void
 mark_whole_array_access(ir_rvalue *access)
 {
+   assert(access->type->is_array());
+
    ir_dereference_variable *deref = access->as_dereference_variable();
 
    if (deref && deref->var) {
@@ -763,8 +765,10 @@ do_assignment(exec_list *instructions, struct _mesa_glsl_parse_state *state,
 						   rhs->type->array_size());
 	 d->type = var->type;
       }
-      mark_whole_array_access(rhs);
-      mark_whole_array_access(lhs);
+      if (rhs->type->is_array()) {
+	 mark_whole_array_access(rhs);
+	 mark_whole_array_access(lhs);
+      }
    }
 
    /* Most callers of do_assignment (assign, add_assign, pre_inc/dec,

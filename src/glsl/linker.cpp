@@ -530,33 +530,7 @@ validate_vertex_shader_executable(struct gl_shader_program *prog,
    if (shader == NULL)
       return true;
 
-   /* From the GLSL 1.10 spec, page 48:
-    *
-    *     "The variable gl_Position is available only in the vertex
-    *      language and is intended for writing the homogeneous vertex
-    *      position. All executions of a well-formed vertex shader
-    *      executable must write a value into this variable. [...] The
-    *      variable gl_Position is available only in the vertex
-    *      language and is intended for writing the homogeneous vertex
-    *      position. All executions of a well-formed vertex shader
-    *      executable must write a value into this variable."
-    *
-    * while in GLSL 1.40 this text is changed to:
-    *
-    *     "The variable gl_Position is available only in the vertex
-    *      language and is intended for writing the homogeneous vertex
-    *      position. It can be written at any time during shader
-    *      execution. It may also be read back by a vertex shader
-    *      after being written. This value will be used by primitive
-    *      assembly, clipping, culling, and other fixed functionality
-    *      operations, if present, that operate on primitives after
-    *      vertex processing has occurred. Its value is undefined if
-    *      the vertex shader executable does not write gl_Position."
-    *
-    * GLSL ES 3.00 is similar to GLSL 1.40--failing to write to gl_Position is
-    * not an error.
-    */
-   if (prog->Version < (prog->IsES ? 300 : 140)) {
+   if (shader->require_gl_Position_write) {
       find_assignment_visitor find("gl_Position");
       find.run(shader->ir);
       if (!find.variable_found()) {
@@ -635,7 +609,12 @@ validate_geometry_shader_executable(struct gl_shader_program *prog,
 
    int num_vertices = vertices_per_prim(prog->Geom.InputType);
    prog->Geom.VerticesIn = num_vertices;
-   
+
+   if (prog->Geom.VerticesIn == 0) {
+      linker_error(prog, "Program parameter GL_GEOMETRY_VERTICES_OUT is zero.\n");
+      return false;
+   }
+
    /* Replace references to gl_VerticesIn with the number of input vertices */
    inject_num_vertices_visitor inject_visitor(num_vertices);
    foreach_iter(exec_list_iterator, iter, *shader->ir) {
@@ -1305,6 +1284,14 @@ link_intrastage_shaders(void *mem_ctx,
       v.run(linked->ir);
    }
 
+   /* If any of the individual shaders requirs writing to gl_Position, the
+    * linked shader requires writing to it.
+    */
+   linked->require_gl_Position_write = false;
+   for (unsigned i = 0; i < num_shaders; i++)
+      linked->require_gl_Position_write = linked->require_gl_Position_write ||
+	 shader_list[i]->require_gl_Position_write;
+
    return linked;
 }
 
@@ -1361,7 +1348,7 @@ update_array_sizes(struct gl_shader_program *prog)
 	    }
 	 }
 
-	 if (size + 1 != int(var->type->fields.array->length)) {
+	 if (size + 1 != int(var->type->length)) {
 	    /* If this is a built-in uniform (i.e., it's backed by some
 	     * fixed-function state), adjust the number of state slots to
 	     * match the new array size.  The number of slots per array entry
@@ -1907,6 +1894,14 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 
    prog->Version = max_version;
    prog->IsES = is_es_prog;
+
+   /* Geometry shaders have to be linked with vertex shaders.
+    */
+   if (num_geom_shaders > 0 && num_vert_shaders == 0) {
+      linker_error(prog, "Geometry shader must be linked with "
+		   "vertex shader\n");
+      goto done;
+   }
 
    for (unsigned int i = 0; i < MESA_SHADER_TYPES; i++) {
       if (prog->_LinkedShaders[i] != NULL)
