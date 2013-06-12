@@ -233,8 +233,15 @@ ir_set_program_inouts_visitor::visit_enter(ir_discard *)
 
 void
 do_set_program_inouts(exec_list *instructions, struct gl_program *prog,
-                      bool is_fragment_shader, bool is_geometry_shader)
+                      const GLenum type)
 {
+   assert((type == GL_VERTEX_SHADER) ||
+          (type == GL_GEOMETRY_SHADER) ||
+          (type == GL_FRAGMENT_SHADER));
+
+   const bool is_fragment_shader = (type == GL_FRAGMENT_SHADER);
+   const bool is_geometry_shader = (type == GL_GEOMETRY_SHADER);
+
    ir_set_program_inouts_visitor v(prog, is_fragment_shader, is_geometry_shader);
 
    prog->InputsRead = 0;
