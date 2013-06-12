@@ -105,7 +105,7 @@ _mesa_ast_array_index_to_hir(void *mem_ctx,
 	  * FINISHME: array access limits be added to ir_dereference?
 	  */
 	 ir_variable *const v = array->whole_variable_referenced();
-	 if ((v != NULL) && (idx > v->max_array_access)) {
+	 if ((v != NULL) && (unsigned(idx) > v->max_array_access)) {
 	    v->max_array_access = idx;
 
 	    /* Check whether this access will, as a side effect, implicitly

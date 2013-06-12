@@ -404,7 +404,7 @@ public:
     *
     * Not used for non-array variables.
     */
-   int max_array_access;
+   unsigned max_array_access;
 
    /**
     * Is the variable read-only?

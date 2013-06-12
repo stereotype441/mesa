@@ -203,11 +203,11 @@ public:
 
 class geom_array_resize_visitor : public ir_hierarchical_visitor {
 public:
-   int num_vertices;
+   unsigned num_vertices;
    gl_shader_program *prog;
    bool error;
    
-   geom_array_resize_visitor(int num_vertices, gl_shader_program *prog)
+   geom_array_resize_visitor(unsigned num_vertices, gl_shader_program *prog)
    {
       this->num_vertices = num_vertices;
       this->prog = prog;
@@ -224,7 +224,7 @@ public:
       if (!var->type->is_array() || var->mode != ir_var_shader_in)
          return visit_continue;
 
-      int size = var->type->array_size();
+      unsigned size = var->type->array_size();
 
       /* Generate a link error if the shader has declared this array with
        * a size larger than the correct size.  Ideally we would generate a
@@ -232,8 +232,8 @@ public:
        * array sizes are set to num_vertices-1 before we reach this stage.
        */
       if (size && size > this->num_vertices) {
-         linker_error(this->prog, "size of array %s declared as %i, "
-                      "but number of input vertices is %i\n",
+         linker_error(this->prog, "size of array %s declared as %u, "
+                      "but number of input vertices is %u\n",
                       var->name, size, this->num_vertices);
          this->error = true;
          return visit_continue;
@@ -244,8 +244,8 @@ public:
        * time.
        */
       if (var->max_array_access >= this->num_vertices) {
-         linker_error(this->prog, "geometry shader accesses element %i of "
-                      "%s, but only %i input vertices\n",
+         linker_error(this->prog, "geometry shader accesses element %u of "
+                      "%s, but only %u input vertices\n",
                       var->max_array_access, var->name, this->num_vertices);
          this->error = true;
          return visit_continue;
@@ -1320,7 +1320,7 @@ update_array_sizes(struct gl_shader_program *prog)
 	 if (var->is_in_uniform_block())
 	    continue;
 
-	 int size = var->max_array_access;
+	 unsigned int size = var->max_array_access;
 	 for (unsigned j = 0; j < MESA_SHADER_TYPES; j++) {
 	       if (prog->_LinkedShaders[j] == NULL)
 		  continue;
@@ -1337,7 +1337,7 @@ update_array_sizes(struct gl_shader_program *prog)
 	    }
 	 }
 
-	 if (size + 1 != int(var->type->fields.array->length)) {
+	 if (size + 1 != var->type->fields.array->length) {
 	    /* If this is a built-in uniform (i.e., it's backed by some
 	     * fixed-function state), adjust the number of state slots to
 	     * match the new array size.  The number of slots per array entry

@@ -752,7 +752,7 @@ do_assignment(exec_list *instructions, struct _mesa_glsl_parse_state *state,
 
 	 assert(var != NULL);
 
-	 if (var->max_array_access >= rhs->type->array_size()) {
+	 if (var->max_array_access >= unsigned(rhs->type->array_size())) {
 	    /* FINISHME: This should actually log the location of the RHS. */
 	    _mesa_glsl_error(& lhs_loc, state, "array size must be > %u due to "
 			     "previous access",
@@ -2207,7 +2207,7 @@ get_variable_being_redeclared(ir_variable *var, ast_declaration *decl,
        * FINISHME: required or not.
        */
 
-      const int size = var->type->array_size();
+      const unsigned size = unsigned(var->type->array_size());
       check_builtin_array_max_size(var->name, size, loc, state);
       if ((size > 0) && (size <= earlier->max_array_access)) {
 	 _mesa_glsl_error(& loc, state, "array size must be > %u due to "
@@ -2230,7 +2230,7 @@ get_variable_being_redeclared(ir_variable *var, ast_declaration *decl,
        * FINISHME: required or not.
        */
 
-      const int size = var->type->array_size();
+      const unsigned size = unsigned(var->type->array_size());
       check_builtin_array_max_size(var->name, size, loc, state);
       if ((size > 0) && (size <= earlier->max_array_access)) {
 	 _mesa_glsl_error(& loc, state, "array size must be > %u due to "
