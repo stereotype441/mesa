@@ -368,11 +368,17 @@ brw_upload_samplers(struct brw_context *brw)
    struct gl_context *ctx = &brw->ctx;
    struct brw_sampler_state *samplers;
 
-   /* BRW_NEW_VERTEX_PROGRAM and BRW_NEW_FRAGMENT_PROGRAM */
+   /* BRW_NEW_VERTEX_PROGRAM */
    struct gl_program *vs = (struct gl_program *) brw->vertex_program;
+
+   /* BRW_NEW_GEOMETRY_PROGRAM */
+   struct gl_program *gs = (struct gl_program *) brw->geometry_program;
+
+   /* BRW_NEW_FRAGMENT_PROGRAM */
    struct gl_program *fs = (struct gl_program *) brw->fragment_program;
 
-   GLbitfield SamplersUsed = vs->SamplersUsed | fs->SamplersUsed;
+   GLbitfield SamplersUsed =
+      vs->SamplersUsed | (gs ? gs->SamplersUsed : 0) | fs->SamplersUsed;
 
    /* ARB programs use the texture unit number as the sampler index, so we
     * need to find the highest unit used.  A bit-count will not work.
@@ -389,8 +395,10 @@ brw_upload_samplers(struct brw_context *brw)
 
    for (unsigned s = 0; s < brw->sampler.count; s++) {
       if (SamplersUsed & (1 << s)) {
-         const unsigned unit = (fs->SamplersUsed & (1 << s)) ?
-            fs->SamplerUnits[s] : vs->SamplerUnits[s];
+         const unsigned unit =
+            (fs->SamplersUsed & (1 << s)) ? fs->SamplerUnits[s] :
+            (gs && (gs->SamplersUsed & (1 << s))) ? gs->SamplerUnits[s] :
+            vs->SamplerUnits[s];
          if (ctx->Texture.Unit[unit]._ReallyEnabled)
             brw_update_sampler_state(brw, unit, s, &samplers[s]);
       }
@@ -404,6 +412,7 @@ const struct brw_tracked_state brw_samplers = {
       .mesa = _NEW_TEXTURE,
       .brw = BRW_NEW_BATCH |
              BRW_NEW_VERTEX_PROGRAM |
+             BRW_NEW_GEOMETRY_PROGRAM |
              BRW_NEW_FRAGMENT_PROGRAM,
       .cache = 0
    },

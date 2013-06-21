@@ -752,19 +752,28 @@ brw_update_texture_surfaces(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
 
-   /* BRW_NEW_VERTEX_PROGRAM and BRW_NEW_FRAGMENT_PROGRAM:
-    * Unfortunately, we're stuck using the gl_program structs until the
+   /* Unfortunately, we're stuck using the gl_program structs until the
     * ARB_fragment_program front-end gets converted to GLSL IR.  These
     * have the downside that SamplerUnits is split and only contains the
     * mappings for samplers active in that stage.
     */
+
+   /* BRW_NEW_VERTEX_PROGRAM */
    struct gl_program *vs = (struct gl_program *) brw->vertex_program;
+
+   /* BRW_NEW_GEOMETRY_PROGRAM */
+   struct gl_program *gs = (struct gl_program *) brw->geometry_program;
+
+   /* BRW_NEW_FRAGMENT_PROGRAM */
    struct gl_program *fs = (struct gl_program *) brw->fragment_program;
 
-   unsigned num_samplers = _mesa_fls(vs->SamplersUsed | fs->SamplersUsed);
+   unsigned num_samplers = _mesa_fls(vs->SamplersUsed |
+                                     (gs ? gs->SamplersUsed : 0) |
+                                     fs->SamplersUsed);
 
    for (unsigned s = 0; s < num_samplers; s++) {
       brw->vs.surf_offset[SURF_INDEX_VS_TEXTURE(s)] = 0;
+      brw->gs.surf_offset[SURF_INDEX_GS_TEXTURE(s)] = 0;
       brw->wm.surf_offset[SURF_INDEX_TEXTURE(s)] = 0;
 
       if (vs->SamplersUsed & (1 << s)) {
@@ -775,6 +784,17 @@ brw_update_texture_surfaces(struct brw_context *brw)
             brw->vtbl.update_texture_surface(ctx, unit,
                                              brw->vs.surf_offset,
                                              SURF_INDEX_VS_TEXTURE(s));
+         }
+      }
+
+      if (gs && (gs->SamplersUsed & (1 << s))) {
+         const unsigned unit = gs->SamplerUnits[s];
+
+         /* _NEW_TEXTURE */
+         if (ctx->Texture.Unit[unit]._ReallyEnabled) {
+            brw->vtbl.update_texture_surface(ctx, unit,
+                                             brw->gs.surf_offset,
+                                             SURF_INDEX_GS_TEXTURE(s));
          }
       }
 
