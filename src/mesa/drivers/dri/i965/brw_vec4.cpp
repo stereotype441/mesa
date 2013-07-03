@@ -1407,6 +1407,9 @@ vec4_visitor::run()
    if (INTEL_DEBUG & DEBUG_SHADER_TIME)
       emit_shader_time_begin();
 
+   if (key->userclip_active && !key->uses_clip_distance)
+      setup_uniform_clipplane_values();
+
    emit_prolog();
 
    /* Generate VS IR for main().  (the visitor only descends into
@@ -1418,9 +1421,6 @@ vec4_visitor::run()
       emit_program_code();
    }
    base_ir = NULL;
-
-   if (key->userclip_active && !key->uses_clip_distance)
-      setup_uniform_clipplane_values();
 
    emit_thread_end();
 
