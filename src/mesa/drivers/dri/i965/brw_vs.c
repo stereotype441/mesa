@@ -439,6 +439,8 @@ static void brw_upload_vs_prog(struct brw_context *brw)
    struct brw_vertex_program *vp = 
       (struct brw_vertex_program *)brw->vertex_program;
    struct gl_program *prog = (struct gl_program *) brw->vertex_program;
+   /* BRW_NEW_GEOMETRY_PROGRAM */
+   bool gs_present = brw->geometry_program != NULL;
    int i;
 
    memset(&key, 0, sizeof(key));
@@ -456,7 +458,7 @@ static void brw_upload_vs_prog(struct brw_context *brw)
    }
 
    /* _NEW_LIGHT | _NEW_BUFFERS */
-   key.base.clamp_vertex_color = ctx->Light._ClampVertexColor;
+   key.base.clamp_vertex_color = ctx->Light._ClampVertexColor && !gs_present;
 
    /* _NEW_POINT */
    if (brw->gen < 6 && ctx->Point.PointSprite) {
