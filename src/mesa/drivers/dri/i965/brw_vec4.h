@@ -531,6 +531,11 @@ private:
    struct brw_vs_prog_data * const vs_prog_data;
    src_reg *vp_temp_regs;
    src_reg vp_addr_reg;
+
+   /**
+    * Index of the first uniform used for storing PROGRAM_STATE_VARs.
+    */
+   int vp_first_state_var;
 };
 
 /**

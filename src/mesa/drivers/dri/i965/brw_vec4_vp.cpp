@@ -432,6 +432,7 @@ vec4_vs_visitor::setup_vp_regs()
       vp_temp_regs[i] = src_reg(this, glsl_type::vec4_type);
 
    /* PROGRAM_STATE_VAR etc. */
+   this->vp_first_state_var = this->uniforms;
    struct gl_program_parameter_list *plist =
       vs_compile->vp->program.Base.Parameters;
    for (unsigned p = 0; p < plist->NumParameters; p++) {
@@ -585,8 +586,9 @@ vec4_vs_visitor::get_vp_src_reg(const prog_src_register &src)
          break;
 
       case PROGRAM_STATE_VAR:
-         assert(src.Index < this->uniforms);
-         result = src_reg(dst_reg(UNIFORM, src.Index));
+         assert(src.Index + this->vp_first_state_var < this->uniforms);
+         result =
+            src_reg(dst_reg(UNIFORM, src.Index + this->vp_first_state_var));
          result.type = BRW_REGISTER_TYPE_F;
          break;
 
