@@ -317,11 +317,15 @@ static GLuint translate_tex_src_bit( GLbitfield bit )
 static GLbitfield get_fp_input_mask( struct gl_context *ctx )
 {
    /* _NEW_PROGRAM */
+   struct gl_shader_program *vert = ctx->Shader.CurrentVertexProgram;
    const GLboolean vertexShader =
-      (ctx->Shader.CurrentVertexProgram &&
-       ctx->Shader.CurrentVertexProgram->LinkStatus &&
-       ctx->Shader.CurrentVertexProgram->_LinkedShaders[MESA_SHADER_VERTEX]);
+      (vert && vert->LinkStatus &&
+       vert->_LinkedShaders[MESA_SHADER_VERTEX]);
    const GLboolean vertexProgram = ctx->VertexProgram._Enabled;
+   struct gl_shader_program *geom = ctx->Shader.CurrentGeometryProgram;
+   const GLboolean geometryShader =
+      (geom && geom->LinkStatus &&
+       geom ->_LinkedShaders[MESA_SHADER_GEOMETRY]);
    GLbitfield fp_inputs = 0x0;
 
    if (ctx->VertexProgram._Overriden) {
@@ -335,7 +339,7 @@ static GLbitfield get_fp_input_mask( struct gl_context *ctx )
       /* _NEW_RENDERMODE */
       fp_inputs = (VARYING_BIT_COL0 | VARYING_BIT_TEX0);
    }
-   else if (!(vertexProgram || vertexShader)) {
+   else if (!(vertexProgram || vertexShader || geometryShader)) {
       /* Fixed function vertex logic */
       /* _NEW_VARYING_VP_INPUTS */
       GLbitfield64 varying_inputs = ctx->varying_vp_inputs;
@@ -375,35 +379,41 @@ static GLbitfield get_fp_input_mask( struct gl_context *ctx )
 
    }
    else {
-      /* calculate from vp->outputs */
-      struct gl_program *vprog;
-      GLbitfield64 vp_outputs;
+      /* calculate from the outputs of the geometry portion of the pipeline */
+      GLbitfield64 geom_outputs;
 
       /* Choose GLSL vertex shader over ARB vertex program.  Need this
        * since vertex shader state validation comes after fragment state
        * validation (see additional comments in state.c).
        */
-      if (vertexShader)
-         vprog = ctx->Shader.CurrentVertexProgram->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
-      else
-         vprog = &ctx->VertexProgram.Current->Base;
-
-      vp_outputs = vprog->OutputsWritten;
+      if (geometryShader) {
+         struct gl_program *gprog =
+            geom->_LinkedShaders[MESA_SHADER_GEOMETRY]->Program;
+         geom_outputs = gprog->OutputsWritten;
+      } else if (vertexShader) {
+         struct gl_program *vprog =
+            vert->_LinkedShaders[MESA_SHADER_VERTEX]->Program;
+         geom_outputs = vprog->OutputsWritten;
+      } else {
+         struct gl_program *vprog = &ctx->VertexProgram.Current->Base;
+         geom_outputs = vprog->OutputsWritten;
+      }
 
       /* These get generated in the setup routine regardless of the
        * vertex program:
        */
       /* _NEW_POINT */
       if (ctx->Point.PointSprite)
-         vp_outputs |= VARYING_BITS_TEX_ANY;
+         geom_outputs |= VARYING_BITS_TEX_ANY;
 
-      if (vp_outputs & (1 << VARYING_SLOT_COL0))
+      if (geom_outputs & (1 << VARYING_SLOT_COL0))
          fp_inputs |= VARYING_BIT_COL0;
-      if (vp_outputs & (1 << VARYING_SLOT_COL1))
+      if (geom_outputs & (1 << VARYING_SLOT_COL1))
          fp_inputs |= VARYING_BIT_COL1;
 
-      fp_inputs |= (((vp_outputs & VARYING_BITS_TEX_ANY) >> VARYING_SLOT_TEX0) 
-                    << VARYING_SLOT_TEX0);
+      fp_inputs |=
+         (((geom_outputs & VARYING_BITS_TEX_ANY) >> VARYING_SLOT_TEX0)
+          << VARYING_SLOT_TEX0);
    }
    
    return fp_inputs;
