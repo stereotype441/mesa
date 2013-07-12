@@ -1,7 +1,5 @@
 #version 120
 
-vec4 ftransform();
-
 vec4 texture1DLod    (sampler1D sampler, float coord, float lod);
 vec4 texture1DProjLod(sampler1D sampler, vec2  coord, float lod);
 vec4 texture1DProjLod(sampler1D sampler, vec4  coord, float lod);

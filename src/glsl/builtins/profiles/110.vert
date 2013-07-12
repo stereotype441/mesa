@@ -1,7 +1,5 @@
 #version 110
 
-vec4 ftransform();
-
 /*
  * 8.7 - Texture Lookup Functions
  * "The built-ins suffixed with "Lod" are only allowed in a vertex shader."
