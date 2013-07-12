@@ -1,2 +1,3 @@
-#version 130
+#version 110
+
 vec4 ftransform();

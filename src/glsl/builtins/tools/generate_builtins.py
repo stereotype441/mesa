@@ -289,6 +289,10 @@ _mesa_glsl_initialize_functions(struct _mesa_glsl_parse_state *state)
                 version = version[:-2]
             check += 'state->language_version == ' + version
             check += ' && {0}state->es_shader'.format('' if is_es else '!')
+        elif version == 'compatibility':
+            # Special case: this profile should be included whenever
+            # compatibility-profile features are allowed.
+            check += 'state->compatibility()'
         else: # an extension name
             check += 'state->' + version + '_enable'
 
