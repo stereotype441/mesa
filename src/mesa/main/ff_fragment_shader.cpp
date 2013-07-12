@@ -1331,7 +1331,7 @@ create_new_program(struct gl_context *ctx, struct state_key *key)
    main_f->add_signature(main_sig);
 
    p.instructions = &main_sig->body;
-   if (key->num_draw_buffers)
+   if (key->num_draw_buffers && ctx->API != API_OPENGL_CORE)
       emit_instructions(&p);
 
    validate_ir_tree(p.shader->ir);
