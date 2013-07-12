@@ -139,6 +139,32 @@ struct _mesa_glsl_parse_state {
    void process_version_directive(YYLTYPE *locp, int version,
                                   const char *ident);
 
+   /**
+    * Determine whether compatibility-profile-only features should be included.
+    */
+   bool compatibility() const
+   {
+      if (this->es_shader)
+         return false;
+
+      /* Mesa doesn't support compatibility-only features in GLSL 1.40+.
+       * Note: under normal operation this if test isn't be necessary, since
+       * Mesa will reject GLSL 1.40+ shaders when using a compatibility
+       * profile.  However, at compile time, we compile built-ins for all GLSL
+       * versions using a compatibility profile.  So this test avoids problems
+       * at compile time.
+       */
+      if (this->is_version(140, 0))
+         return false;
+
+      /* GLSL versions prior to 1.40 don't have a notion of compatibility-only
+       * features, however it's still possible to compile pre-GLSL-1.40
+       * shaders in a GL-3.1+ context, so to avoid a loophole, switch off
+       * compatibility-only features if the core profile is in use.
+       */
+      return this->ctx->API != API_OPENGL_CORE;
+   }
+
    struct gl_context *const ctx;
    void *scanner;
    exec_list translation_unit;

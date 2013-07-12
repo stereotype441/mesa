@@ -342,14 +342,6 @@ private:
    exec_list * const instructions;
    struct _mesa_glsl_parse_state * const state;
    glsl_symbol_table * const symtab;
-
-   /**
-    * True if compatibility-profile-only variables should be included.  (In
-    * desktop GL, these are always included when the GLSL version is 1.30 and
-    * or below).
-    */
-   const bool compatibility;
-
    const glsl_type * const bool_t;
    const glsl_type * const int_t;
    const glsl_type * const float_t;
@@ -364,7 +356,6 @@ private:
 builtin_variable_generator::builtin_variable_generator(
    exec_list *instructions, struct _mesa_glsl_parse_state *state)
    : instructions(instructions), state(state), symtab(state->symbols),
-     compatibility(!state->is_version(140, 100)),
      bool_t(glsl_type::bool_type), int_t(glsl_type::int_type),
      float_t(glsl_type::float_type), vec2_t(glsl_type::vec2_type),
      vec3_t(glsl_type::vec3_type), vec4_t(glsl_type::vec4_type),
@@ -534,7 +525,7 @@ builtin_variable_generator::generate_constants()
       add_const("gl_MaxVaryingComponents", state->Const.MaxVaryingFloats);
    }
 
-   if (compatibility) {
+   if (state->compatibility()) {
       /* Note: gl_MaxLights stopped being listed as an explicit constant in
        * GLSL 1.30, however it continues to be referred to (as a minimum size
        * for compatibility-mode uniforms) all the way up through GLSL 4.30, so
@@ -568,7 +559,7 @@ builtin_variable_generator::generate_uniforms()
    add_uniform(array(vec4_t, VERT_ATTRIB_MAX), "gl_CurrentAttribVertMESA");
    add_uniform(array(vec4_t, VARYING_SLOT_MAX), "gl_CurrentAttribFragMESA");
 
-   if (compatibility) {
+   if (state->compatibility()) {
       add_uniform(mat4_t, "gl_ModelViewMatrix");
       add_uniform(mat4_t, "gl_ProjectionMatrix");
       add_uniform(mat4_t, "gl_ModelViewProjectionMatrix");
@@ -650,7 +641,7 @@ builtin_variable_generator::generate_vs_special_vars()
       add_system_value(SYSTEM_VALUE_INSTANCE_ID, int_t, "gl_InstanceID");
    if (state->AMD_vertex_shader_layer_enable)
       add_output(VARYING_SLOT_LAYER, int_t, "gl_Layer");
-   if (compatibility) {
+   if (state->compatibility()) {
       add_input(VERT_ATTRIB_POS, vec4_t, "gl_Vertex");
       add_input(VERT_ATTRIB_NORMAL, vec3_t, "gl_Normal");
       add_input(VERT_ATTRIB_COLOR0, vec4_t, "gl_Color");
@@ -706,7 +697,7 @@ builtin_variable_generator::generate_fs_special_vars()
     * 1.30, and were relegated to the compatibility profile in GLSL 4.20.
     * They were removed from GLSL ES 3.00.
     */
-   if (compatibility || !state->is_version(420, 300)) {
+   if (state->compatibility() || !state->is_version(420, 300)) {
       add_output(FRAG_RESULT_COLOR, vec4_t, "gl_FragColor");
       add_output(FRAG_RESULT_DATA0,
                  array(vec4_t, state->Const.MaxDrawBuffers), "gl_FragData");
@@ -780,7 +771,7 @@ builtin_variable_generator::generate_varyings()
                    "gl_ClipDistance");
    }
 
-   if (compatibility) {
+   if (state->compatibility()) {
       ADD_VARYING(VARYING_SLOT_TEX0, array(vec4_t, 0), "gl_TexCoord");
       ADD_VARYING(VARYING_SLOT_FOGC, float_t, "gl_FogFragCoord");
       if (state->target == fragment_shader) {
