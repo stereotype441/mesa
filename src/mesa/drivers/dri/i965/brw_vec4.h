@@ -157,7 +157,7 @@ public:
 		    src_reg src2 = src_reg());
 
    struct brw_reg get_dst(void);
-   struct brw_reg get_src(int i);
+   struct brw_reg get_src(const struct brw_vec4_prog_data *prog_data, int i);
 
    dst_reg dst;
    src_reg src[3];
@@ -538,6 +538,7 @@ public:
                   struct gl_shader_program *shader_prog,
                   struct gl_program *prog,
                   void *mem_ctx,
+                  const struct brw_vec4_prog_data *prog_data,
                   bool debug_flag);
    ~vec4_generator();
 
@@ -601,6 +602,7 @@ private:
    const struct gl_program *prog;
 
    void *mem_ctx;
+   const struct brw_vec4_prog_data * const prog_data;
    const bool debug_flag;
 };
 

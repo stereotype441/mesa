@@ -66,7 +66,7 @@ vec4_instruction::get_dst(void)
 }
 
 struct brw_reg
-vec4_instruction::get_src(int i)
+vec4_instruction::get_src(const struct brw_vec4_prog_data *prog_data, int i)
 {
    struct brw_reg brw_reg;
 
@@ -100,7 +100,8 @@ vec4_instruction::get_src(int i)
       break;
 
    case UNIFORM:
-      brw_reg = stride(brw_vec4_grf(1 + (src[i].reg + src[i].reg_offset) / 2,
+      brw_reg = stride(brw_vec4_grf(prog_data->dispatch_grf_start_reg +
+                                    (src[i].reg + src[i].reg_offset) / 2,
 				    ((src[i].reg + src[i].reg_offset) % 2) * 4),
 		       0, 4, 1);
       brw_reg = retype(brw_reg, src[i].type);
@@ -136,9 +137,10 @@ vec4_generator::vec4_generator(struct brw_context *brw,
                                struct gl_shader_program *shader_prog,
                                struct gl_program *prog,
                                void *mem_ctx,
+                               const struct brw_vec4_prog_data *prog_data,
                                bool debug_flag)
    : brw(brw), shader_prog(shader_prog), prog(prog), mem_ctx(mem_ctx),
-     debug_flag(debug_flag)
+     prog_data(prog_data), debug_flag(debug_flag)
 {
    shader = shader_prog ? shader_prog->_LinkedShaders[MESA_SHADER_VERTEX] : NULL;
 
@@ -906,7 +908,7 @@ vec4_generator::generate_code(exec_list *instructions)
       }
 
       for (unsigned int i = 0; i < 3; i++) {
-	 src[i] = inst->get_src(i);
+	 src[i] = inst->get_src(this->prog_data, i);
       }
       dst = inst->get_dst();
 
