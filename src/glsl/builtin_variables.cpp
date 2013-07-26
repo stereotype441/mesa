@@ -582,6 +582,21 @@ builtin_variable_generator::generate_constants()
       add_const("gl_MaxVaryingComponents", state->Const.MaxVaryingFloats);
    }
 
+   if (state->is_version(150, 0)) {
+      /* TODO: Plumb correct values for these constants through
+       * state->Const.
+       */
+      add_const("gl_MaxVertexOutputComponents", 0);
+      add_const("gl_MaxGeometryInputComponents", 0);
+      add_const("gl_MaxGeometryOutputComponents", 0);
+      add_const("gl_MaxFragmentInputComponents", 0);
+      add_const("gl_MaxGeometryTextureImageUnits", 0);
+      add_const("gl_MaxGeometryOutputVertices", 0);
+      add_const("gl_MaxGeometryTotalOutputComponents", 0);
+      add_const("gl_MaxGeometryUniformComponents", 0);
+      add_const("gl_MaxGeometryVaryingComponents", 0);
+   }
+
    if (compatibility) {
       /* Note: gl_MaxLights stopped being listed as an explicit constant in
        * GLSL 1.30, however it continues to be referred to (as a minimum size
