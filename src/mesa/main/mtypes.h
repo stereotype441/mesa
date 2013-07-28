@@ -2978,6 +2978,14 @@ struct gl_constants
    GLint MaxColorTextureSamples;
    GLint MaxDepthTextureSamples;
    GLint MaxIntegerSamples;
+
+   /**
+    * True if the implementation supports GLSL 1.50 style geometry shaders.
+    * This boolean is distinct from gl_extensions::ARB_geometry_shader4 so
+    * that we can expose GLSL 1.50 (and GL 3.2) functionality without exposing
+    * {ARB,EXT}_geometry_shader4.
+    */
+   GLboolean GeometryShaders150;
 };
 
 
