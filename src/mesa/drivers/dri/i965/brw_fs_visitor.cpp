@@ -93,6 +93,9 @@ fs_visitor::visit(ir_variable *ir)
 
 	 /* General color output. */
 	 for (unsigned int i = 0; i < MAX2(1, ir->type->length); i++) {
+            /* Don't bother setting up registers for unused outputs */
+            if (!(fp->Base.OutputsWritten & BITFIELD64_BIT(ir->location + i)))
+               continue;
 	    int output = ir->location - FRAG_RESULT_DATA0 + i;
 	    this->outputs[output] = *reg;
 	    this->outputs[output].reg_offset += vector_elements * i;
@@ -2373,8 +2376,18 @@ fs_visitor::emit_fb_writes()
          write_color_mrf = color_mrf + reg_width;
       }
 
-      for (unsigned i = 0; i < this->output_components[target]; i++)
-         emit_color_write(target, i, write_color_mrf);
+      int output_src = target;
+      if (this->outputs[target].file == BAD_FILE) {
+         /* The shader doesn't have a static write to the given output, but it
+          * does have a static write to output 0.  The behaviour in this case
+          * is undefined, but some applications erroneously rely on output 0
+          * getting replicated to all render targets.  So just go ahead and
+          * write the data from output 0.
+          */
+         output_src = 0;
+      }
+      for (unsigned i = 0; i < this->output_components[output_src]; i++)
+         emit_color_write(output_src, i, write_color_mrf);
 
       bool eot = false;
       if (target == c->key.nr_color_regions - 1) {
