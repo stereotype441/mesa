@@ -143,6 +143,7 @@ enum value_extra {
    EXTRA_FLUSH_CURRENT,
    EXTRA_GLSL_130,
    EXTRA_EXT_UBO_GS4,
+   EXTRA_GEOMETRY_SHADER,
 };
 
 #define NO_EXTRA NULL
@@ -331,6 +332,11 @@ static const int extra_MESA_texture_array_es3[] = {
    EXTRA_END
 };
 
+static const int extra_geometry_shader[] = {
+   EXTRA_GEOMETRY_SHADER,
+   EXTRA_END
+};
+
 EXTRA_EXT(ARB_texture_cube_map);
 EXTRA_EXT(MESA_texture_array);
 EXTRA_EXT(NV_fog_distance);
@@ -355,7 +361,6 @@ EXTRA_EXT(EXT_pixel_buffer_object);
 EXTRA_EXT(ARB_vertex_program);
 EXTRA_EXT2(NV_point_sprite, ARB_point_sprite);
 EXTRA_EXT2(ARB_vertex_program, ARB_fragment_program);
-EXTRA_EXT(ARB_geometry_shader4);
 EXTRA_EXT(ARB_color_buffer_float);
 EXTRA_EXT(EXT_framebuffer_sRGB);
 EXTRA_EXT(OES_EGL_image_external);
@@ -991,6 +996,9 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          api_found = (ctx->Extensions.ARB_uniform_buffer_object &&
                       _mesa_has_geometry_shaders(ctx));
          break;
+      case EXTRA_GEOMETRY_SHADER:
+         api_check = GL_TRUE;
+         api_found = _mesa_has_geometry_shaders(ctx);
       case EXTRA_END:
 	 break;
       default: /* *e is a offset into the extension struct */
