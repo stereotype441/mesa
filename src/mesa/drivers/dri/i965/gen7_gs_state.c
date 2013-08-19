@@ -106,6 +106,10 @@ upload_gs_state(struct brw_context *brw)
                  GEN6_GS_DISPATCH_START_GRF_SHIFT));
 
       OUT_BATCH(((brw->max_gs_threads - 1) << max_threads_shift) |
+                (brw->gs.prog_data->control_data_format <<
+                 GEN7_GS_CONTROL_DATA_FORMAT_SHIFT) |
+                (brw->gs.prog_data->control_data_header_size_hwords <<
+                 GEN7_GS_CONTROL_DATA_HEADER_SIZE_SHIFT) |
                 GEN7_GS_DISPATCH_MODE_DUAL_OBJECT |
                 GEN6_GS_STATISTICS_ENABLE |
                 GEN7_GS_ENABLE);
