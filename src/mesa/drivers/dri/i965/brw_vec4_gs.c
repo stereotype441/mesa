@@ -97,6 +97,31 @@ do_gs_prog(struct brw_context *brw,
    c.prog_data.control_data_header_size_hwords =
       ALIGN(c.control_data_header_size_bits, 256) / 256;
 
+   if (brw->gen < 8 && !brw->is_haswell &&
+       (gp->program.InputType == GL_TRIANGLES ||
+        gp->program.InputType == GL_TRIANGLES_ADJACENCY)) {
+      /**
+       * When rendering a triangle strip or triangle strip with adjacency, Ivy
+       * Bridge doesn't order the input vertices of odd numbered triangles in
+       * the way OpenGL requires, so we need to do a workaround.
+       *
+       * Note: strictly speaking, we only need the workaround when the
+       * primitive type of the draw operation is GL_TRIANGLE_STRIP or
+       * GL_TRIANGLE_STRIP_ADJACENTY.  Conditioning the workaround on the
+       * geometry shader input type will cause us to emit it even in some
+       * situations where it's not needed.  However, the performance cost is
+       * small (since the EU will simply skip the workaround when it's not
+       * needed), and the benefit is that we avoid having to recompile the
+       * geometry shader if the primitive type of the draw operation changes.
+       */
+      c.need_triangle_vertex_ordering_workaround = true;
+
+      /* The workaround requires the primitive ID in order to tell which
+       * vertices need to be re-ordered.
+       */
+      c.prog_data.include_primitive_id = true;
+   }
+
    GLbitfield64 outputs_written = gp->program.Base.OutputsWritten;
 
    /* In order for legacy clipping to work, we need to populate the clip
