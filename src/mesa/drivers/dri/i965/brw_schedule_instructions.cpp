@@ -835,6 +835,7 @@ vec4_instruction_scheduler::calculate_deps()
          last_mrf_write[inst->dst.reg] = n;
      } else if (inst->dst.file == HW_REG &&
                  inst->dst.fixed_hw_reg.file == BRW_GENERAL_REGISTER_FILE) {
+         add_dep(last_fixed_grf_write, n);
          last_fixed_grf_write = n;
       } else if (inst->dst.file != BAD_FILE) {
          add_barrier_deps(n);
