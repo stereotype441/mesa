@@ -55,6 +55,7 @@ struct brw_gs_compile
 
    unsigned control_data_bits_per_vertex;
    unsigned control_data_header_size_bits;
+   bool need_triangle_vertex_ordering_workaround;
 };
 
 #ifdef __cplusplus
@@ -98,6 +99,7 @@ protected:
 private:
    int setup_varying_inputs(int payload_reg, int *attribute_map);
    void emit_control_data_bits();
+   void triangle_vertex_ordering_workaround();
    void primitive_id_workaround();
 
    src_reg vertex_count;
