@@ -339,25 +339,25 @@ vec4_visitor::opt_copy_propagation()
 	       cur_value[reg][i] = direct_copy ? &inst->src[0] : NULL;
 	    }
 	 }
+      }
 
-	 /* Clear the records for any registers whose current value came from
-	  * our destination's updated channels, as the two are no longer equal.
-	  */
-	 if (inst->dst.reladdr)
-	    memset(cur_value, 0, sizeof(cur_value));
-	 else {
-	    for (int i = 0; i < virtual_grf_reg_count; i++) {
-	       for (int j = 0; j < 4; j++) {
-		  if (inst->dst.writemask & (1 << j) &&
-		      cur_value[i][j] &&
-		      cur_value[i][j]->file == GRF &&
-		      cur_value[i][j]->reg == inst->dst.reg &&
-		      cur_value[i][j]->reg_offset == inst->dst.reg_offset) {
-		     cur_value[i][j] = NULL;
-		  }
-	       }
-	    }
-	 }
+      /* Clear the records for any registers whose current value came from
+       * our destination's updated channels, as the two are no longer equal.
+       */
+      if (inst->dst.reladdr)
+         memset(cur_value, 0, sizeof(cur_value));
+      else {
+         for (int i = 0; i < virtual_grf_reg_count; i++) {
+            for (int j = 0; j < 4; j++) {
+               if (inst->dst.writemask & (1 << j) &&
+                   cur_value[i][j] &&
+                   cur_value[i][j]->file == inst->dst.file &&
+                   cur_value[i][j]->reg == inst->dst.reg &&
+                   cur_value[i][j]->reg_offset == inst->dst.reg_offset) {
+                  cur_value[i][j] = NULL;
+               }
+            }
+         }
       }
    }
 
