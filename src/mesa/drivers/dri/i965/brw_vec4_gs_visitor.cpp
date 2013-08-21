@@ -117,6 +117,143 @@ vec4_gs_visitor::setup_payload()
 
 
 /**
+ * When rendering a triangle strip or triangle strip with adjacency, Ivy
+ * Bridge doesn't order the input vertices of odd numbered triangles
+ * in the way OpenGL requires.
+ */
+void
+vec4_gs_visitor::triangle_vertex_ordering_workaround()
+{
+   this->current_annotation = "vertex ordering workaround";
+
+   /* The workaround is only needed when rendering certain primitive types.
+    * So grab the primitive type into a register.
+    *
+    * The primitive type is located in bits 21:16 of R0.2, so we just AND R0.2
+    * with 0x3f0000.  There's no need to shift the result right by 16 bits
+    * because all we'll be doing with the result is comparing it to immediate
+    * constants.
+    */
+   dst_reg prim_type_shifted(this, glsl_type::uint_type);
+   struct brw_reg r0 = retype(brw_vec4_grf(0, 0), BRW_REGISTER_TYPE_UD);
+   src_reg r0_2(brw_swizzle1(stride(r0, 0, 4, 1), 2));
+   emit(AND(prim_type_shifted, r0_2, 0x3f0000u));
+
+   switch (c->gp->program.InputType) {
+   case GL_TRIANGLES: {
+      /* The workaround is only needed when rendering triangle strips--that
+       * is, if the primitive type is _3DPRIM_TRISTRIP or
+       * _3DPRIM_TRISTRIP_REVERSE.
+       */
+      dst_reg tmp1(this, glsl_type::bool_type);
+      emit(CMP(tmp1, src_reg(prim_type_shifted),
+               uint32_t(_3DPRIM_TRISTRIP << 16), BRW_CONDITIONAL_EQ));
+      dst_reg tmp2(this, glsl_type::bool_type);
+      emit(CMP(tmp2, src_reg(prim_type_shifted),
+               uint32_t(_3DPRIM_TRISTRIP_REVERSE << 16), BRW_CONDITIONAL_EQ));
+      vec4_instruction *inst =
+         emit(OR(dst_null_d(), src_reg(tmp1), src_reg(tmp2)));
+      inst->conditional_mod = BRW_CONDITIONAL_NZ;
+      break;
+   }
+   case GL_TRIANGLES_ADJACENCY:
+      /* The workaround is only needed when rendering triangle strips with
+       * adjacency--that is, if the primitive type is _3DPRIM_TRISTRIP_ADJ.
+       */
+      emit(CMP(dst_null_d(), src_reg(prim_type_shifted),
+               uint32_t(_3DPRIM_TRISTRIP_ADJ << 16), BRW_CONDITIONAL_EQ));
+      break;
+   default:
+      /* Shouldn't happen--this workaround is only needed for triangles. */
+      assert(!"Unexpected input type for vertex ordering workaround");
+      break;
+   }
+
+   emit(IF(BRW_PREDICATE_NORMAL));
+   {
+      /* To determine which primitives need the reordering, we consult the
+       * primitive ID.  We only need to reorder odd-numbered primitives.
+       */
+      assert(c->prog_data.include_primitive_id);
+      src_reg prim_id(ATTR, VARYING_SLOT_PRIMITIVE_ID, glsl_type::uint_type);
+      vec4_instruction *inst = emit(AND(dst_null_d(), prim_id, 1u));
+      inst->conditional_mod = BRW_CONDITIONAL_NZ;
+      emit(IF(BRW_PREDICATE_NORMAL));
+      {
+         for (int slot = 0; slot < c->input_vue_map.num_slots; slot++) {
+            int varying = c->input_vue_map.slot_to_varying[slot];
+            switch (c->gp->program.InputType) {
+            case GL_TRIANGLES: {
+               /*
+                * For odd-numbered triangles without adjacency, if the vertex
+                * order is (A, B, C), it needs to be changed to (C, A, B).
+                *
+                * Since the ATTR registers we create are references to the
+                * array created by setup_attributes(), vertex n is stored
+                * starting at location BRW_VARYING_SLOT_COUNT * n.
+                */
+               dst_reg a(ATTR, varying, glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg b(ATTR, varying + BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg c(ATTR, varying + 2 * BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg tmp(this, glsl_type::vec4_type);
+               emit(MOV(tmp, src_reg(a)));
+               emit(MOV(a, src_reg(c)));
+               emit(MOV(c, src_reg(b)));
+               emit(MOV(b, src_reg(tmp)));
+               break;
+            }
+            case GL_TRIANGLES_ADJACENCY: {
+               /* For odd-numbered triangles with adjacency, if the vertex
+                * order is (A, B, C, D, E, F), it needs to be changed to (E,
+                * F, A, B, C, D).
+                *
+                * Since the ATTR registers we create are references to the
+                * array created by setup_attributes(), vertex n is stored
+                * starting at location BRW_VARYING_SLOT_COUNT * n.
+                */
+               dst_reg a(ATTR, varying, glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg b(ATTR, varying + BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg c(ATTR, varying + 2 * BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg d(ATTR, varying + 3 * BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg e(ATTR, varying + 4 * BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg f(ATTR, varying + 5 * BRW_VARYING_SLOT_COUNT,
+                         glsl_type::vec4_type, WRITEMASK_XYZW);
+               dst_reg tmp1(this, glsl_type::vec4_type);
+               dst_reg tmp2(this, glsl_type::vec4_type);
+               emit(MOV(tmp1, src_reg(a)));
+               emit(MOV(tmp2, src_reg(b)));
+               emit(MOV(a, src_reg(e)));
+               emit(MOV(b, src_reg(f)));
+               emit(MOV(e, src_reg(c)));
+               emit(MOV(f, src_reg(d)));
+               emit(MOV(c, src_reg(tmp1)));
+               emit(MOV(d, src_reg(tmp2)));
+               break;
+            }
+            default:
+               /* Shouldn't happen--this workaround is only needed for
+                * triangles.
+                */
+               assert(!"Unexpected input type for vertex ordering workaround");
+               break;
+            }
+         }
+      }
+      emit(BRW_OPCODE_ENDIF);
+   }
+   emit(BRW_OPCODE_ENDIF);
+
+   this->current_annotation = NULL;
+}
+
+
+/**
  * When using software primitive restart, Ivy Bridge resets the primitive ID
  * on each restart.  Work around this by creating a hidden uniform whose value
  * will be added to the incoming primitive ID.
@@ -146,6 +283,9 @@ vec4_gs_visitor::primitive_id_workaround()
 void
 vec4_gs_visitor::emit_prolog()
 {
+   if (c->need_triangle_vertex_ordering_workaround)
+      triangle_vertex_ordering_workaround();
+
    if (c->prog_data.need_primitive_id_workaround)
       primitive_id_workaround();
 
