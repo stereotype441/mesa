@@ -98,12 +98,26 @@ can_cut_index_handle_prims(struct gl_context *ctx,
       case GL_LINES:
       case GL_LINE_STRIP:
       case GL_TRIANGLES:
-      case GL_TRIANGLE_STRIP:
       case GL_LINES_ADJACENCY:
       case GL_LINE_STRIP_ADJACENCY:
       case GL_TRIANGLES_ADJACENCY:
-      case GL_TRIANGLE_STRIP_ADJACENCY:
          /* Cut index supports these primitive types */
+         break;
+      case GL_TRIANGLE_STRIP:
+      case GL_TRIANGLE_STRIP_ADJACENCY:
+         /* Cut index supports these primitive types.  However, if geometry
+          * shaders are in use, then the workaround code that we use to
+          * reorder the vertices of odd-numbered triangles within the strip
+          * (see need_triangle_vertex_ordering_workaround) is incompatible
+          * with hardware primitive restart.  So fall back to software in that
+          * case.
+          *
+          * Note that we can't safely examine brw->geometry_program from here,
+          * since it hasn't been set yet.  So we examine
+          * ctx->GeometryProgram._Current.
+          */
+         if (ctx->GeometryProgram._Current != NULL)
+            return false;
          break;
       default:
          /* Cut index does not support these primitive types */
