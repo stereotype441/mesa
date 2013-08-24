@@ -297,7 +297,7 @@ do_vs_prog(struct brw_context *brw,
       prog_data.base.total_scratch
          = brw_get_scratch_size(c.base.last_scratch*REG_SIZE);
 
-      brw_get_scratch_bo(brw, &brw->vs.scratch_bo,
+      brw_get_scratch_bo(brw, &brw->vs.base.scratch_bo,
 			 prog_data.base.total_scratch * brw->max_vs_threads);
    }
 
@@ -305,7 +305,7 @@ do_vs_prog(struct brw_context *brw,
 		    &c.key, sizeof(c.key),
 		    program, program_size,
 		    &prog_data, sizeof(prog_data),
-		    &brw->vs.prog_offset, &brw->vs.prog_data);
+		    &brw->vs.base.prog_offset, &brw->vs.prog_data);
    ralloc_free(mem_ctx);
 
    return true;
@@ -434,7 +434,7 @@ static void brw_upload_vs_prog(struct brw_context *brw)
    }
 
    /* _NEW_TEXTURE */
-   brw_populate_sampler_prog_key_data(ctx, prog, brw->vs.sampler_count,
+   brw_populate_sampler_prog_key_data(ctx, prog, brw->vs.base.sampler_count,
                                       &key.base.tex);
 
    /* BRW_NEW_VERTICES */
@@ -476,7 +476,7 @@ static void brw_upload_vs_prog(struct brw_context *brw)
 
    if (!brw_search_cache(&brw->cache, BRW_VS_PROG,
 			 &key, sizeof(key),
-			 &brw->vs.prog_offset, &brw->vs.prog_data)) {
+			 &brw->vs.base.prog_offset, &brw->vs.prog_data)) {
       bool success = do_vs_prog(brw, ctx->Shader.CurrentVertexProgram,
 				vp, &key);
 
@@ -514,7 +514,7 @@ brw_vs_precompile(struct gl_context *ctx, struct gl_shader_program *prog)
 {
    struct brw_context *brw = brw_context(ctx);
    struct brw_vs_prog_key key;
-   uint32_t old_prog_offset = brw->vs.prog_offset;
+   uint32_t old_prog_offset = brw->vs.base.prog_offset;
    struct brw_vs_prog_data *old_prog_data = brw->vs.prog_data;
    bool success;
 
@@ -544,7 +544,7 @@ brw_vs_precompile(struct gl_context *ctx, struct gl_shader_program *prog)
 
    success = do_vs_prog(brw, prog, bvp, &key);
 
-   brw->vs.prog_offset = old_prog_offset;
+   brw->vs.base.prog_offset = old_prog_offset;
    brw->vs.prog_data = old_prog_data;
 
    return success;
