@@ -159,13 +159,13 @@ upload_vs_state(struct brw_context *brw)
     * require 0^0 == 1.
     */
    if (ctx->Shader.CurrentVertexProgram == NULL)
-      floating_point_mode = GEN6_VS_FLOATING_POINT_MODE_ALT;
+      floating_point_mode = GEN6_FLOATING_POINT_MODE_ALT;
 
    BEGIN_BATCH(6);
    OUT_BATCH(_3DSTATE_VS << 16 | (6 - 2));
    OUT_BATCH(vec4_ctx->prog_offset);
    OUT_BATCH(floating_point_mode |
-	     ((ALIGN(vec4_ctx->sampler_count, 4)/4) << GEN6_VS_SAMPLER_COUNT_SHIFT));
+	     ((ALIGN(vec4_ctx->sampler_count, 4)/4) << GEN6_SAMPLER_COUNT_SHIFT));
 
    if (brw->vs.prog_data->base.total_scratch) {
       OUT_RELOC(vec4_ctx->scratch_bo,

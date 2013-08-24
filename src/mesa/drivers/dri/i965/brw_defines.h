@@ -1303,14 +1303,16 @@ enum brw_message_target {
 
 #define _3DSTATE_SCISSOR_STATE_POINTERS		0x780f /* GEN6+ */
 
-#define _3DSTATE_VS				0x7810 /* GEN6+ */
+/* Common to _3DSTATE_{VS,GS} */
 /* DW2 */
-# define GEN6_VS_SPF_MODE				(1 << 31)
-# define GEN6_VS_VECTOR_MASK_ENABLE			(1 << 30)
-# define GEN6_VS_SAMPLER_COUNT_SHIFT			27
-# define GEN6_VS_BINDING_TABLE_ENTRY_COUNT_SHIFT	18
-# define GEN6_VS_FLOATING_POINT_MODE_IEEE_754		(0 << 16)
-# define GEN6_VS_FLOATING_POINT_MODE_ALT		(1 << 16)
+# define GEN6_SPF_MODE					(1 << 31)
+# define GEN6_VECTOR_MASK_ENABLE			(1 << 30)
+# define GEN6_SAMPLER_COUNT_SHIFT			27
+# define GEN6_BINDING_TABLE_ENTRY_COUNT_SHIFT		18
+# define GEN6_FLOATING_POINT_MODE_IEEE_754		(0 << 16)
+# define GEN6_FLOATING_POINT_MODE_ALT			(1 << 16)
+
+#define _3DSTATE_VS				0x7810 /* GEN6+ */
 /* DW4 */
 # define GEN6_VS_DISPATCH_START_GRF_SHIFT		20
 # define GEN6_VS_URB_READ_LENGTH_SHIFT			11
@@ -1323,13 +1325,6 @@ enum brw_message_target {
 # define GEN6_VS_ENABLE					(1 << 0)
 
 #define _3DSTATE_GS		      		0x7811 /* GEN6+ */
-/* DW2 */
-# define GEN6_GS_SPF_MODE				(1 << 31)
-# define GEN6_GS_VECTOR_MASK_ENABLE			(1 << 30)
-# define GEN6_GS_SAMPLER_COUNT_SHIFT			27
-# define GEN6_GS_BINDING_TABLE_ENTRY_COUNT_SHIFT	18
-# define GEN6_GS_FLOATING_POINT_MODE_IEEE_754		(0 << 16)
-# define GEN6_GS_FLOATING_POINT_MODE_ALT		(1 << 16)
 /* DW4 */
 # define GEN6_GS_URB_READ_LENGTH_SHIFT			11
 # define GEN7_GS_INCLUDE_VERTEX_HANDLES		        (1 << 10)
@@ -1518,13 +1513,6 @@ enum brw_wm_barycentric_interp_mode {
 
 #define _3DSTATE_WM				0x7814 /* GEN6+ */
 /* DW1: kernel pointer */
-/* DW2 */
-# define GEN6_WM_SPF_MODE				(1 << 31)
-# define GEN6_WM_VECTOR_MASK_ENABLE			(1 << 30)
-# define GEN6_WM_SAMPLER_COUNT_SHIFT			27
-# define GEN6_WM_BINDING_TABLE_ENTRY_COUNT_SHIFT	18
-# define GEN6_WM_FLOATING_POINT_MODE_IEEE_754		(0 << 16)
-# define GEN6_WM_FLOATING_POINT_MODE_ALT		(1 << 16)
 /* DW3: scratch space */
 /* DW4 */
 # define GEN6_WM_STATISTICS_ENABLE			(1 << 31)
