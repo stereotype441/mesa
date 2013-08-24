@@ -128,6 +128,38 @@ extern const struct brw_tracked_state gen7_wm_state;
 extern const struct brw_tracked_state haswell_cut_index;
 
 
+/**
+ * Parameters that differ between Gen7 VS and GS state upload commands.
+ */
+struct gen7_vec4_upload_params
+{
+   /**
+    * Command used to set the binding table pointers for this stage.
+    */
+   unsigned binding_table_pointers_cmd;
+
+   /**
+    * Command used to set the sampler state pointers for this stage.
+    */
+   unsigned sampler_state_pointers_cmd;
+
+   /**
+    * Command used to send constants for this stage.
+    */
+   unsigned constant_cmd;
+
+   /**
+    * Command used to send state for this stage.
+    */
+   unsigned state_cmd;
+
+   /**
+    * Size of the state command for this stage.
+    */
+   unsigned state_cmd_size;
+};
+
+
 /* brw_misc_state.c */
 void brw_upload_invariant_state(struct brw_context *brw);
 uint32_t
@@ -239,6 +271,15 @@ brw_vec4_upload_binding_table(struct brw_context *brw,
                               GLbitfield brw_new_binding_table,
                               struct brw_stage_state *stage_state,
                               const struct brw_vec4_prog_data *prog_data);
+
+/* gen7_vs_state.c */
+void
+gen7_upload_vec4_state(struct brw_context *brw,
+                       const struct gen7_vec4_upload_params *upload_params,
+                       const struct brw_stage_state *stage_state,
+                       bool active, bool alt_floating_point_mode,
+                       const struct brw_vec4_prog_data *prog_data,
+                       const unsigned *stage_specific_cmd_data);
 
 #ifdef __cplusplus
 }
