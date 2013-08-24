@@ -46,7 +46,7 @@ upload_gs_state(struct brw_context *brw)
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
       OUT_BATCH(brw->ff_gs.prog_offset);
-      OUT_BATCH(GEN6_GS_SPF_MODE | GEN6_GS_VECTOR_MASK_ENABLE);
+      OUT_BATCH(GEN6_SPF_MODE | GEN6_VECTOR_MASK_ENABLE);
       OUT_BATCH(0); /* no scratch space */
       OUT_BATCH((2 << GEN6_GS_DISPATCH_START_GRF_SHIFT) |
 	        (brw->ff_gs.prog_data->urb_read_length << GEN6_GS_URB_READ_LENGTH_SHIFT));
@@ -64,8 +64,8 @@ upload_gs_state(struct brw_context *brw)
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
       OUT_BATCH(0); /* prog_bo */
-      OUT_BATCH((0 << GEN6_GS_SAMPLER_COUNT_SHIFT) |
-		(0 << GEN6_GS_BINDING_TABLE_ENTRY_COUNT_SHIFT));
+      OUT_BATCH((0 << GEN6_SAMPLER_COUNT_SHIFT) |
+		(0 << GEN6_BINDING_TABLE_ENTRY_COUNT_SHIFT));
       OUT_BATCH(0); /* scratch space base offset */
       OUT_BATCH((1 << GEN6_GS_DISPATCH_START_GRF_SHIFT) |
 		(0 << GEN6_GS_URB_READ_LENGTH_SHIFT) |

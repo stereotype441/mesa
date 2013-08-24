@@ -45,8 +45,8 @@ disable_stages(struct brw_context *brw)
    BEGIN_BATCH(7);
    OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
    OUT_BATCH(0); /* prog_bo */
-   OUT_BATCH((0 << GEN6_GS_SAMPLER_COUNT_SHIFT) |
-	     (0 << GEN6_GS_BINDING_TABLE_ENTRY_COUNT_SHIFT));
+   OUT_BATCH((0 << GEN6_SAMPLER_COUNT_SHIFT) |
+	     (0 << GEN6_BINDING_TABLE_ENTRY_COUNT_SHIFT));
    OUT_BATCH(0); /* scratch space base offset */
    OUT_BATCH((1 << GEN6_GS_DISPATCH_START_GRF_SHIFT) |
 	     (0 << GEN6_GS_URB_READ_LENGTH_SHIFT) |

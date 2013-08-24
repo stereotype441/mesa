@@ -725,7 +725,7 @@ gen6_blorp_emit_wm_config(struct brw_context *brw,
    dw6 |= 0 << GEN6_WM_BARYCENTRIC_INTERPOLATION_MODE_SHIFT; /* No interp */
    dw6 |= 0 << GEN6_WM_NUM_SF_OUTPUTS_SHIFT; /* No inputs from SF */
    if (params->use_wm_prog) {
-      dw2 |= 1 << GEN6_WM_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
+      dw2 |= 1 << GEN6_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
       dw4 |= prog_data->first_curbe_grf << GEN6_WM_DISPATCH_START_GRF_SHIFT_0;
       dw5 |= GEN6_WM_16_DISPATCH_ENABLE;
       dw5 |= GEN6_WM_KILL_ENABLE; /* TODO: temporarily smash on */

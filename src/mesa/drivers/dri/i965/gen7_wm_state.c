@@ -160,7 +160,7 @@ upload_ps_state(struct brw_context *brw)
    dw2 = dw4 = dw5 = 0;
 
    /* CACHE_NEW_SAMPLER */
-   dw2 |= (ALIGN(brw->wm.sampler_count, 4) / 4) << GEN7_PS_SAMPLER_COUNT_SHIFT;
+   dw2 |= (ALIGN(brw->wm.sampler_count, 4) / 4) << GEN6_SAMPLER_COUNT_SHIFT;
 
    /* Use ALT floating point mode for ARB fragment programs, because they
     * require 0^0 == 1.  Even though _CurrentFragmentProgram is used for
@@ -168,7 +168,7 @@ upload_ps_state(struct brw_context *brw)
     * differentiate between the GLSL and non-GLSL cases.
     */
    if (ctx->Shader.CurrentFragmentProgram == NULL)
-      dw2 |= GEN7_PS_FLOATING_POINT_MODE_ALT;
+      dw2 |= GEN6_FLOATING_POINT_MODE_ALT;
 
    if (brw->is_haswell)
       dw4 |= SET_FIELD(1, HSW_PS_SAMPLE_MASK); /* 1 sample for now */

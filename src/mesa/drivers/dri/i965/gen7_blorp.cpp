@@ -566,7 +566,7 @@ gen7_blorp_emit_ps_config(struct brw_context *brw,
    if (brw->is_haswell)
       dw4 |= SET_FIELD(1, HSW_PS_SAMPLE_MASK); /* 1 sample for now */
    if (params->use_wm_prog) {
-      dw2 |= 1 << GEN7_PS_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
+      dw2 |= 1 << GEN6_SAMPLER_COUNT_SHIFT; /* Up to 4 samplers */
       dw4 |= GEN7_PS_PUSH_CONSTANT_ENABLE;
       dw5 |= prog_data->first_curbe_grf << GEN7_PS_DISPATCH_START_GRF_SHIFT_0;
    }

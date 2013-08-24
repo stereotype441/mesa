@@ -137,10 +137,10 @@ upload_wm_state(struct brw_context *brw)
     * differentiate between the GLSL and non-GLSL cases.
     */
    if (ctx->Shader.CurrentFragmentProgram == NULL)
-      dw2 |= GEN6_WM_FLOATING_POINT_MODE_ALT;
+      dw2 |= GEN6_FLOATING_POINT_MODE_ALT;
 
    /* CACHE_NEW_SAMPLER */
-   dw2 |= (ALIGN(brw->wm.sampler_count, 4) / 4) << GEN6_WM_SAMPLER_COUNT_SHIFT;
+   dw2 |= (ALIGN(brw->wm.sampler_count, 4) / 4) << GEN6_SAMPLER_COUNT_SHIFT;
    dw4 |= (brw->wm.prog_data->first_curbe_grf <<
 	   GEN6_WM_DISPATCH_START_GRF_SHIFT_0);
    dw4 |= (brw->wm.prog_data->first_curbe_grf_16 <<
