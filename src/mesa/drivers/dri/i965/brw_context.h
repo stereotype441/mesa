@@ -591,6 +591,7 @@ struct brw_gs_prog_data
    unsigned control_data_format;
 
    bool include_primitive_id;
+   bool need_primitive_id_workaround;
 };
 
 /** Number of texture sampler units */
@@ -1365,6 +1366,7 @@ struct brw_context
    struct {
       bool in_progress;
       bool enable_cut_index;
+      GLuint sw_prim_counter;
    } prim_restart;
 
    /** Computed depth/stencil/hiz state from the current attached
