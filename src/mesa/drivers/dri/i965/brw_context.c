@@ -453,6 +453,7 @@ brwCreateContext(int api,
 
    brw->prim_restart.in_progress = false;
    brw->prim_restart.enable_cut_index = false;
+   brw->prim_restart.sw_prim_counter = 0;
 
    brw_init_state( brw );
 
