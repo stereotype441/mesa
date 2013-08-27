@@ -48,6 +48,13 @@ do_gs_prog(struct brw_context *brw,
    c.prog_data.include_primitive_id =
       (gp->program.Base.InputsRead & VARYING_BIT_PRIMITIVE_ID) != 0;
 
+   /* When using software primitive restart, Ivy Bridge resets the primitive
+    * ID on each restart.  We work around this by creating a hidden uniform
+    * whose value will be added to the incoming primitive ID.
+    */
+   if (brw->gen < 8 && !brw->is_haswell && c.prog_data.include_primitive_id)
+      c.prog_data.need_primitive_id_workaround = true;
+
    /* Allocate the references to the uniforms that will end up in the
     * prog_data associated with the compiled program, and which will be freed
     * by the state cache.
@@ -61,6 +68,10 @@ do_gs_prog(struct brw_context *brw,
 
    /* We also upload clip plane data as uniforms */
    param_count += MAX_CLIP_PLANES * 4;
+
+   /* If the primitive ID workaround is in use, that uses a uniform too. */
+   if (c.prog_data.need_primitive_id_workaround)
+      param_count++;
 
    c.prog_data.base.param = rzalloc_array(NULL, const float *, param_count);
    c.prog_data.base.pull_param = rzalloc_array(NULL, const float *, param_count);
