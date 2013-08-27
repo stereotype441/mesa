@@ -445,6 +445,26 @@ retry:
       }
    }
 
+   /* When using software primitive restart, Ivy Bridge resets the primitive
+    * ID on each restart.  We work around this by creating a hidden uniform
+    * whose value will be added to the incoming primitive ID.
+    *
+    * To ensure that the uniform value gets updated, we need to flag
+    * _NEW_PROGRAM_CONSTANTS.
+    *
+    * We do this after the draw call because that's when the uniform value
+    * changes (vbo_sw_primitive_restart() increments it after each draw, and
+    * brw_handle_primitive_restart() resets it to 0 after the final draw).  A
+    * side benefit of doing this after the draw is that we can safely examine
+    * brw->geometry_program and brw->gs.prog_data to see if the workaround is
+    * necessary.
+    */
+   if (brw->gen < 8 && !brw->is_haswell && brw->prim_restart.in_progress &&
+       !brw->prim_restart.enable_cut_index && brw->geometry_program != NULL &&
+       brw->gs.prog_data->need_primitive_id_workaround) {
+      ctx->NewState |= _NEW_PROGRAM_CONSTANTS;
+   }
+
    if (brw->always_flush_batch)
       intel_batchbuffer_flush(brw);
 
