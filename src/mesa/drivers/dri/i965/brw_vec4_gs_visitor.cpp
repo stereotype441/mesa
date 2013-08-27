@@ -127,9 +127,47 @@ vec4_gs_visitor::setup_payload()
 }
 
 
+/**
+ * When using software primitive restart, Ivy Bridge resets the primitive ID
+ * on each restart.  Work around this by creating a hidden uniform whose value
+ * will be added to the incoming primitive ID.
+ */
+void
+vec4_gs_visitor::primitive_id_workaround()
+{
+   /* Set up the uniform */
+   this->uniform_vector_size[this->uniforms] = 1;
+   dst_reg primitive_id_offset(UNIFORM, this->uniforms);
+   primitive_id_offset.type = BRW_REGISTER_TYPE_UD;
+   for (int i = 0; i < 4; i++) {
+      prog_data->param[this->uniforms * 4 + i] =
+         reinterpret_cast<const float *>(&brw->prim_restart.sw_prim_counter);
+   }
+   this->uniforms++;
+
+   /* Emit code to add the uniform to primitive ID */
+   this->current_annotation = "primitive ID workaround";
+   dst_reg dst(ATTR, VARYING_SLOT_PRIMITIVE_ID);
+   dst.type = BRW_REGISTER_TYPE_UD;
+   vec4_instruction *inst =
+      emit(ADD(dst, src_reg(dst), src_reg(primitive_id_offset)));
+
+   /* In dual instanced dispatch mode, the primitive ID has a width of 4, so
+    * we need to make sure the ADD happens regardless of which channels are
+    * enabled.
+    */
+   inst->force_writemask_all = true;
+
+   this->current_annotation = NULL;
+}
+
+
 void
 vec4_gs_visitor::emit_prolog()
 {
+   if (c->prog_data.need_primitive_id_workaround)
+      primitive_id_workaround();
+
    /* In vertex shaders, r0.2 is guaranteed to be initialized to zero.  In
     * geometry shaders, it isn't (it contains a bunch of information we don't
     * need, like the input primitive type).  We need r0.2 to be zero in order
