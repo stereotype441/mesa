@@ -158,12 +158,17 @@ find_sub_primitives(const void *elements, unsigned element_size,
  *
  * This function breaks up calls into the driver so primitive restart
  * support is not required in the driver.
+ *
+ * If a non-NULL value is passed in prim_count, then prior to each draw call,
+ * that value is updated to contain the number of primitives previously
+ * processed.
  */
 void
 vbo_sw_primitive_restart(struct gl_context *ctx,
                          const struct _mesa_prim *prims,
                          GLuint nr_prims,
-                         const struct _mesa_index_buffer *ib)
+                         const struct _mesa_index_buffer *ib,
+                         GLuint *prim_count)
 {
    GLuint prim_num;
    struct sub_primitive *sub_prims;
@@ -197,6 +202,9 @@ vbo_sw_primitive_restart(struct gl_context *ctx,
       ctx->Driver.UnmapBuffer(ctx, ib->obj);
    }
 
+   if (prim_count != NULL)
+      *prim_count = 0;
+
    /* Loop over the primitives, and use the located sub-primitives to draw
     * each primitive with a break to implement each primitive restart.
     */
@@ -219,6 +227,12 @@ vbo_sw_primitive_restart(struct gl_context *ctx,
                draw_prims_func(ctx, &temp_prim, 1, ib,
                                GL_FALSE, -1, -1,
                                NULL);
+            }
+            if (prim_count != NULL) {
+               *prim_count +=
+                  vbo_count_tessellated_primitives(temp_prim.mode,
+                                                   temp_prim.count,
+                                                   temp_prim.num_instances);
             }
          }
          if (sub_end_index >= end_index) {
