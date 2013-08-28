@@ -182,7 +182,8 @@ void
 vbo_sw_primitive_restart(struct gl_context *ctx,
                          const struct _mesa_prim *prim,
                          GLuint nr_prims,
-                         const struct _mesa_index_buffer *ib);
+                         const struct _mesa_index_buffer *ib,
+                         GLuint *prim_count);
 
 void GLAPIENTRY
 _es_Color4f(GLfloat r, GLfloat g, GLfloat b, GLfloat a);
