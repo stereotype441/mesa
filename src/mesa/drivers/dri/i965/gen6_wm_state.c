@@ -118,8 +118,7 @@ upload_wm_state(struct brw_context *brw)
        * state flags from gen6_upload_wm_push_constants.
        */
       OUT_BATCH(brw->wm.push_const_offset +
-		ALIGN(brw->wm.prog_data->nr_params,
-		      brw->wm.prog_data->dispatch_width) / 8 - 1);
+		ALIGN(brw->wm.prog_data->nr_params, 8) / 8 - 1);
       OUT_BATCH(0);
       OUT_BATCH(0);
       OUT_BATCH(0);
