@@ -53,8 +53,9 @@
  * 256-bit increments.
  */
 uint32_t
-get_attr_override(const struct brw_vue_map *vue_map, int urb_entry_read_offset,
-                  int fs_attr, bool two_side_color, uint32_t *max_source_attr)
+get_attr_override(const struct brw_varying_map *varying_map,
+                  int urb_entry_read_offset, int fs_attr, bool two_side_color,
+                  uint32_t *max_source_attr)
 {
    if (fs_attr == VARYING_SLOT_POS) {
       /* This attribute will be overwritten by the fragment shader's
@@ -64,18 +65,18 @@ get_attr_override(const struct brw_vue_map *vue_map, int urb_entry_read_offset,
       return 0;
    }
 
-   /* Find the VUE slot for this attribute. */
-   int slot = vue_map->varying_to_slot[fs_attr];
+   /* Find the index within the VUE for this attribute. */
+   int index = varying_map->varying_to_index[fs_attr];
 
    /* If there was only a back color written but not front, use back
     * as the color instead of undefined
     */
-   if (slot == -1 && fs_attr == VARYING_SLOT_COL0)
-      slot = vue_map->varying_to_slot[VARYING_SLOT_BFC0];
-   if (slot == -1 && fs_attr == VARYING_SLOT_COL1)
-      slot = vue_map->varying_to_slot[VARYING_SLOT_BFC1];
+   if (index == -1 && fs_attr == VARYING_SLOT_COL0)
+      index = varying_map->varying_to_index[VARYING_SLOT_BFC0];
+   if (index == -1 && fs_attr == VARYING_SLOT_COL1)
+      index = varying_map->varying_to_index[VARYING_SLOT_BFC1];
 
-   if (slot == -1) {
+   if (index == -1) {
       /* This attribute does not exist in the VUE--that means that the vertex
        * shader did not write to it.  This means that either:
        *
@@ -98,20 +99,20 @@ get_attr_override(const struct brw_vue_map *vue_map, int urb_entry_read_offset,
     * Each increment of urb_entry_read_offset represents a 256-bit value, so
     * it counts for two 128-bit VUE slots.
     */
-   int source_attr = slot - 2 * urb_entry_read_offset;
+   int source_attr = index - 2 * urb_entry_read_offset;
    assert(source_attr >= 0 && source_attr < 32);
 
-   /* If we are doing two-sided color, and the VUE slot following this one
+   /* If we are doing two-sided color, and the VUE index following this one
     * represents a back-facing color, then we need to instruct the SF unit to
     * do back-facing swizzling.
     */
    bool swizzling = two_side_color &&
-      ((vue_map->slot_to_varying[slot] == VARYING_SLOT_COL0 &&
-        vue_map->slot_to_varying[slot+1] == VARYING_SLOT_BFC0) ||
-       (vue_map->slot_to_varying[slot] == VARYING_SLOT_COL1 &&
-        vue_map->slot_to_varying[slot+1] == VARYING_SLOT_BFC1));
+      ((varying_map->index_to_varying[index] == VARYING_SLOT_COL0 &&
+        varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC0) ||
+       (varying_map->index_to_varying[index] == VARYING_SLOT_COL1 &&
+        varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC1));
 
-   /* Update max_source_attr.  If swizzling, the SF will read this slot + 1. */
+   /* Update max_source_attr.  If swizzling, the SF will read this index + 1. */
    if (*max_source_attr < source_attr + swizzling)
       *max_source_attr = source_attr + swizzling;
 
@@ -311,9 +312,9 @@ upload_sf_state(struct brw_context *brw)
        */
       assert(input_index < 16 || attr == input_index);
 
-      /* BRW_NEW_VUE_MAP_GEOM_OUT | _NEW_LIGHT | _NEW_PROGRAM */
+      /* BRW_NEW_VARYING_MAP_GEOM_OUT | _NEW_LIGHT | _NEW_PROGRAM */
       attr_overrides[input_index++] =
-         get_attr_override(&brw->vue_map_geom_out,
+         get_attr_override(&brw->varying_map_geom_out,
 			   urb_entry_read_offset, attr,
                            ctx->VertexProgram._TwoSideEnabled,
                            &max_source_attr);
@@ -370,7 +371,7 @@ const struct brw_tracked_state gen6_sf_state = {
                 _NEW_MULTISAMPLE),
       .brw   = (BRW_NEW_CONTEXT |
 		BRW_NEW_FRAGMENT_PROGRAM |
-                BRW_NEW_VUE_MAP_GEOM_OUT)
+                BRW_NEW_VARYING_MAP_GEOM_OUT)
    },
    .emit = upload_sf_state,
 };

@@ -109,8 +109,9 @@ static void brw_clip_project_vertex( struct brw_clip_compile *c,
 {
    struct brw_compile *p = &c->func;
    struct brw_reg tmp = get_tmp(c);
-   GLuint hpos_offset = brw_varying_to_offset(&c->vue_map, VARYING_SLOT_POS);
-   GLuint ndc_offset = brw_varying_to_offset(&c->vue_map,
+   GLuint hpos_offset =
+      brw_varying_to_offset(&c->varying_map, VARYING_SLOT_POS);
+   GLuint ndc_offset = brw_varying_to_offset(&c->varying_map,
                                              BRW_VARYING_SLOT_NDC);
 
    /* Fixup position.  Extract from the original vertex and re-project
@@ -140,7 +141,7 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
 {
    struct brw_compile *p = &c->func;
    struct brw_reg t_nopersp, v0_ndc_copy;
-   GLuint slot;
+   GLuint index;
 
    /* Just copy the vertex header:
     */
@@ -158,8 +159,8 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
 
    /* Take a copy of the v0 NDC coordinates, in case dest == v0. */
    if (c->has_noperspective_shading) {
-      GLuint offset = brw_varying_to_offset(&c->vue_map,
-                                                 BRW_VARYING_SLOT_NDC);
+      GLuint offset = brw_varying_to_offset(&c->varying_map,
+                                            BRW_VARYING_SLOT_NDC);
       v0_ndc_copy = get_tmp(c);
       brw_MOV(p, v0_ndc_copy, deref_4f(v0_ptr, offset));
    }
@@ -169,7 +170,7 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
     * dest_hpos = v0_hpos * (1 - t0) + v1_hpos * t0
     */
    {
-      GLuint delta = brw_varying_to_offset(&c->vue_map, VARYING_SLOT_POS);
+      GLuint delta = brw_varying_to_offset(&c->varying_map, VARYING_SLOT_POS);
       struct brw_reg tmp = get_tmp(c);
       brw_MUL(p, vec4(brw_null_reg()), deref_4f(v1_ptr, delta), t0);
       brw_MAC(p, tmp, negate(deref_4f(v0_ptr, delta)), t0);
@@ -184,8 +185,8 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
     * we need to compute the screen-space t
     */
    if (c->has_noperspective_shading) {
-      GLuint delta = brw_varying_to_offset(&c->vue_map,
-                                                BRW_VARYING_SLOT_NDC);
+      GLuint delta = brw_varying_to_offset(&c->varying_map,
+                                           BRW_VARYING_SLOT_NDC);
       struct brw_reg tmp = get_tmp(c);
       t_nopersp = get_tmp(c);
 
@@ -242,9 +243,9 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
    /* Now we can iterate over each attribute
     * (could be done in pairs?)
     */
-   for (slot = 0; slot < c->vue_map.num_slots; slot++) {
-      int varying = c->vue_map.slot_to_varying[slot];
-      GLuint delta = brw_vue_slot_to_offset(slot);
+   for (index = 0; index < c->varying_map.num_indices; index++) {
+      int varying = c->varying_map.index_to_varying[index];
+      GLuint delta = brw_index_to_offset(index);
 
       /* HPOS, NDC already handled above */
       if (varying == VARYING_SLOT_POS || varying == BRW_VARYING_SLOT_NDC)
@@ -269,7 +270,7 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
           * Unless the attribute is flat shaded -- in which case just copy
           * from one of the sources (doesn't matter which; already copied from pv)
 	  */
-         GLuint interp = c->key.interpolation_mode.mode[slot];
+         GLuint interp = c->key.interpolation_mode.mode[index];
 
          if (interp != INTERP_QUALIFIER_FLAT) {
             struct brw_reg tmp = get_tmp(c);
@@ -301,8 +302,8 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
       }
    }
 
-   if (c->vue_map.num_slots % 2) {
-      GLuint delta = brw_vue_slot_to_offset(c->vue_map.num_slots);
+   if (c->varying_map.num_indices % 2) {
+      GLuint delta = brw_index_to_offset(c->varying_map.num_indices);
 
       brw_MOV(p, deref_4f(dest_ptr, delta), brw_imm_f(0));
    }
@@ -402,11 +403,11 @@ void brw_clip_copy_flatshaded_attributes( struct brw_clip_compile *c,
 {
    struct brw_compile *p = &c->func;
 
-   for (int i = 0; i < c->vue_map.num_slots; i++) {
+   for (int i = 0; i < c->varying_map.num_indices; i++) {
       if (c->key.interpolation_mode.mode[i] == INTERP_QUALIFIER_FLAT) {
          brw_MOV(p,
-                 byte_offset(c->reg.vertex[to], brw_vue_slot_to_offset(i)),
-                 byte_offset(c->reg.vertex[from], brw_vue_slot_to_offset(i)));
+                 byte_offset(c->reg.vertex[to], brw_index_to_offset(i)),
+                 byte_offset(c->reg.vertex[from], brw_index_to_offset(i)));
       }
    }
 }

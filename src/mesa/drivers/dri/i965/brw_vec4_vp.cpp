@@ -453,8 +453,8 @@ vec4_vs_visitor::setup_vp_regs()
    }
 
    /* PROGRAM_OUTPUT */
-   for (int slot = 0; slot < prog_data->vue_map.num_slots; slot++) {
-      int varying = prog_data->vue_map.slot_to_varying[slot];
+   for (int index = 0; index < prog_data->varying_map.num_indices; index++) {
+      int varying = prog_data->varying_map.index_to_varying[index];
       if (varying == VARYING_SLOT_PSIZ)
          output_reg[varying] = dst_reg(this, glsl_type::float_type);
       else

@@ -126,9 +126,9 @@ do_gs_prog(struct brw_context *brw,
       c.prog_data.include_primitive_id = true;
    }
 
-   brw_compute_vue_map(brw, &c.prog_data.base.vue_map,
-                       gp->program.Base.OutputsWritten,
-                       c.key.base.userclip_active);
+   brw_compute_vec4_varying_map(brw, &c.prog_data.base.varying_map,
+                                gp->program.Base.OutputsWritten,
+                                c.key.base.userclip_active);
 
    /* Compute the output vertex size.
     *
@@ -178,7 +178,8 @@ do_gs_prog(struct brw_context *brw,
     * per interpolation type, so this is plenty.
     *
     */
-   unsigned output_vertex_size_bytes = c.prog_data.base.vue_map.num_slots * 16;
+   unsigned output_vertex_size_bytes =
+      c.prog_data.base.varying_map.num_indices * 16;
    assert(output_vertex_size_bytes <= GEN7_MAX_GS_OUTPUT_VERTEX_SIZE_BYTES);
    c.prog_data.output_vertex_size_hwords =
       ALIGN(output_vertex_size_bytes, 32) / 32;
@@ -224,9 +225,10 @@ do_gs_prog(struct brw_context *brw,
    c.prog_data.output_topology = prim_to_hw_prim[gp->program.OutputType];
 
    /* GS inputs are read from the VUE 256 bits (2 vec4's) at a time, so we
-    * need to program a URB read length of ceiling(num_slots / 2).
+    * need to program a URB read length of ceiling(num_indices / 2).
     */
-   c.prog_data.base.urb_read_length = (c.key.input_vue_map.num_slots + 1) / 2;
+   c.prog_data.base.urb_read_length =
+      (c.key.input_varying_map.num_indices + 1) / 2;
 
    void *mem_ctx = ralloc_context(NULL);
    unsigned program_size;
@@ -273,9 +275,9 @@ brw_upload_gs_prog(struct brw_context *brw)
 
    if (gp == NULL) {
       /* No geometry shader.  Vertex data just passes straight through. */
-      if (brw->state.dirty.brw & BRW_NEW_VUE_MAP_VS) {
-         brw->vue_map_geom_out = brw->vue_map_vs;
-         brw->state.dirty.brw |= BRW_NEW_VUE_MAP_GEOM_OUT;
+      if (brw->state.dirty.brw & BRW_NEW_VARYING_MAP_VS) {
+         brw->varying_map_geom_out = brw->varying_map_vs;
+         brw->state.dirty.brw |= BRW_NEW_VARYING_MAP_GEOM_OUT;
       }
       return;
    }
@@ -294,8 +296,8 @@ brw_upload_gs_prog(struct brw_context *brw)
    brw_populate_sampler_prog_key_data(ctx, prog, stage_state->sampler_count,
                                       &key.base.tex);
 
-   /* BRW_NEW_VUE_MAP_VS */
-   key.input_vue_map = brw->vue_map_vs;
+   /* BRW_NEW_VARYING_MAP_VS */
+   key.input_varying_map = brw->varying_map_vs;
 
    if (!brw_search_cache(&brw->cache, BRW_GS_PROG,
                          &key, sizeof(key),
@@ -304,10 +306,10 @@ brw_upload_gs_prog(struct brw_context *brw)
                                 gp, &key);
       assert(success);
    }
-   if (memcmp(&brw->vs.prog_data->base.vue_map, &brw->vue_map_geom_out,
-              sizeof(brw->vue_map_geom_out)) != 0) {
-      brw->vue_map_geom_out = brw->gs.prog_data->base.vue_map;
-      brw->state.dirty.brw |= BRW_NEW_VUE_MAP_GEOM_OUT;
+   if (memcmp(&brw->vs.prog_data->base.varying_map, &brw->varying_map_geom_out,
+              sizeof(brw->varying_map_geom_out)) != 0) {
+      brw->varying_map_geom_out = brw->gs.prog_data->base.varying_map;
+      brw->state.dirty.brw |= BRW_NEW_VARYING_MAP_GEOM_OUT;
    }
 }
 
@@ -315,7 +317,7 @@ brw_upload_gs_prog(struct brw_context *brw)
 const struct brw_tracked_state brw_gs_prog = {
    .dirty = {
       .mesa  = (_NEW_LIGHT | _NEW_BUFFERS | _NEW_TEXTURE),
-      .brw   = BRW_NEW_GEOMETRY_PROGRAM | BRW_NEW_VUE_MAP_VS,
+      .brw   = BRW_NEW_GEOMETRY_PROGRAM | BRW_NEW_VARYING_MAP_VS,
    },
    .emit = brw_upload_gs_prog
 };

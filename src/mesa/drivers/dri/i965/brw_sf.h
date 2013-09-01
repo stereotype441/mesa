@@ -94,7 +94,7 @@ struct brw_sf_compile {
    GLuint nr_setup_regs;
    int urb_entry_read_offset;
 
-   struct brw_vue_map vue_map;
+   struct brw_varying_map varying_map;
    bool has_flat_shading;
 };
 

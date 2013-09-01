@@ -44,10 +44,10 @@
 
 
 /**
- * Determine the vue slot corresponding to the given half of the given register.
+ * Determine the vue index corresponding to the given half of the given register.
  */
-static inline int vert_reg_to_vue_slot(struct brw_sf_compile *c, GLuint reg,
-                                       int half)
+static inline int vert_reg_to_index(struct brw_sf_compile *c, GLuint reg,
+                                    int half)
 {
    return (reg + c->urb_entry_read_offset) * 2 + half;
 }
@@ -60,19 +60,19 @@ static inline int vert_reg_to_vue_slot(struct brw_sf_compile *c, GLuint reg,
 static inline int vert_reg_to_varying(struct brw_sf_compile *c, GLuint reg,
                                       int half)
 {
-   int vue_slot = vert_reg_to_vue_slot(c, reg, half);
-   return c->vue_map.slot_to_varying[vue_slot];
+   int index = vert_reg_to_index(c, reg, half);
+   return c->varying_map.index_to_varying[index];
 }
 
 /**
- * Determine the register corresponding to the given vue slot
+ * Determine the register corresponding to the given vue index
  */
 static struct brw_reg get_vue_slot(struct brw_sf_compile *c,
                                    struct brw_reg vert,
-                                   int vue_slot)
+                                   int vue_index)
 {
-   GLuint off = vue_slot / 2 - c->urb_entry_read_offset;
-   GLuint sub = vue_slot % 2;
+   GLuint off = vue_index / 2 - c->urb_entry_read_offset;
+   GLuint sub = vue_index % 2;
 
    return brw_vec4_grf(vert.nr + off, sub * 4);
 }
@@ -84,9 +84,9 @@ static struct brw_reg get_varying(struct brw_sf_compile *c,
                                   struct brw_reg vert,
                                   GLuint varying)
 {
-   int vue_slot = c->vue_map.varying_to_slot[varying];
-   assert (vue_slot >= c->urb_entry_read_offset);
-   return get_vue_slot(c, vert, vue_slot);
+   int index = c->varying_map.varying_to_index[varying];
+   assert (index >= c->urb_entry_read_offset);
+   return get_vue_slot(c, vert, index);
 }
 
 static bool
@@ -164,7 +164,7 @@ static void copy_flatshaded_attributes(struct brw_sf_compile *c,
    struct brw_compile *p = &c->func;
    int i;
 
-   for (i = 0; i < c->vue_map.num_slots; i++) {
+   for (i = 0; i < c->varying_map.num_indices; i++) {
       if (c->key.interpolation_mode.mode[i] == INTERP_QUALIFIER_FLAT) {
          brw_MOV(p,
                  get_vue_slot(c, dst, i),
@@ -178,7 +178,7 @@ static int count_flatshaded_attributes(struct brw_sf_compile *c)
    int i;
    int count = 0;
 
-   for (i = 0; i < c->vue_map.num_slots; i++)
+   for (i = 0; i < c->varying_map.num_indices; i++)
       if (c->key.interpolation_mode.mode[i] == INTERP_QUALIFIER_FLAT)
          count++;
 
@@ -363,7 +363,7 @@ calculate_masks(struct brw_sf_compile *c,
    *pc_linear = 0;
    *pc = 0xf;
       
-   interp = c->key.interpolation_mode.mode[vert_reg_to_vue_slot(c, reg, 0)];
+   interp = c->key.interpolation_mode.mode[vert_reg_to_index(c, reg, 0)];
    if (interp == INTERP_QUALIFIER_SMOOTH) {
       *pc_linear = 0xf;
       *pc_persp = 0xf;
@@ -375,7 +375,7 @@ calculate_masks(struct brw_sf_compile *c,
    if (vert_reg_to_varying(c, reg, 1) != BRW_VARYING_SLOT_COUNT) {
       *pc |= 0xf0;
 
-      interp = c->key.interpolation_mode.mode[vert_reg_to_vue_slot(c, reg, 1)];
+      interp = c->key.interpolation_mode.mode[vert_reg_to_index(c, reg, 1)];
       if (interp == INTERP_QUALIFIER_SMOOTH) {
          *pc_linear |= 0xf0;
          *pc_persp |= 0xf0;

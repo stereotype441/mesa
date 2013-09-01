@@ -151,8 +151,8 @@ enum brw_state_id {
    BRW_STATE_GS_CONSTBUF,
    BRW_STATE_PROGRAM_CACHE,
    BRW_STATE_STATE_BASE_ADDRESS,
-   BRW_STATE_VUE_MAP_VS,
-   BRW_STATE_VUE_MAP_GEOM_OUT,
+   BRW_STATE_VARYING_MAP_VS,
+   BRW_STATE_VARYING_MAP_GEOM_OUT,
    BRW_STATE_TRANSFORM_FEEDBACK,
    BRW_STATE_RASTERIZER_DISCARD,
    BRW_STATE_STATS_WM,
@@ -189,8 +189,8 @@ enum brw_state_id {
 #define BRW_NEW_GS_CONSTBUF            (1 << BRW_STATE_GS_CONSTBUF)
 #define BRW_NEW_PROGRAM_CACHE		(1 << BRW_STATE_PROGRAM_CACHE)
 #define BRW_NEW_STATE_BASE_ADDRESS	(1 << BRW_STATE_STATE_BASE_ADDRESS)
-#define BRW_NEW_VUE_MAP_VS		(1 << BRW_STATE_VUE_MAP_VS)
-#define BRW_NEW_VUE_MAP_GEOM_OUT	(1 << BRW_STATE_VUE_MAP_GEOM_OUT)
+#define BRW_NEW_VARYING_MAP_VS		(1 << BRW_STATE_VARYING_MAP_VS)
+#define BRW_NEW_VARYING_MAP_GEOM_OUT	(1 << BRW_STATE_VARYING_MAP_GEOM_OUT)
 #define BRW_NEW_TRANSFORM_FEEDBACK	(1 << BRW_STATE_TRANSFORM_FEEDBACK)
 #define BRW_NEW_RASTERIZER_DISCARD	(1 << BRW_STATE_RASTERIZER_DISCARD)
 #define BRW_NEW_STATS_WM		(1 << BRW_STATE_STATS_WM)
@@ -356,9 +356,9 @@ typedef enum
    BRW_VARYING_SLOT_PAD,
    /**
     * Technically this is not a varying but just a placeholder that
-    * compile_sf_prog() inserts into its VUE map to cause the gl_PointCoord
-    * builtin variable to be compiled correctly. see compile_sf_prog() for
-    * more info.
+    * compile_sf_prog() inserts into its varying map to cause the
+    * gl_PointCoord builtin variable to be compiled correctly. see
+    * compile_sf_prog() for more info.
     */
    BRW_VARYING_SLOT_PNTC,
    BRW_VARYING_SLOT_COUNT
@@ -366,53 +366,59 @@ typedef enum
 
 
 /**
- * Data structure recording the relationship between the gl_varying_slot enum
- * and "slots" within the vertex URB entry (VUE).  A "slot" is defined as a
- * single octaword within the VUE (128 bits).
+ * Data structure recording the relationship between the brw_varying_slot enum
+ * (which is an extension of gl_varying_slot) and a zero-based numeric index
+ * representing the order in which varyings appear from the point of view of a
+ * shader kernel.  For the VS and GS, the numeric index refers to the position
+ * of the varying within the vertex URB entry (VUE).  For the FS, the numeric
+ * index refers to the position of the varying within the "Setup Data
+ * (Attribuve Vertex Deltas)" section of the thread payload.
  *
- * Note that each BRW register contains 256 bits (2 octawords), so when
- * accessing the VUE in URB_NOSWIZZLE mode, each register corresponds to two
- * consecutive VUE slots.  When accessing the VUE in URB_INTERLEAVED mode (as
- * in a vertex shader), each register corresponds to a single VUE slot, since
- * it contains data for two separate vertices.
+ * Note that this is not a one-to-one mapping.  Some brw_varying_slots do not
+ * have associated numeric indices, however all numeric indices (less than
+ * num_indices) correspond to a single brw_varying_slot value.
+ *
+ * Note that each BRW register contains 256 bits (2 octawords), but each
+ * varying is only 128 bits, so when accessing the VUE in URB_NOSWIZZLE mode,
+ * each register corresponds to two consecutive VUE slots.  When accessing the
+ * VUE in URB_INTERLEAVED mode (as in a vertex shader), each register
+ * corresponds to a single VUE slot, since it contains data for two separate
+ * vertices.
  */
-struct brw_vue_map {
+struct brw_varying_map {
    /**
-    * Bitfield representing all varying slots that are (a) stored in this VUE
-    * map, and (b) actually written by the shader.  Does not include any of
-    * the additional varying slots defined in brw_varying_slot.
+    * Bitfield representing all varying slots that are (a) stored in this
+    * varying map, and (b) actually written by the shader.  Does not include
+    * any of the additional varying slots defined in brw_varying_slot.
     */
    GLbitfield64 slots_valid;
 
    /**
-    * Map from gl_varying_slot value to VUE slot.  For gl_varying_slots that are
-    * not stored in a slot (because they are not written, or because
-    * additional processing is applied before storing them in the VUE), the
-    * value is -1.
+    * Map from brw_varying_slot value to numeric index.  Some brw_varying_slots
+    * have no corresponding index (e.g. because they are not written by a
+    * given shader stage); for those slots the index value is -1.
     */
-   signed char varying_to_slot[BRW_VARYING_SLOT_COUNT];
+   signed char varying_to_index[BRW_VARYING_SLOT_COUNT];
 
    /**
-    * Map from VUE slot to gl_varying_slot value.  For slots that do not
-    * directly correspond to a gl_varying_slot, the value comes from
-    * brw_varying_slot.
+    * Map from numeric index to brw_varying_slot value.
     *
-    * For slots that are not in use, the value is BRW_VARYING_SLOT_COUNT (this
-    * simplifies code that uses the value stored in slot_to_varying to
-    * create a bit mask).
+    * For indices that are not in use (i.e. >= num_indices), the value is
+    * BRW_VARYING_SLOT_COUNT (this simplifies code that uses the value stored
+    * in index_to_varying to create a bit mask).
     */
-   signed char slot_to_varying[BRW_VARYING_SLOT_COUNT];
+   signed char index_to_varying[BRW_VARYING_SLOT_COUNT];
 
    /**
-    * Total number of VUE slots in use
+    * Total number of indices in use.
     */
-   int num_slots;
+   int num_indices;
 };
 
 /**
- * Convert a VUE slot number into a byte offset within the VUE.
+ * Convert a varying index into a byte offset within the VUE.
  */
-static inline GLuint brw_vue_slot_to_offset(GLuint slot)
+static inline GLuint brw_index_to_offset(GLuint slot)
 {
    return 16*slot;
 }
@@ -421,18 +427,20 @@ static inline GLuint brw_vue_slot_to_offset(GLuint slot)
  * Convert a vertex output (brw_varying_slot) into a byte offset within the
  * VUE.
  */
-static inline GLuint brw_varying_to_offset(struct brw_vue_map *vue_map,
+static inline GLuint brw_varying_to_offset(struct brw_varying_map *varying_map,
                                            GLuint varying)
 {
-   return brw_vue_slot_to_offset(vue_map->varying_to_slot[varying]);
+   return brw_index_to_offset(varying_map->varying_to_index[varying]);
 }
 
-void brw_compute_vue_map(struct brw_context *brw, struct brw_vue_map *vue_map,
-                         GLbitfield64 slots_valid, bool userclip_active);
+void
+brw_compute_vec4_varying_map(struct brw_context *brw,
+                             struct brw_varying_map *varying_map,
+                             GLbitfield64 slots_valid, bool userclip_active);
 
 
 /*
- * Mapping of VUE map slots to interpolation modes.
+ * Mapping of varying map indices to interpolation modes.
  */
 struct interpolation_mode_map {
    unsigned char mode[BRW_VARYING_SLOT_COUNT];
@@ -493,7 +501,7 @@ struct brw_ff_gs_prog_data {
  * this struct!
  */
 struct brw_vec4_prog_data {
-   struct brw_vue_map vue_map;
+   struct brw_varying_map varying_map;
 
    /**
     * Register where the thread expects to find input data from the URB
@@ -1157,18 +1165,18 @@ struct brw_context
    /**
     * Layout of vertex data exiting the vertex shader.
     *
-    * BRW_NEW_VUE_MAP_VS is flagged when this VUE map changes.
+    * BRW_NEW_VARYING_MAP_VS is flagged when this varying map changes.
     */
-   struct brw_vue_map vue_map_vs;
+   struct brw_varying_map varying_map_vs;
 
    /**
     * Layout of vertex data exiting the geometry portion of the pipleine.
     * This comes from the geometry shader if one exists, otherwise from the
     * vertex shader.
     *
-    * BRW_NEW_VUE_MAP_GEOM_OUT is flagged when the VUE map changes.
+    * BRW_NEW_VARYING_MAP_GEOM_OUT is flagged when the varying map changes.
     */
-   struct brw_vue_map vue_map_geom_out;
+   struct brw_varying_map varying_map_geom_out;
 
    /**
     * Data structures used by all vec4 program compiles (not specific to any

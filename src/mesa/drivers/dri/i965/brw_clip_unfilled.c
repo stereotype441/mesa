@@ -52,7 +52,8 @@ static void compute_tri_direction( struct brw_clip_compile *c )
    struct brw_compile *p = &c->func;
    struct brw_reg e = c->reg.tmp0;
    struct brw_reg f = c->reg.tmp1;
-   GLuint hpos_offset = brw_varying_to_offset(&c->vue_map, VARYING_SLOT_POS);
+   GLuint hpos_offset =
+      brw_varying_to_offset(&c->varying_map, VARYING_SLOT_POS);
    struct brw_reg v0 = byte_offset(c->reg.vertex[0], hpos_offset);
    struct brw_reg v1 = byte_offset(c->reg.vertex[1], hpos_offset);
    struct brw_reg v2 = byte_offset(c->reg.vertex[2], hpos_offset);
@@ -159,20 +160,20 @@ static void copy_bfc( struct brw_clip_compile *c )
              brw_clip_have_varying(c, VARYING_SLOT_BFC0))
 	    brw_MOV(p, 
 		    byte_offset(c->reg.vertex[i],
-                                brw_varying_to_offset(&c->vue_map,
+                                brw_varying_to_offset(&c->varying_map,
                                                       VARYING_SLOT_COL0)),
 		    byte_offset(c->reg.vertex[i],
-                                brw_varying_to_offset(&c->vue_map,
+                                brw_varying_to_offset(&c->varying_map,
                                                       VARYING_SLOT_BFC0)));
 
 	 if (brw_clip_have_varying(c, VARYING_SLOT_COL1) &&
              brw_clip_have_varying(c, VARYING_SLOT_BFC1))
 	    brw_MOV(p, 
 		    byte_offset(c->reg.vertex[i],
-                                brw_varying_to_offset(&c->vue_map,
+                                brw_varying_to_offset(&c->varying_map,
                                                       VARYING_SLOT_COL1)),
 		    byte_offset(c->reg.vertex[i],
-                                brw_varying_to_offset(&c->vue_map,
+                                brw_varying_to_offset(&c->varying_map,
                                                       VARYING_SLOT_BFC1)));
       }
    }
@@ -233,7 +234,7 @@ static void merge_edgeflags( struct brw_clip_compile *c )
       brw_set_conditionalmod(p, BRW_CONDITIONAL_EQ);
       brw_AND(p, vec1(brw_null_reg()), get_element_ud(c->reg.R0, 2), brw_imm_ud(1<<8));
       brw_MOV(p, byte_offset(c->reg.vertex[0],
-                             brw_varying_to_offset(&c->vue_map,
+                             brw_varying_to_offset(&c->varying_map,
                                                    VARYING_SLOT_EDGE)),
               brw_imm_f(0));
       brw_set_predicate_control(p, BRW_PREDICATE_NONE);
@@ -241,7 +242,7 @@ static void merge_edgeflags( struct brw_clip_compile *c )
       brw_set_conditionalmod(p, BRW_CONDITIONAL_EQ);
       brw_AND(p, vec1(brw_null_reg()), get_element_ud(c->reg.R0, 2), brw_imm_ud(1<<9));
       brw_MOV(p, byte_offset(c->reg.vertex[2],
-                             brw_varying_to_offset(&c->vue_map,
+                             brw_varying_to_offset(&c->varying_map,
                                                    VARYING_SLOT_EDGE)),
               brw_imm_f(0));
       brw_set_predicate_control(p, BRW_PREDICATE_NONE);
@@ -255,7 +256,7 @@ static void apply_one_offset( struct brw_clip_compile *c,
 			  struct brw_indirect vert )
 {
    struct brw_compile *p = &c->func;
-   GLuint ndc_offset = brw_varying_to_offset(&c->vue_map,
+   GLuint ndc_offset = brw_varying_to_offset(&c->varying_map,
                                              BRW_VARYING_SLOT_NDC);
    struct brw_reg z = deref_1f(vert, ndc_offset +
 			       2 * type_sz(BRW_REGISTER_TYPE_F));
@@ -314,7 +315,7 @@ static void emit_lines(struct brw_clip_compile *c,
       /* draw edge if edgeflag != 0 */
       brw_CMP(p, 
 	      vec1(brw_null_reg()), BRW_CONDITIONAL_NZ, 
-	      deref_1f(v0, brw_varying_to_offset(&c->vue_map,
+	      deref_1f(v0, brw_varying_to_offset(&c->varying_map,
                                                  VARYING_SLOT_EDGE)),
 	      brw_imm_f(0));
       brw_IF(p, BRW_EXECUTE_1);
@@ -356,7 +357,7 @@ static void emit_points(struct brw_clip_compile *c,
        */
       brw_CMP(p, 
 	      vec1(brw_null_reg()), BRW_CONDITIONAL_NZ, 
-	      deref_1f(v0, brw_varying_to_offset(&c->vue_map,
+	      deref_1f(v0, brw_varying_to_offset(&c->varying_map,
                                                  VARYING_SLOT_EDGE)),
 	      brw_imm_f(0));
       brw_IF(p, BRW_EXECUTE_1);

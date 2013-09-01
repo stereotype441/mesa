@@ -99,7 +99,7 @@ struct brw_ff_gs_compile {
    /* Number of registers used to store vertex data */
    GLuint nr_regs;
 
-   struct brw_vue_map vue_map;
+   struct brw_varying_map varying_map;
 };
 
 void brw_ff_gs_quads(struct brw_ff_gs_compile *c,

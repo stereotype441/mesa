@@ -64,19 +64,22 @@ static void compile_sf_prog( struct brw_context *brw,
    brw_init_compile(brw, &c.func, mem_ctx);
 
    c.key = *key;
-   c.vue_map = brw->vue_map_geom_out;
+   c.varying_map = brw->varying_map_geom_out;
    if (c.key.do_point_coord) {
       /*
        * gl_PointCoord is a FS instead of VS builtin variable, thus it's
-       * not included in c.vue_map generated in VS stage. Here we add
+       * not included in c.varying_map generated in VS stage. Here we add
        * it manually to let SF shader generate the needed interpolation
        * coefficient for FS shader.
        */
-      c.vue_map.varying_to_slot[BRW_VARYING_SLOT_PNTC] = c.vue_map.num_slots;
-      c.vue_map.slot_to_varying[c.vue_map.num_slots++] = BRW_VARYING_SLOT_PNTC;
+      c.varying_map.varying_to_index[BRW_VARYING_SLOT_PNTC] =
+         c.varying_map.num_indices;
+      c.varying_map.index_to_varying[c.varying_map.num_indices++] =
+         BRW_VARYING_SLOT_PNTC;
    }
    c.urb_entry_read_offset = BRW_SF_URB_ENTRY_READ_OFFSET;
-   c.nr_attr_regs = (c.vue_map.num_slots + 1)/2 - c.urb_entry_read_offset;
+   c.nr_attr_regs =
+      (c.varying_map.num_indices + 1)/2 - c.urb_entry_read_offset;
    c.nr_setup_regs = c.nr_attr_regs;
 
    c.prog_data.urb_read_length = c.nr_attr_regs;
@@ -144,8 +147,8 @@ brw_upload_sf_prog(struct brw_context *brw)
 
    /* Populate the key, noting state dependencies:
     */
-   /* BRW_NEW_VUE_MAP_GEOM_OUT */
-   key.attrs = brw->vue_map_geom_out.slots_valid;
+   /* BRW_NEW_VARYING_MAP_GEOM_OUT */
+   key.attrs = brw->varying_map_geom_out.slots_valid;
 
    /* BRW_NEW_REDUCED_PRIMITIVE */
    switch (brw->reduced_primitive) {
@@ -219,7 +222,7 @@ const struct brw_tracked_state brw_sf_prog = {
       .mesa  = (_NEW_HINT | _NEW_LIGHT | _NEW_POLYGON | _NEW_POINT |
                 _NEW_TRANSFORM | _NEW_BUFFERS | _NEW_PROGRAM),
       .brw   = (BRW_NEW_REDUCED_PRIMITIVE |
-                BRW_NEW_VUE_MAP_GEOM_OUT |
+                BRW_NEW_VARYING_MAP_GEOM_OUT |
                 BRW_NEW_INTERPOLATION_MAP)
    },
    .emit = brw_upload_sf_prog

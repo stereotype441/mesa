@@ -99,7 +99,7 @@ upload_3dstate_so_buffers(struct brw_context *brw)
  */
 void
 gen7_upload_3dstate_so_decl_list(struct brw_context *brw,
-                                 const struct brw_vue_map *vue_map)
+                                 const struct brw_varying_map *varying_map)
 {
    struct gl_context *ctx = &brw->ctx;
    /* BRW_NEW_VERTEX_PROGRAM */
@@ -136,7 +136,7 @@ gen7_upload_3dstate_so_decl_list(struct brw_context *brw,
       buffer_mask |= 1 << buffer;
 
       decl |= buffer << SO_DECL_OUTPUT_BUFFER_SLOT_SHIFT;
-      decl |= vue_map->varying_to_slot[varying] <<
+      decl |= varying_map->varying_to_index[varying] <<
 	 SO_DECL_REGISTER_INDEX_SHIFT;
       decl |= component_mask << SO_DECL_COMPONENT_MASK_SHIFT;
 
@@ -174,7 +174,7 @@ gen7_upload_3dstate_so_decl_list(struct brw_context *brw,
 
 static void
 upload_3dstate_streamout(struct brw_context *brw, bool active,
-			 const struct brw_vue_map *vue_map)
+			 const struct brw_varying_map *varying_map)
 {
    struct gl_context *ctx = &brw->ctx;
    /* BRW_NEW_TRANSFORM_FEEDBACK */
@@ -185,7 +185,7 @@ upload_3dstate_streamout(struct brw_context *brw, bool active,
 
    if (active) {
       int urb_entry_read_offset = 0;
-      int urb_entry_read_length = (vue_map->num_slots + 1) / 2 -
+      int urb_entry_read_length = (varying_map->num_indices + 1) / 2 -
 	 urb_entry_read_offset;
 
       dw1 |= SO_FUNCTION_ENABLE;
@@ -226,8 +226,8 @@ upload_sol_state(struct brw_context *brw)
 
    if (active) {
       upload_3dstate_so_buffers(brw);
-      /* BRW_NEW_VUE_MAP_GEOM_OUT */
-      gen7_upload_3dstate_so_decl_list(brw, &brw->vue_map_geom_out);
+      /* BRW_NEW_VARYING_MAP_GEOM_OUT */
+      gen7_upload_3dstate_so_decl_list(brw, &brw->varying_map_geom_out);
    }
 
    /* Finally, set up the SOL stage.  This command must always follow updates to
@@ -235,7 +235,7 @@ upload_sol_state(struct brw_context *brw)
     * MMIO register updates (current performed by the kernel at each batch
     * emit).
     */
-   upload_3dstate_streamout(brw, active, &brw->vue_map_geom_out);
+   upload_3dstate_streamout(brw, active, &brw->varying_map_geom_out);
 }
 
 const struct brw_tracked_state gen7_sol_state = {
@@ -243,7 +243,7 @@ const struct brw_tracked_state gen7_sol_state = {
       .mesa  = (_NEW_LIGHT),
       .brw   = (BRW_NEW_BATCH |
 		BRW_NEW_VERTEX_PROGRAM |
-                BRW_NEW_VUE_MAP_GEOM_OUT |
+                BRW_NEW_VARYING_MAP_GEOM_OUT |
                 BRW_NEW_TRANSFORM_FEEDBACK)
    },
    .emit = upload_sol_state,

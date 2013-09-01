@@ -37,7 +37,7 @@ struct brw_gs_prog_key
 {
    struct brw_vec4_prog_key base;
 
-   struct brw_vue_map input_vue_map;
+   struct brw_varying_map input_varying_map;
 };
 
 

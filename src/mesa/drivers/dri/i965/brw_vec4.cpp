@@ -1254,7 +1254,7 @@ vec4_vs_visitor::setup_attributes(int payload_reg)
    prog_data->urb_read_length = (nr_attributes + 1) / 2;
 
    unsigned vue_entries =
-      MAX2(nr_attributes, prog_data->vue_map.num_slots);
+      MAX2(nr_attributes, prog_data->varying_map.num_indices);
 
    if (brw->gen == 6)
       prog_data->urb_entry_size = ALIGN(vue_entries, 8) / 8;

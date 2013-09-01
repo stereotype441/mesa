@@ -2468,7 +2468,7 @@ void
 vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
 {
    if (brw->gen < 6 &&
-       ((prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ) ||
+       ((prog_data->varying_map.slots_valid & VARYING_BIT_PSIZ) ||
         key->userclip_active || brw->has_negative_rhw_bug)) {
       dst_reg header1 = dst_reg(this, glsl_type::uvec4_type);
       dst_reg header1_w = header1;
@@ -2476,7 +2476,7 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
 
       emit(MOV(header1, 0u));
 
-      if (prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ) {
+      if (prog_data->varying_map.slots_valid & VARYING_BIT_PSIZ) {
 	 src_reg psiz = src_reg(output_reg[VARYING_SLOT_PSIZ]);
 
 	 current_annotation = "Point size";
@@ -2524,11 +2524,11 @@ vec4_visitor::emit_psiz_and_flags(struct brw_reg reg)
       emit(MOV(retype(reg, BRW_REGISTER_TYPE_UD), 0u));
    } else {
       emit(MOV(retype(reg, BRW_REGISTER_TYPE_D), src_reg(0)));
-      if (prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ) {
+      if (prog_data->varying_map.slots_valid & VARYING_BIT_PSIZ) {
          emit(MOV(brw_writemask(reg, WRITEMASK_W),
                   src_reg(output_reg[VARYING_SLOT_PSIZ])));
       }
-      if (prog_data->vue_map.slots_valid & VARYING_BIT_LAYER) {
+      if (prog_data->varying_map.slots_valid & VARYING_BIT_LAYER) {
          emit(MOV(retype(brw_writemask(reg, WRITEMASK_Y), BRW_REGISTER_TYPE_D),
                   src_reg(output_reg[VARYING_SLOT_LAYER])));
       }
@@ -2551,7 +2551,7 @@ vec4_visitor::emit_clip_distances(dst_reg reg, int offset)
     * if the user wrote to it; otherwise we use gl_Position.
     */
    gl_varying_slot clip_vertex = VARYING_SLOT_CLIP_VERTEX;
-   if (!(prog_data->vue_map.slots_valid & VARYING_BIT_CLIP_VERTEX)) {
+   if (!(prog_data->varying_map.slots_valid & VARYING_BIT_CLIP_VERTEX)) {
       clip_vertex = VARYING_SLOT_POS;
    }
 
@@ -2690,20 +2690,20 @@ vec4_visitor::emit_vertex()
    }
 
    /* Set up the VUE data for the first URB write */
-   int slot;
-   for (slot = 0; slot < prog_data->vue_map.num_slots; ++slot) {
-      emit_urb_slot(mrf++, prog_data->vue_map.slot_to_varying[slot]);
+   int index;
+   for (index = 0; index < prog_data->varying_map.num_indices; ++index) {
+      emit_urb_slot(mrf++, prog_data->varying_map.index_to_varying[index]);
 
       /* If this was max_usable_mrf, we can't fit anything more into this URB
        * WRITE.
        */
       if (mrf > max_usable_mrf) {
-	 slot++;
+	 index++;
 	 break;
       }
    }
 
-   bool complete = slot >= prog_data->vue_map.num_slots;
+   bool complete = index >= prog_data->varying_map.num_indices;
    current_annotation = "URB write";
    vec4_instruction *inst = emit_urb_write_opcode(complete);
    inst->base_mrf = base_mrf;
@@ -2713,10 +2713,10 @@ vec4_visitor::emit_vertex()
    if (!complete) {
       mrf = base_mrf + 1;
 
-      for (; slot < prog_data->vue_map.num_slots; ++slot) {
+      for (; index < prog_data->varying_map.num_indices; ++index) {
 	 assert(mrf < max_usable_mrf);
 
-         emit_urb_slot(mrf++, prog_data->vue_map.slot_to_varying[slot]);
+         emit_urb_slot(mrf++, prog_data->varying_map.index_to_varying[index]);
       }
 
       current_annotation = "URB write";

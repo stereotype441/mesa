@@ -68,7 +68,7 @@ static void compile_clip_prog( struct brw_context *brw,
    c.func.single_program_flow = 1;
 
    c.key = *key;
-   c.vue_map = brw->vue_map_geom_out;
+   c.varying_map = brw->varying_map_geom_out;
 
    c.has_flat_shading =
       brw_any_flat_varyings(&key->interpolation_mode);
@@ -80,7 +80,7 @@ static void compile_clip_prog( struct brw_context *brw,
     * the VUE (measured in pairs, since two slots are stored in each
     * register).
     */
-   c.nr_regs = (c.vue_map.num_slots + 1)/2;
+   c.nr_regs = (c.varying_map.num_indices + 1)/2;
 
    c.prog_data.clip_mode = c.key.clip_mode; /* XXX */
 
@@ -152,12 +152,12 @@ brw_upload_clip_prog(struct brw_context *brw)
 
    /* BRW_NEW_REDUCED_PRIMITIVE */
    key.primitive = brw->reduced_primitive;
-   /* BRW_NEW_VUE_MAP_GEOM_OUT */
-   key.attrs = brw->vue_map_geom_out.slots_valid;
+   /* BRW_NEW_VARYING_MAP_GEOM_OUT */
+   key.attrs = brw->varying_map_geom_out.slots_valid;
 
    /* _NEW_LIGHT */
    key.pv_first = (ctx->Light.ProvokingVertex == GL_FIRST_VERTEX_CONVENTION);
-   /* _NEW_TRANSFORM (also part of VUE map)*/
+   /* _NEW_TRANSFORM (also part of varying map)*/
    if (ctx->Transform.ClipPlanesEnabled)
       key.nr_userclip = _mesa_logbase2(ctx->Transform.ClipPlanesEnabled) + 1;
 
@@ -267,7 +267,7 @@ const struct brw_tracked_state brw_clip_prog = {
 		_NEW_POLYGON | 
 		_NEW_BUFFERS),
       .brw   = (BRW_NEW_REDUCED_PRIMITIVE |
-                BRW_NEW_VUE_MAP_GEOM_OUT |
+                BRW_NEW_VARYING_MAP_GEOM_OUT |
                 BRW_NEW_INTERPOLATION_MAP)
    },
    .emit = brw_upload_clip_prog

@@ -74,12 +74,12 @@ void brw_clip_tri_alloc_regs( struct brw_clip_compile *c,
       i += c->nr_regs;
    }
 
-   if (c->vue_map.num_slots % 2) {
+   if (c->varying_map.num_indices % 2) {
       /* The VUE has an odd number of slots so the last register is only half
        * used.  Fill the second half with zero.
        */
       for (j = 0; j < 3; j++) {
-	 GLuint delta = brw_vue_slot_to_offset(c->vue_map.num_slots);
+	 GLuint delta = brw_index_to_offset(c->varying_map.num_indices);
 
 	 brw_MOV(&c->func, byte_offset(c->reg.vertex[j], delta), brw_imm_f(0));
       }
@@ -269,9 +269,10 @@ void brw_clip_tri( struct brw_clip_compile *c )
    struct brw_indirect inlist_ptr = brw_indirect(4, 0);
    struct brw_indirect outlist_ptr = brw_indirect(5, 0);
    struct brw_indirect freelist_ptr = brw_indirect(6, 0);
-   GLuint hpos_offset = brw_varying_to_offset(&c->vue_map, VARYING_SLOT_POS);
+   GLuint hpos_offset =
+      brw_varying_to_offset(&c->varying_map, VARYING_SLOT_POS);
    GLint clipdist0_offset = c->key.nr_userclip
-      ? brw_varying_to_offset(&c->vue_map, VARYING_SLOT_CLIP_DIST0)
+      ? brw_varying_to_offset(&c->varying_map, VARYING_SLOT_CLIP_DIST0)
       : 0;
 
    brw_MOV(p, get_addr_reg(vtxPrev),     brw_address(c->reg.vertex[2]) );
@@ -531,7 +532,7 @@ static void brw_clip_test( struct brw_clip_compile *c )
     struct brw_compile *p = &c->func;
     struct brw_reg tmp0 = c->reg.loopcount; /* handy temporary */
 
-    GLuint hpos_offset = brw_varying_to_offset(&c->vue_map,
+    GLuint hpos_offset = brw_varying_to_offset(&c->varying_map,
                                                    VARYING_SLOT_POS);
 
     brw_MOV(p, get_addr_reg(vt0), brw_address(c->reg.vertex[0]));

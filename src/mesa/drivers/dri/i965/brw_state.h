@@ -242,8 +242,9 @@ void gen7_create_shader_time_surface(struct brw_context *brw,
                                      uint32_t *out_offset);
 
 /* gen7_sol_state.c */
-void gen7_upload_3dstate_so_decl_list(struct brw_context *brw,
-                                      const struct brw_vue_map *vue_map);
+void
+gen7_upload_3dstate_so_decl_list(struct brw_context *brw,
+                                 const struct brw_varying_map *varying_map);
 
 /* brw_wm_sampler_state.c */
 uint32_t translate_wrap_mode(GLenum wrap, bool using_nearest);
@@ -258,8 +259,9 @@ void gen7_init_vtable_sampler_functions(struct brw_context *brw);
 
 /* gen6_sf_state.c */
 uint32_t
-get_attr_override(const struct brw_vue_map *vue_map, int urb_entry_read_offset,
-                  int fs_attr, bool two_side_color, uint32_t *max_source_attr);
+get_attr_override(const struct brw_varying_map *varying_map,
+                  int urb_entry_read_offset, int fs_attr, bool two_side_color,
+                  uint32_t *max_source_attr);
 
 /* brw_vs_surface_state.c */
 void

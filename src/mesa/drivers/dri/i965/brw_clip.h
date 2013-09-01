@@ -126,7 +126,7 @@ struct brw_clip_compile {
 
    bool need_direction;
 
-   struct brw_vue_map vue_map;
+   struct brw_varying_map varying_map;
 
    bool has_flat_shading;
    bool has_noperspective_shading;

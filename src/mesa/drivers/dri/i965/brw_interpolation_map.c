@@ -40,7 +40,7 @@ static void
 brw_setup_vue_interpolation(struct brw_context *brw)
 {
    const struct gl_fragment_program *fprog = brw->fragment_program;
-   struct brw_vue_map *vue_map = &brw->vue_map_geom_out;
+   struct brw_varying_map *varying_map = &brw->varying_map_geom_out;
 
    memset(&brw->interpolation_mode, INTERP_QUALIFIER_NONE, sizeof(brw->interpolation_mode));
 
@@ -49,8 +49,8 @@ brw_setup_vue_interpolation(struct brw_context *brw)
    if (!fprog)
       return;
 
-   for (int i = 0; i < vue_map->num_slots; i++) {
-      int varying = vue_map->slot_to_varying[i];
+   for (int i = 0; i < varying_map->num_indices; i++) {
+      int varying = varying_map->index_to_varying[i];
       if (varying == -1)
          continue;
 
@@ -85,9 +85,9 @@ brw_setup_vue_interpolation(struct brw_context *brw)
    }
 
    if (unlikely(INTEL_DEBUG & DEBUG_VUE)) {
-      printf("VUE map:\n");
-      for (int i = 0; i < vue_map->num_slots; i++) {
-         int varying = vue_map->slot_to_varying[i];
+      printf("Varying map:\n");
+      for (int i = 0; i < varying_map->num_indices; i++) {
+         int varying = varying_map->index_to_varying[i];
          if (varying == -1) {
             printf("%d: --\n", i);
             continue;
@@ -96,7 +96,7 @@ brw_setup_vue_interpolation(struct brw_context *brw)
          printf("%d: %d %s ofs %d\n",
                i, varying,
                get_qual_name(brw->interpolation_mode.mode[i]),
-               brw_vue_slot_to_offset(i));
+               brw_index_to_offset(i));
       }
    }
 }
@@ -106,7 +106,7 @@ const struct brw_tracked_state brw_interpolation_map = {
    .dirty = {
       .mesa  = _NEW_LIGHT,
       .brw   = (BRW_NEW_FRAGMENT_PROGRAM |
-                BRW_NEW_VUE_MAP_GEOM_OUT)
+                BRW_NEW_VARYING_MAP_GEOM_OUT)
    },
    .emit = brw_setup_vue_interpolation
 };
