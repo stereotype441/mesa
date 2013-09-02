@@ -415,6 +415,21 @@ struct brw_varying_map {
    int num_indices;
 };
 
+
+/**
+ * Assign a varying to the next available index in the given varying map.
+ */
+static inline void assign_varying_index(struct brw_varying_map *varying_map,
+                                        int varying)
+{
+   /* Make sure this varying hasn't been assigned an index already */
+   assert (varying_map->varying_to_index[varying] == -1);
+
+   varying_map->varying_to_index[varying] = varying_map->num_indices;
+   varying_map->index_to_varying[varying_map->num_indices++] = varying;
+}
+
+
 /**
  * Convert a varying index into a byte offset within the VUE.
  */

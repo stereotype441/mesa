@@ -40,15 +40,6 @@
 
 #include "glsl/ralloc.h"
 
-static inline void assign_varying_index(struct brw_varying_map *varying_map,
-                                        int varying)
-{
-   /* Make sure this varying hasn't been assigned an index already */
-   assert (varying_map->varying_to_index[varying] == -1);
-
-   varying_map->varying_to_index[varying] = varying_map->num_indices;
-   varying_map->index_to_varying[varying_map->num_indices++] = varying;
-}
 
 /**
  * Compute the varying map for a vertex or geometry shader program.

@@ -72,10 +72,7 @@ static void compile_sf_prog( struct brw_context *brw,
        * it manually to let SF shader generate the needed interpolation
        * coefficient for FS shader.
        */
-      c.varying_map.varying_to_index[BRW_VARYING_SLOT_PNTC] =
-         c.varying_map.num_indices;
-      c.varying_map.index_to_varying[c.varying_map.num_indices++] =
-         BRW_VARYING_SLOT_PNTC;
+      assign_varying_index(&c.varying_map, BRW_VARYING_SLOT_PNTC);
    }
    c.urb_entry_read_offset = BRW_SF_URB_ENTRY_READ_OFFSET;
    c.nr_attr_regs =
