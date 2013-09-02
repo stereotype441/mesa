@@ -454,7 +454,11 @@ public:
    int first_non_payload_grf;
    /** Either BRW_MAX_GRF or GEN7_MRF_HACK_START */
    int max_grf;
-   int urb_setup[VARYING_SLOT_MAX];
+
+   /**
+    * Map relating varyings to their location within the fs payload.
+    */
+   struct brw_varying_map input_varying_map;
 
    fs_reg *fp_temp_regs;
    fs_reg *fp_input_regs;

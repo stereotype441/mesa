@@ -1004,7 +1004,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
    int location = ir->location;
    for (unsigned int i = 0; i < array_elements; i++) {
       for (unsigned int j = 0; j < type->matrix_columns; j++) {
-	 if (urb_setup[location] == -1) {
+	 if (input_varying_map.varying_to_index[location] == -1) {
 	    /* If there's no incoming setup data for this slot, don't
 	     * emit interpolation for it.
 	     */
@@ -1230,16 +1230,13 @@ fs_visitor::assign_curb_setup()
 void
 fs_visitor::calculate_urb_setup()
 {
-   for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
-      urb_setup[i] = -1;
-   }
+   brw_init_varying_map(&input_varying_map, fp->Base.InputsRead);
 
-   int urb_next = 0;
    /* Figure out where each of the incoming setup attributes lands. */
    if (brw->gen >= 6) {
       for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
 	 if (fp->Base.InputsRead & BITFIELD64_BIT(i)) {
-	    urb_setup[i] = urb_next++;
+            assign_varying_index(&input_varying_map, i);
 	 }
       }
    } else {
@@ -1257,8 +1254,9 @@ fs_visitor::calculate_urb_setup()
 	     * incremented, mapped or not.
 	     */
 	    if (_mesa_varying_slot_in_fs((gl_varying_slot) i))
-	       urb_setup[i] = urb_next;
-            urb_next++;
+               assign_varying_index(&input_varying_map, i);
+            else
+               input_varying_map.num_indices++;
 	 }
       }
 
@@ -1269,11 +1267,11 @@ fs_visitor::calculate_urb_setup()
        * See compile_sf_prog() for more info.
        */
       if (fp->Base.InputsRead & BITFIELD64_BIT(VARYING_SLOT_PNTC))
-         urb_setup[VARYING_SLOT_PNTC] = urb_next++;
+         assign_varying_index(&input_varying_map, VARYING_SLOT_PNTC);
    }
 
    /* Each attribute is 4 setup channels, each of which is half a reg. */
-   c->prog_data.urb_read_length = urb_next * 2;
+   c->prog_data.urb_read_length = input_varying_map.num_indices * 2;
 }
 
 void
