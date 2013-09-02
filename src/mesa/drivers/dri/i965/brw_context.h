@@ -416,6 +416,11 @@ struct brw_varying_map {
 };
 
 
+void
+brw_init_varying_map(struct brw_varying_map *varying_map,
+                     GLbitfield64 slots_valid);
+
+
 /**
  * Assign a varying to the next available index in the given varying map.
  */
