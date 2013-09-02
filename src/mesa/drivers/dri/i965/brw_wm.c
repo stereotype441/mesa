@@ -174,6 +174,8 @@ bool do_wm_prog(struct brw_context *brw,
    /* Each attribute is 4 setup channels, each of which is half a reg. */
    c->prog_data.urb_read_length = c->key.input_varying_map.num_indices * 2;
 
+   c->prog_data.input_varying_map = c->key.input_varying_map;
+
    program = brw_wm_fs_emit(brw, c, &fp->program, prog, &program_size);
    if (program == NULL)
       return false;

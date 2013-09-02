@@ -304,46 +304,6 @@ struct brw_shader {
    struct exec_list *ir;
 };
 
-/* Data about a particular attempt to compile a program.  Note that
- * there can be many of these, each in a different GL state
- * corresponding to a different brw_wm_prog_key struct, with different
- * compiled programs.
- *
- * Note: brw_wm_prog_data_compare() must be updated when adding fields to this
- * struct!
- */
-struct brw_wm_prog_data {
-   GLuint curb_read_length;
-   GLuint urb_read_length;
-
-   GLuint first_curbe_grf;
-   GLuint first_curbe_grf_16;
-   GLuint reg_blocks;
-   GLuint reg_blocks_16;
-   GLuint total_scratch;
-
-   unsigned binding_table_size;
-
-   GLuint nr_params;       /**< number of float params/constants */
-   GLuint nr_pull_params;
-   bool dual_src_blend;
-   uint32_t prog_offset_16;
-
-   /**
-    * Mask of which interpolation modes are required by the fragment shader.
-    * Used in hardware setup on gen6+.
-    */
-   uint32_t barycentric_interp_modes;
-
-   /* Pointers to tracked values (only valid once
-    * _mesa_load_state_parameters has been called at runtime).
-    *
-    * These must be the last fields of the struct (see
-    * brw_wm_prog_data_compare()).
-    */
-   const float **param;
-   const float **pull_param;
-};
 
 /**
  * Enum representing the i965-specific vertex results that don't correspond
@@ -457,6 +417,53 @@ void
 brw_compute_vec4_varying_map(struct brw_context *brw,
                              struct brw_varying_map *varying_map,
                              GLbitfield64 slots_valid, bool userclip_active);
+
+
+/* Data about a particular attempt to compile a program.  Note that
+ * there can be many of these, each in a different GL state
+ * corresponding to a different brw_wm_prog_key struct, with different
+ * compiled programs.
+ *
+ * Note: brw_wm_prog_data_compare() must be updated when adding fields to this
+ * struct!
+ */
+struct brw_wm_prog_data {
+   /**
+    * Order in which the program expects its input varyings to appear.
+    */
+   struct brw_varying_map input_varying_map;
+
+   GLuint curb_read_length;
+   GLuint urb_read_length;
+
+   GLuint first_curbe_grf;
+   GLuint first_curbe_grf_16;
+   GLuint reg_blocks;
+   GLuint reg_blocks_16;
+   GLuint total_scratch;
+
+   unsigned binding_table_size;
+
+   GLuint nr_params;       /**< number of float params/constants */
+   GLuint nr_pull_params;
+   bool dual_src_blend;
+   uint32_t prog_offset_16;
+
+   /**
+    * Mask of which interpolation modes are required by the fragment shader.
+    * Used in hardware setup on gen6+.
+    */
+   uint32_t barycentric_interp_modes;
+
+   /* Pointers to tracked values (only valid once
+    * _mesa_load_state_parameters has been called at runtime).
+    *
+    * These must be the last fields of the struct (see
+    * brw_wm_prog_data_compare()).
+    */
+   const float **param;
+   const float **pull_param;
+};
 
 
 /*
