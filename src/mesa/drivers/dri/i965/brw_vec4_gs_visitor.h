@@ -37,7 +37,7 @@ struct brw_gs_prog_key
 {
    struct brw_vec4_prog_key base;
 
-   struct brw_varying_map input_varying_map;
+   GLbitfield64 input_varyings;
 };
 
 
@@ -49,6 +49,7 @@ struct brw_gs_compile
    struct brw_vec4_compile base;
    struct brw_gs_prog_key key;
    struct brw_gs_prog_data prog_data;
+   struct brw_varying_map input_varying_map;
 
    struct brw_geometry_program *gp;
 

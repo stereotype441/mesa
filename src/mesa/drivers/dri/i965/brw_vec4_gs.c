@@ -234,11 +234,14 @@ do_gs_prog(struct brw_context *brw,
 
    c.prog_data.output_topology = prim_to_hw_prim[gp->program.OutputType];
 
+   brw_compute_vec4_varying_map(brw, &c.input_varying_map,
+                                c.key.input_varyings);
+
    /* GS inputs are read from the VUE 256 bits (2 vec4's) at a time, so we
     * need to program a URB read length of ceiling(num_indices / 2).
     */
    c.prog_data.base.urb_read_length =
-      (c.key.input_varying_map.num_indices + 1) / 2;
+      (c.input_varying_map.num_indices + 1) / 2;
 
    void *mem_ctx = ralloc_context(NULL);
    unsigned program_size;
@@ -307,7 +310,7 @@ brw_upload_gs_prog(struct brw_context *brw)
                                       &key.base.tex);
 
    /* BRW_NEW_VARYING_MAP_VS */
-   key.input_varying_map = brw->varying_map_vs;
+   key.input_varyings = brw->varying_map_vs.slots_valid;
 
    if (!brw_search_cache(&brw->cache, BRW_GS_PROG,
                          &key, sizeof(key),

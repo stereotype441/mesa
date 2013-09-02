@@ -70,8 +70,8 @@ vec4_gs_visitor::setup_varying_inputs(int payload_reg, int *attribute_map)
    assert(num_input_vertices <= MAX_GS_INPUT_VERTICES);
    unsigned input_array_stride = c->prog_data.base.urb_read_length * 2;
 
-   for (int index = 0; index < c->key.input_varying_map.num_indices; index++) {
-      int varying = c->key.input_varying_map.index_to_varying[index];
+   for (int index = 0; index < c->input_varying_map.num_indices; index++) {
+      int varying = c->input_varying_map.index_to_varying[index];
       for (unsigned vertex = 0; vertex < num_input_vertices; vertex++) {
          attribute_map[BRW_VARYING_SLOT_COUNT * vertex + varying] =
             payload_reg + input_array_stride * vertex + index;
@@ -180,9 +180,9 @@ vec4_gs_visitor::triangle_vertex_ordering_workaround()
       inst->conditional_mod = BRW_CONDITIONAL_NZ;
       emit(IF(BRW_PREDICATE_NORMAL));
       {
-         for (int index = 0; index < c->key.input_varying_map.num_indices;
+         for (int index = 0; index < c->input_varying_map.num_indices;
               index++) {
-            int varying = c->key.input_varying_map.index_to_varying[index];
+            int varying = c->input_varying_map.index_to_varying[index];
             switch (c->gp->program.InputType) {
             case GL_TRIANGLES: {
                /*
