@@ -456,7 +456,7 @@ static inline GLuint brw_varying_to_offset(struct brw_varying_map *varying_map,
 void
 brw_compute_vec4_varying_map(struct brw_context *brw,
                              struct brw_varying_map *varying_map,
-                             GLbitfield64 slots_valid, bool userclip_active);
+                             GLbitfield64 slots_valid);
 
 
 /*

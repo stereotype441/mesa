@@ -126,9 +126,19 @@ do_gs_prog(struct brw_context *brw,
       c.prog_data.include_primitive_id = true;
    }
 
+   GLbitfield64 outputs_written = gp->program.Base.OutputsWritten;
+
+   /* In order for legacy clipping to work, we need to populate the clip
+    * distance varying slots whenever clipping is enabled, even if the vertex
+    * shader doesn't write to gl_ClipDistance.
+    */
+   if (c.key.base.userclip_active) {
+      outputs_written |= BITFIELD64_BIT(VARYING_SLOT_CLIP_DIST0);
+      outputs_written |= BITFIELD64_BIT(VARYING_SLOT_CLIP_DIST1);
+   }
+
    brw_compute_vec4_varying_map(brw, &c.prog_data.base.varying_map,
-                                gp->program.Base.OutputsWritten,
-                                c.key.base.userclip_active);
+                                outputs_written);
 
    /* Compute the output vertex size.
     *
