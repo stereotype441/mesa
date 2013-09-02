@@ -33,15 +33,19 @@ static void
 upload_sbe_state(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
-   /* BRW_NEW_FRAGMENT_PROGRAM */
-   uint32_t num_outputs = _mesa_bitcount_64(brw->fragment_program->Base.InputsRead);
+   /* BRW_NEW_VARYING_MAP_GEOM_OUT */
+   const struct brw_varying_map *geom_varying_map = &brw->varying_map_geom_out;
+   /* CACHE_NEW_WM_PROG */
+   const struct brw_varying_map *frag_varying_map =
+      &brw->wm.prog_data->input_varying_map;
+   uint32_t num_outputs = frag_varying_map->num_indices;
    /* _NEW_LIGHT */
    bool shade_model_flat = ctx->Light.ShadeModel == GL_FLAT;
    uint32_t dw1, dw10, dw11;
    int i;
    int attr = 0, input_index = 0;
    int urb_entry_read_offset = 1;
-   uint16_t attr_overrides[VARYING_SLOT_MAX];
+   uint16_t attr_overrides[16];
    /* _NEW_BUFFERS */
    bool render_to_fbo = _mesa_is_user_fbo(ctx->DrawBuffer);
    uint32_t point_sprite_origin;
@@ -70,6 +74,7 @@ upload_sbe_state(struct brw_context *brw)
     */
    uint32_t max_source_attr = 0;
    for (; attr < VARYING_SLOT_MAX; attr++) {
+      /* BRW_NEW_FRAGMENT_PROGRAM */
       enum glsl_interp_qualifier interp_qualifier =
          brw->fragment_program->InterpQualifier[attr];
       bool is_gl_Color = attr == VARYING_SLOT_COL0 || attr == VARYING_SLOT_COL1;
@@ -91,21 +96,25 @@ upload_sbe_state(struct brw_context *brw)
           (shade_model_flat && is_gl_Color &&
            interp_qualifier == INTERP_QUALIFIER_NONE))
          dw11 |= (1 << input_index);
+   }
 
-      /* The hardware can only do the overrides on 16 overrides at a
-       * time, and the other up to 16 have to be lined up so that the
-       * input index = the output index.  We'll need to do some
-       * tweaking to make sure that's the case.
-       */
-      assert(input_index < 16 || attr == input_index);
-
-      /* BRW_NEW_VARYING_MAP_GEOM_OUT | _NEW_LIGHT | _NEW_PROGRAM */
-      attr_overrides[input_index++] =
-         get_attr_override(&brw->varying_map_geom_out,
-			   urb_entry_read_offset, attr,
+   /* The hardware can only override 16 attributes (either the first 16 or the
+    * second 16).  We always do the first 16.
+    */
+   for (i = 0; i < 16; i++) {
+      /* _NEW_LIGHT | _NEW_PROGRAM */
+      attr_overrides[i] =
+         get_attr_override(geom_varying_map, frag_varying_map,
+                           urb_entry_read_offset, i,
                            ctx->VertexProgram._TwoSideEnabled,
                            &max_source_attr);
    }
+
+   /* The remaining attributes will get passed straight through.  Verify that
+    * the input and output locations line up for these attributes.
+    */
+   assert(upper_half_attrs_aligned(geom_varying_map, frag_varying_map,
+                                   urb_entry_read_offset));
 
    /* From the Ivy Bridge PRM, Volume 2, Part 1, documentation for
     * 3DSTATE_SBE DWord 1 bits 15:11, "Vertex URB Entry Read Length":
@@ -121,9 +130,6 @@ upload_sbe_state(struct brw_context *brw)
    uint32_t urb_entry_read_length = ALIGN(max_source_attr + 1, 2) / 2;
    dw1 |= urb_entry_read_length << GEN7_SBE_URB_ENTRY_READ_LENGTH_SHIFT |
           urb_entry_read_offset << GEN7_SBE_URB_ENTRY_READ_OFFSET_SHIFT;
-
-   for (; input_index < VARYING_SLOT_MAX; input_index++)
-      attr_overrides[input_index] = 0;
 
    BEGIN_BATCH(14);
    OUT_BATCH(_3DSTATE_SBE << 16 | (14 - 2));
@@ -310,7 +316,7 @@ const struct brw_tracked_state gen7_sf_state = {
 		_NEW_POINT |
                 _NEW_MULTISAMPLE),
       .brw   = BRW_NEW_CONTEXT,
-      .cache = CACHE_NEW_VS_PROG
+      .cache = CACHE_NEW_VS_PROG | CACHE_NEW_WM_PROG
    },
    .emit = upload_sf_state,
 };

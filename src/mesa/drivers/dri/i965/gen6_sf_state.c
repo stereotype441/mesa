@@ -53,28 +53,35 @@
  * 256-bit increments.
  */
 uint32_t
-get_attr_override(const struct brw_varying_map *varying_map,
-                  int urb_entry_read_offset, int fs_attr, bool two_side_color,
-                  uint32_t *max_source_attr)
+get_attr_override(const struct brw_varying_map *geom_varying_map,
+                  const struct brw_varying_map *frag_varying_map,
+                  int urb_entry_read_offset, int frag_index,
+                  bool two_side_color, uint32_t *max_source_attr)
 {
+   int fs_attr = frag_varying_map->index_to_varying[frag_index];
    if (fs_attr == VARYING_SLOT_POS) {
       /* This attribute will be overwritten by the fragment shader's
        * interpolation code (see emit_interp() in brw_wm_fp.c), so just let it
        * reference the first available attribute.
        */
       return 0;
+   } else if (fs_attr == BRW_VARYING_SLOT_COUNT) {
+      /* This attribute will not be used by the fragment shader, so just let
+       * it reference the first available attribute.
+       */
+      return 0;
    }
 
    /* Find the index within the VUE for this attribute. */
-   int index = varying_map->varying_to_index[fs_attr];
+   int index = geom_varying_map->varying_to_index[fs_attr];
 
    /* If there was only a back color written but not front, use back
     * as the color instead of undefined
     */
    if (index == -1 && fs_attr == VARYING_SLOT_COL0)
-      index = varying_map->varying_to_index[VARYING_SLOT_BFC0];
+      index = geom_varying_map->varying_to_index[VARYING_SLOT_BFC0];
    if (index == -1 && fs_attr == VARYING_SLOT_COL1)
-      index = varying_map->varying_to_index[VARYING_SLOT_BFC1];
+      index = geom_varying_map->varying_to_index[VARYING_SLOT_BFC1];
 
    if (index == -1) {
       /* This attribute does not exist in the VUE--that means that the vertex
@@ -107,10 +114,10 @@ get_attr_override(const struct brw_varying_map *varying_map,
     * do back-facing swizzling.
     */
    bool swizzling = two_side_color &&
-      ((varying_map->index_to_varying[index] == VARYING_SLOT_COL0 &&
-        varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC0) ||
-       (varying_map->index_to_varying[index] == VARYING_SLOT_COL1 &&
-        varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC1));
+      ((geom_varying_map->index_to_varying[index] == VARYING_SLOT_COL0 &&
+        geom_varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC0) ||
+       (geom_varying_map->index_to_varying[index] == VARYING_SLOT_COL1 &&
+        geom_varying_map->index_to_varying[index+1] == VARYING_SLOT_BFC1));
 
    /* Update max_source_attr.  If swizzling, the SF will read this index + 1. */
    if (*max_source_attr < source_attr + swizzling)
@@ -124,9 +131,56 @@ get_attr_override(const struct brw_varying_map *varying_map,
    return source_attr;
 }
 
+
+/**
+ * Debug check: verify that the "upper halves" (the last 16 attributes) match
+ * between geom_varying_map and frag_varying_map.  These are attributes that
+ * we can't override using the SF/SBE unit; we have no choice but to just pass
+ * them straight through.
+ */
+bool
+upper_half_attrs_aligned(const struct brw_varying_map *geom_varying_map,
+                         const struct brw_varying_map *frag_varying_map,
+                         int urb_entry_read_offset)
+{
+   for (int i = 16; i < 32; i++) {
+      /* If the fragment shader doesn't consume this attribute, we don't care
+       * about it.
+       */
+      if (frag_varying_map->index_to_varying[i] == BRW_VARYING_SLOT_COUNT)
+         continue;
+
+      /* Since we can't override this attribute, the fragment shader had
+       * better expect whatever is in the geometry output VUE (accounting for
+       * urb_entry_read_offset).
+       */
+      if (frag_varying_map->index_to_varying[i] !=
+          geom_varying_map->index_to_varying[i + 2 * urb_entry_read_offset])
+         return false;
+
+      /* Since we can't override this attribute, it had better not be front or
+       * back color, because those require swizzling in two-sided color mode.
+       */
+      int varying = geom_varying_map->index_to_varying[i];
+      switch (varying) {
+      case VARYING_SLOT_COL0:
+      case VARYING_SLOT_COL1:
+      case VARYING_SLOT_BFC0:
+      case VARYING_SLOT_BFC1:
+         return false;
+      default:
+         break;
+      }
+   }
+
+   return true;
+}
+
+
 static void
 upload_sf_state(struct brw_context *brw)
 {
+#if 0
    struct gl_context *ctx = &brw->ctx;
    /* BRW_NEW_FRAGMENT_PROGRAM */
    uint32_t num_outputs = _mesa_bitcount_64(brw->fragment_program->Base.InputsRead);
@@ -357,6 +411,7 @@ upload_sf_state(struct brw_context *brw)
    OUT_BATCH(0); /* wrapshortest enables 0-7 */
    OUT_BATCH(0); /* wrapshortest enables 8-15 */
    ADVANCE_BATCH();
+#endif
 }
 
 const struct brw_tracked_state gen6_sf_state = {

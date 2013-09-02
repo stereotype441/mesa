@@ -259,9 +259,14 @@ void gen7_init_vtable_sampler_functions(struct brw_context *brw);
 
 /* gen6_sf_state.c */
 uint32_t
-get_attr_override(const struct brw_varying_map *varying_map,
-                  int urb_entry_read_offset, int fs_attr, bool two_side_color,
-                  uint32_t *max_source_attr);
+get_attr_override(const struct brw_varying_map *geom_varying_map,
+                  const struct brw_varying_map *frag_varying_map,
+                  int urb_entry_read_offset, int frag_index,
+                  bool two_side_color, uint32_t *max_source_attr);
+bool
+upper_half_attrs_aligned(const struct brw_varying_map *geom_varying_map,
+                         const struct brw_varying_map *frag_varying_map,
+                         int urb_entry_read_offset);
 
 /* brw_vs_surface_state.c */
 void
