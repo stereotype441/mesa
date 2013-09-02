@@ -300,7 +300,6 @@ public:
    void setup_payload_gen4();
    void setup_payload_gen6();
    void assign_curb_setup();
-   void calculate_urb_setup();
    void assign_urb_setup();
    bool assign_regs();
    void assign_regs_trivial();
@@ -454,11 +453,6 @@ public:
    int first_non_payload_grf;
    /** Either BRW_MAX_GRF or GEN7_MRF_HACK_START */
    int max_grf;
-
-   /**
-    * Map relating varyings to their location within the fs payload.
-    */
-   struct brw_varying_map input_varying_map;
 
    fs_reg *fp_temp_regs;
    fs_reg *fp_input_regs;

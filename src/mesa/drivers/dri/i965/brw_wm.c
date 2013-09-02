@@ -171,6 +171,9 @@ bool do_wm_prog(struct brw_context *brw,
       brw_compute_barycentric_interp_modes(brw, c->key.flat_shade,
                                            &fp->program);
 
+   /* Each attribute is 4 setup channels, each of which is half a reg. */
+   c->prog_data.urb_read_length = c->key.input_varying_map.num_indices * 2;
+
    program = brw_wm_fs_emit(brw, c, &fp->program, prog, &program_size);
    if (program == NULL)
       return false;
@@ -471,6 +474,10 @@ static void brw_wm_populate_key( struct brw_context *brw,
 
    /* The unique fragment program ID */
    key->program_string_id = fp->id;
+
+   brw_calculate_fs_input_varying_map(brw, &key->input_varying_map,
+                                      fp->program.Base.InputsRead,
+                                      key->input_slots_valid);
 }
 
 

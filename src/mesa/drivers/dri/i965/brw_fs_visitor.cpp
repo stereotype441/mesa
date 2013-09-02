@@ -2159,10 +2159,11 @@ fs_visitor::emit_dummy_fs()
 struct brw_reg
 fs_visitor::interp_reg(int location, int channel)
 {
-   int regnr = input_varying_map.varying_to_index[location] * 2 + channel / 2;
+   int regnr = c->key.input_varying_map.varying_to_index[location] * 2 +
+      channel / 2;
    int stride = (channel & 1) * 4;
 
-   assert(input_varying_map.varying_to_index[location] != -1);
+   assert(c->key.input_varying_map.varying_to_index[location] != -1);
 
    return brw_vec1_grf(regnr, stride);
 }

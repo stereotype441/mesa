@@ -58,6 +58,11 @@
 #define AA_ALWAYS    2
 
 struct brw_wm_prog_key {
+   /**
+    * Map relating varyings to their location within the fs payload.
+    */
+   struct brw_varying_map input_varying_map;
+
    uint8_t iz_lookup;
    GLuint stats_wm:1;
    GLuint flat_shade:1;
@@ -116,5 +121,11 @@ void brw_wm_debug_recompile(struct brw_context *brw,
 bool brw_wm_prog_data_compare(const void *a, const void *b,
                               int aux_size, const void *key);
 void brw_wm_prog_data_free(const void *in_prog_data);
+
+void
+brw_calculate_fs_input_varying_map(const struct brw_context *brw,
+                                   struct brw_varying_map *input_varying_map,
+                                   GLbitfield64 inputs_read,
+                                   GLbitfield64 input_slots_valid);
 
 #endif

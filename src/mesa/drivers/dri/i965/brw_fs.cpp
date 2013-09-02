@@ -1004,7 +1004,7 @@ fs_visitor::emit_general_interpolation(ir_variable *ir)
    int location = ir->location;
    for (unsigned int i = 0; i < array_elements; i++) {
       for (unsigned int j = 0; j < type->matrix_columns; j++) {
-	 if (input_varying_map.varying_to_index[location] == -1) {
+	 if (c->key.input_varying_map.varying_to_index[location] == -1) {
 	    /* If there's no incoming setup data for this slot, don't
 	     * emit interpolation for it.
 	     */
@@ -1228,15 +1228,18 @@ fs_visitor::assign_curb_setup()
 }
 
 void
-fs_visitor::calculate_urb_setup()
+brw_calculate_fs_input_varying_map(const struct brw_context *brw,
+                                   struct brw_varying_map *input_varying_map,
+                                   GLbitfield64 inputs_read,
+                                   GLbitfield64 input_slots_valid)
 {
-   brw_init_varying_map(&input_varying_map, fp->Base.InputsRead);
+   brw_init_varying_map(input_varying_map, inputs_read);
 
    /* Figure out where each of the incoming setup attributes lands. */
    if (brw->gen >= 6) {
       for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
-	 if (fp->Base.InputsRead & BITFIELD64_BIT(i)) {
-            assign_varying_index(&input_varying_map, i);
+	 if (inputs_read & BITFIELD64_BIT(i)) {
+            assign_varying_index(input_varying_map, i);
 	 }
       }
    } else {
@@ -1246,7 +1249,7 @@ fs_visitor::calculate_urb_setup()
          if (i == VARYING_SLOT_PSIZ)
             continue;
 
-	 if (c->key.input_slots_valid & BITFIELD64_BIT(i)) {
+	 if (input_slots_valid & BITFIELD64_BIT(i)) {
 	    /* The back color slot is skipped when the front color is
 	     * also written to.  In addition, some slots can be
 	     * written in the vertex shader and not read in the
@@ -1254,9 +1257,9 @@ fs_visitor::calculate_urb_setup()
 	     * incremented, mapped or not.
 	     */
 	    if (_mesa_varying_slot_in_fs((gl_varying_slot) i))
-               assign_varying_index(&input_varying_map, i);
+               assign_varying_index(input_varying_map, i);
             else
-               input_varying_map.num_indices++;
+               input_varying_map->num_indices++;
 	 }
       }
 
@@ -1266,12 +1269,9 @@ fs_visitor::calculate_urb_setup()
        *
        * See compile_sf_prog() for more info.
        */
-      if (fp->Base.InputsRead & BITFIELD64_BIT(VARYING_SLOT_PNTC))
-         assign_varying_index(&input_varying_map, VARYING_SLOT_PNTC);
+      if (inputs_read & BITFIELD64_BIT(VARYING_SLOT_PNTC))
+         assign_varying_index(input_varying_map, VARYING_SLOT_PNTC);
    }
-
-   /* Each attribute is 4 setup channels, each of which is half a reg. */
-   c->prog_data.urb_read_length = input_varying_map.num_indices * 2;
 }
 
 void
@@ -2916,7 +2916,6 @@ fs_visitor::run()
       if (INTEL_DEBUG & DEBUG_SHADER_TIME)
          emit_shader_time_begin();
 
-      calculate_urb_setup();
       if (brw->gen < 6)
 	 emit_interpolation_setup_gen4();
       else
@@ -3181,6 +3180,10 @@ brw_fs_precompile(struct gl_context *ctx, struct gl_shader_program *prog)
    key.nr_color_regions = 1;
 
    key.program_string_id = bfp->id;
+
+   brw_calculate_fs_input_varying_map(brw, &key.input_varying_map,
+                                      fp->Base.InputsRead,
+                                      key.input_slots_valid);
 
    uint32_t old_prog_offset = brw->wm.prog_offset;
    struct brw_wm_prog_data *old_prog_data = brw->wm.prog_data;
