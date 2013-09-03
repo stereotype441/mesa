@@ -1237,11 +1237,40 @@ fs_visitor::calculate_urb_setup()
    int urb_next = 0;
    /* Figure out where each of the incoming setup attributes lands. */
    if (brw->gen >= 6) {
-      for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
-	 if (fp->Base.InputsRead & BRW_FS_VARYING_INPUT_MASK &
-             BITFIELD64_BIT(i)) {
-	    c->prog_data.urb_setup[i] = urb_next++;
-	 }
+      if (_mesa_bitcount_64(fp->Base.InputsRead &
+                            BRW_FS_VARYING_INPUT_MASK) <= 16) {
+         /* The SF/SBE pipeline stage can do arbitrary rearrangement of the
+          * first 16 varying inputs, so we can put them wherever we want.
+          * Just put them in order.
+          */
+         for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
+            if (fp->Base.InputsRead & BRW_FS_VARYING_INPUT_MASK &
+                BITFIELD64_BIT(i)) {
+               c->prog_data.urb_setup[i] = urb_next++;
+            }
+         }
+      } else {
+         /* We have enough input varyings that the SF/SBE pipeline stage can't
+          * arbitrarily rearrange them to suit our whim; we have to put them
+          * in an order that matches the output of the previous pipeline stage
+          * (geometry or vertex shader).
+          */
+         struct brw_vue_map prev_stage_vue_map;
+         brw_compute_vue_map(brw, &prev_stage_vue_map,
+                             c->key.input_slots_valid);
+         int first_slot = 2 * BRW_SF_URB_ENTRY_READ_OFFSET;
+         assert(prev_stage_vue_map.num_slots <= first_slot + 32);
+         for (int slot = first_slot; slot < prev_stage_vue_map.num_slots;
+              slot++) {
+            int varying = prev_stage_vue_map.slot_to_varying[slot];
+            if (varying != BRW_VARYING_SLOT_COUNT &&
+                (fp->Base.InputsRead & BRW_FS_VARYING_INPUT_MASK &
+                 BITFIELD64_BIT(varying))) {
+               c->prog_data.urb_setup[varying] = slot - first_slot;
+               urb_next = MAX2(urb_next, slot + 1);
+            }
+         }
+         urb_next = prev_stage_vue_map.num_slots - first_slot;
       }
    } else {
       /* FINISHME: The sf doesn't map VS->FS inputs for us very well. */
@@ -3149,7 +3178,8 @@ brw_fs_precompile(struct gl_context *ctx, struct gl_shader_program *prog)
       key.iz_lookup |= IZ_DEPTH_WRITE_ENABLE_BIT;
    }
 
-   if (brw->gen < 6)
+   if (brw->gen < 6 || _mesa_bitcount_64(fp->Base.InputsRead &
+                                         BRW_FS_VARYING_INPUT_MASK) > 16)
       key.input_slots_valid = fp->Base.InputsRead | VARYING_BIT_POS;
 
    key.clamp_fragment_color = ctx->API == API_OPENGL_COMPAT;
