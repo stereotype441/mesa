@@ -54,6 +54,7 @@ tests_uniform_initializer_test_SOURCES =		\
 	$(top_srcdir)/src/mesa/main/imports.c		\
 	$(top_srcdir)/src/mesa/program/prog_hash_table.c\
 	$(top_srcdir)/src/mesa/program/symbol_table.c	\
+	$(GLSL_SRCDIR)/standalone_scaffolding.cpp \
 	tests/copy_constant_to_storage_tests.cpp	\
 	tests/set_uniform_initializer_tests.cpp		\
 	tests/uniform_initializer_utils.cpp
