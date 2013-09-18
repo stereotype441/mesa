@@ -97,23 +97,8 @@ _mesa_ast_array_index_to_hir(void *mem_ctx,
 			  type_name);
       }
 
-      if (array->type->is_array()) {
-	 /* If the array is a variable dereference, it dereferences the
-	  * whole array, by definition.  Use this to get the variable.
-	  *
-	  * FINISHME: Should some methods for getting / setting / testing
-	  * FINISHME: array access limits be added to ir_dereference?
-	  */
-	 ir_variable *const v = array->whole_variable_referenced();
-	 if ((v != NULL) && (unsigned(idx) > v->max_array_access)) {
-	    v->max_array_access = idx;
-
-	    /* Check whether this access will, as a side effect, implicitly
-	     * cause the size of a built-in array to be too large.
-	     */
-	    check_builtin_array_max_size(v->name, idx+1, loc, state);
-	 }
-      }
+      if (array->type->is_array())
+         array->update_max_array_access(idx, &loc, state);
    } else if (const_index == NULL && array->type->is_array()) {
       if (array->type->array_size() == 0) {
 	 _mesa_glsl_error(&loc, state, "unsized array index must be constant");

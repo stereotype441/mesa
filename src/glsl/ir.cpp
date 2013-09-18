@@ -25,6 +25,7 @@
 #include "ir.h"
 #include "ir_visitor.h"
 #include "glsl_types.h"
+#include "ast.h"
 
 ir_rvalue::ir_rvalue()
 {
@@ -1295,6 +1296,21 @@ ir_dereference_variable::ir_dereference_variable(ir_variable *var)
 }
 
 
+void
+ir_dereference_variable::update_max_array_access(unsigned idx, YYLTYPE *loc,
+                                                 struct _mesa_glsl_parse_state *state)
+{
+   if (idx > this->var->max_array_access) {
+      this->var->max_array_access = idx;
+
+      /* Check whether this access will, as a side effect, implicitly cause
+       * the size of a built-in array to be too large.
+       */
+      check_builtin_array_max_size(this->var->name, idx+1, *loc, state);
+   }
+}
+
+
 ir_dereference_array::ir_dereference_array(ir_rvalue *value,
 					   ir_rvalue *array_index)
 {
@@ -1861,6 +1877,14 @@ ir_rvalue::as_rvalue_to_saturate()
    }
 
    return NULL;
+}
+
+
+void
+ir_rvalue::update_max_array_access(unsigned, YYLTYPE *,
+                                   struct _mesa_glsl_parse_state *)
+{
+   /* Nothing to do for a general rvalue. */
 }
 
 
