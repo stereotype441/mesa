@@ -36,6 +36,10 @@
 #include "ir_hierarchical_visitor.h"
 #include "main/mtypes.h"
 
+
+struct YYLTYPE;
+
+
 #ifdef __cplusplus
 
 /**
@@ -259,6 +263,18 @@ public:
     * Allocation will be performed with 'mem_ctx' as ralloc owner.
     */
    static ir_rvalue *error_value(void *mem_ctx);
+
+   /**
+    * If this rvalue is a reference to an array for which we are tracking the
+    * max array element accessed, track that the given element has been
+    * accessed.  Otherwise do nothing.
+    *
+    * This function also checks whether the array is a built-in array whose
+    * maximum size is too small to accommodate the given index, and if so uses
+    * loc and state to report the error.
+    */
+   virtual void update_max_array_access(unsigned idx, YYLTYPE *loc,
+                                        struct _mesa_glsl_parse_state *state);
 
 protected:
    ir_rvalue();
@@ -1809,6 +1825,8 @@ public:
    }
 
    virtual ir_visitor_status accept(ir_hierarchical_visitor *);
+   virtual void update_max_array_access(unsigned idx, YYLTYPE *loc,
+                                        struct _mesa_glsl_parse_state *state);
 
    /**
     * Object being dereferenced.
