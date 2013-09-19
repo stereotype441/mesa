@@ -1954,6 +1954,8 @@ public:
    }
 
    virtual ir_visitor_status accept(ir_hierarchical_visitor *);
+   virtual void update_max_array_access(unsigned idx, YYLTYPE *loc,
+                                        struct _mesa_glsl_parse_state *state);
 
    ir_rvalue *record;
    const char *field;

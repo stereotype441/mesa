@@ -1367,6 +1367,42 @@ ir_dereference_record::ir_dereference_record(ir_variable *var,
    this->type = this->record->type->field_type(field);
 }
 
+
+void
+ir_dereference_record::update_max_array_access(unsigned idx, YYLTYPE *loc,
+                                               struct _mesa_glsl_parse_state *state)
+{
+   /* There are two possibilities we need to consider:
+    *
+    * - Accessing an element of an array that is a member of a named interface
+    *   block (e.g. ifc.foo[i])
+    *
+    * - Accessing an element of an array that is a member of a named interface
+    *   block array (e.g. ifc[j].foo[i]).
+    */
+   ir_dereference_variable *deref_var = this->record->as_dereference_variable();
+   if (deref_var == NULL) {
+      if (ir_dereference_array *deref_array =
+          this->record->as_dereference_array()) {
+         deref_var = deref_array->array->as_dereference_variable();
+      }
+   }
+
+   if (deref_var != NULL) {
+      unsigned field_index = this->record->type->field_index(this->field);
+      assert(field_index < deref_var->var->get_interface_type()->length);
+      if (idx > deref_var->var->max_ifc_array_access[field_index]) {
+         deref_var->var->max_ifc_array_access[field_index] = idx;
+
+         /* Check whether this access will, as a side effect, implicitly cause
+          * the size of a built-in array to be too large.
+          */
+         check_builtin_array_max_size(this->field, idx+1, *loc, state);
+      }
+   }
+}
+
+
 bool
 ir_dereference::is_lvalue() const
 {
