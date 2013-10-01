@@ -256,3 +256,12 @@ symbol_table_entry *glsl_symbol_table::get_entry(const char *name)
    return (symbol_table_entry *)
       _mesa_symbol_table_find_symbol(table, -1, name);
 }
+
+void
+glsl_symbol_table::remove_variable(const char *name)
+{
+   symbol_table_entry *entry = get_entry(name);
+   if (entry != NULL) {
+      entry->v = NULL;
+   }
+}

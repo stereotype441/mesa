@@ -121,6 +121,13 @@ public:
                                   enum ir_variable_mode mode);
    /*@}*/
 
+   /**
+    * Remove a variable from the symbol table.  This is necessary when
+    * gl_PerVertex is redeclared, to ensure that previously-available built-in
+    * variables are no longer available.
+    */
+   void remove_variable(const char *name);
+
 private:
    symbol_table_entry *get_entry(const char *name);
 
