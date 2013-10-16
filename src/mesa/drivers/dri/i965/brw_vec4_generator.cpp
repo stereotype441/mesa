@@ -876,7 +876,23 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
       }
       break;
    case BRW_OPCODE_ADD:
-      brw_ADD(p, dst, src[0], src[1]);
+      if (dst.width == BRW_WIDTH_4) {
+         /* This happens in the geometry shader primitive ID workaround for
+          * "dual instanced" geometry shaders, since they use attributes
+          * (including gl_PrimitiveID) that are vec4's.  Since the exec width
+          * is only 4, it's essential that the caller set force_writemask_all
+          * in order to make sure the MOV happens regardless of which channels
+          * are enabled.
+          */
+         assert(inst->force_writemask_all);
+
+         /* To satisfy register region restrictions, the source registers need
+          * a stride of <4;4,1>.
+          */
+         brw_ADD(p, dst, stride(src[0], 4, 4, 1), stride(src[1], 4, 4, 1));
+      } else {
+         brw_ADD(p, dst, src[0], src[1]);
+      }
       break;
    case BRW_OPCODE_MUL:
       brw_MUL(p, dst, src[0], src[1]);

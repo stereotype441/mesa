@@ -149,7 +149,15 @@ vec4_gs_visitor::primitive_id_workaround()
    this->current_annotation = "primitive ID workaround";
    dst_reg dst(ATTR, VARYING_SLOT_PRIMITIVE_ID);
    dst.type = BRW_REGISTER_TYPE_UD;
-   emit(ADD(dst, src_reg(dst), src_reg(primitive_id_offset)));
+   vec4_instruction *inst =
+      emit(ADD(dst, src_reg(dst), src_reg(primitive_id_offset)));
+
+   /* In dual instanced dispatch mode, the primitive ID has a width of 4, so
+    * we need to make sure the ADD happens regardless of which channels are
+    * enabled.
+    */
+   inst->force_writemask_all = true;
+
    this->current_annotation = NULL;
 }
 
