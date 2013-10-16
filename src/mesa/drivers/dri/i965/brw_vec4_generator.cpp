@@ -858,7 +858,22 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
 
    switch (inst->opcode) {
    case BRW_OPCODE_MOV:
-      brw_MOV(p, dst, src[0]);
+      if (dst.width == BRW_WIDTH_4) {
+         /* This happens in attribute fixups for "dual instanced" geometry
+          * shaders, since they use attributes that are vec4's.  Since the
+          * exec width is only 4, it's essential that the caller set
+          * force_writemask_all in order to make sure the MOV happens
+          * regardless of which channels are enabled.
+          */
+         assert(inst->force_writemask_all);
+
+         /* To satisfy register region restrictions, the source needs a stride
+          * of <4;4,1>.
+          */
+         brw_MOV(p, dst, stride(src[0], 4, 4, 1));
+      } else {
+         brw_MOV(p, dst, src[0]);
+      }
       break;
    case BRW_OPCODE_ADD:
       brw_ADD(p, dst, src[0], src[1]);
