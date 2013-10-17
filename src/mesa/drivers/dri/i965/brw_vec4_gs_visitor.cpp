@@ -127,6 +127,23 @@ vec4_gs_visitor::setup_payload()
 }
 
 
+/**
+ * Emit an instruction that is involved in fixing up geometry shader input
+ * attributes.
+ *
+ * In DUAL_INSTANCED dispatch mode, attributes are vec4's, so we need to set
+ * force_writemask_all in order to make sure the fixup occurs regardless of
+ * which channels are enabled.
+ */
+void
+vec4_gs_visitor::emit_attr_fixup(vec4_instruction *inst)
+{
+   emit(inst);
+   if (c->prog_data.dual_instanced_dispatch)
+      inst->force_writemask_all = true;
+}
+
+
 void
 vec4_gs_visitor::emit_prolog()
 {
@@ -181,13 +198,7 @@ vec4_gs_visitor::emit_prolog()
          src_reg src(dst);
          dst.writemask = WRITEMASK_X;
          src.swizzle = BRW_SWIZZLE_WWWW;
-         inst = emit(MOV(dst, src));
-
-         /* In dual instanced dispatch mode, dst has a width of 4, so we need
-          * to make sure the MOV happens regardless of which channels are
-          * enabled.
-          */
-         inst->force_writemask_all = true;
+         emit_attr_fixup(MOV(dst, src));
       }
    }
 
