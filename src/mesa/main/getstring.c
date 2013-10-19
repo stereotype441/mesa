@@ -120,7 +120,7 @@ _mesa_GetString( GLenum name )
       case GL_VERSION:
          return (const GLubyte *) ctx->VersionString;
       case GL_EXTENSIONS:
-         if (ctx->API == API_OPENGL_CORE) {
+         if (0 && ctx->API == API_OPENGL_CORE) {
             _mesa_error(ctx, GL_INVALID_ENUM, "glGetString(GL_EXTENSIONS)");
             return (const GLubyte *) 0;
          }
