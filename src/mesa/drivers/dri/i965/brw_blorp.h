@@ -54,6 +54,9 @@ void
 brw_blorp_resolve_color(struct brw_context *brw,
                         struct intel_mipmap_tree *mt);
 
+void
+brw_blorp_cms_to_ums(struct brw_context *brw, struct intel_mipmap_tree *mt);
+
 #ifdef __cplusplus
 } /* end extern "C" */
 
@@ -355,6 +358,17 @@ public:
 
    virtual uint32_t get_wm_prog(struct brw_context *brw,
                                 brw_blorp_prog_data **prog_data) const;
+
+   /**
+    * Force the destination to use uncompressed multisampling
+    * (INTEL_MSAA_LAYOUT_UMS) instead of compressed multisampling.  This is
+    * used when we are converting a framebuffer from an uncompressed to a
+    * compressed layout.
+    */
+   void force_dst_to_ums()
+   {
+      this->dst.msaa_layout = INTEL_MSAA_LAYOUT_UMS;
+   }
 
 private:
    brw_blorp_blit_prog_key wm_prog_key;

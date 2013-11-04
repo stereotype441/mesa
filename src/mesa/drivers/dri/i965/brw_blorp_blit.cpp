@@ -167,6 +167,57 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
    intel_miptree_slice_set_needs_hiz_resolve(dst_mt, dst_level, dst_layer);
 }
 
+
+/**
+ * Convert a multisampled framebuffer from compressed layout
+ * (INTEL_MSAA_LAYOUT_CMS) to uncompressed layout (INTEL_MSAA_LAYOUT_UMS).
+ *
+ * The conversion happens in place--no extra buffer needs to be allocated.
+ */
+void
+brw_blorp_cms_to_ums(struct brw_context *brw, struct intel_mipmap_tree *mt)
+{
+   assert(mt->msaa_layout == INTEL_MSAA_LAYOUT_CMS);
+
+   /* Multisampled buffers aren't mipmapped, so the code below only has to fix
+    * up miplevel 0.
+    */
+   assert(mt->first_level == 0 && mt->last_level == 0);
+
+   /* Cubemaps can't be multisampled, so the code below doesn't have to
+    * correct by a factor of 6 when counting layers.
+    */
+   assert(mt->target != GL_TEXTURE_CUBE_MAP);
+
+   for (unsigned layer = 0; layer < mt->logical_depth0; layer++) {
+      /* Note: normally blitting from one miptree to itself is undefined if
+       * the source and destination rectangles overlap, because (a) the 3D
+       * pipeline doesn't make any guarantee as to what order the pixels are
+       * processed in, and (b) the source and destination rectangles are
+       * accessed through different (non-coherent) caches.  However, in this
+       * case it's ok, since the source and destination rectangles are
+       * identical, so (a) order doesn't matter because every pixel is copied
+       * to itself, and (b) cache coherency isn't a problem because every
+       * pixel is read exactly once and then written exactly once.
+       */
+      brw_blorp_blit_params params(brw,
+                                   mt, 0, layer,
+                                   mt, 0, layer,
+                                   0, 0,
+                                   mt->logical_width0, mt->logical_height0,
+                                   0, 0,
+                                   mt->logical_width0, mt->logical_height0,
+                                   GL_NEAREST, false, false);
+      params.force_dst_to_ums();
+      brw_blorp_exec(brw, &params);
+   }
+
+   intel_miptree_release(&mt->mcs_mt);
+   mt->msaa_layout = INTEL_MSAA_LAYOUT_UMS;
+   mt->mcs_state = INTEL_MCS_STATE_NONE;
+}
+
+
 static void
 do_blorp_blit(struct brw_context *brw, GLbitfield buffer_bit,
               struct intel_renderbuffer *src_irb,

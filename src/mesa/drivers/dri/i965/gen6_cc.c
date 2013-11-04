@@ -30,10 +30,12 @@
 #include "brw_defines.h"
 #include "brw_util.h"
 #include "intel_batchbuffer.h"
+#include "intel_fbo.h"
 #include "main/macros.h"
 #include "main/enums.h"
 #include "main/glformats.h"
 #include "main/stencil.h"
+
 
 static void
 gen6_upload_blend_state(struct brw_context *brw)

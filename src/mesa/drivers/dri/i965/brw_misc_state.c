@@ -36,6 +36,7 @@
 #include "intel_mipmap_tree.h"
 #include "intel_regions.h"
 
+#include "brw_blorp.h"
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
@@ -1081,3 +1082,106 @@ const struct brw_tracked_state brw_state_base_address = {
    },
    .emit = upload_state_base_address
 };
+
+
+/**
+ * Return true if the color buffer indicated by \c b needs the CMS blending
+ * workaround applied to it.
+ *
+ * When the CMS MSAA layout is in use, the hardware's pixel backend always
+ * seems to write new color values into the buffer correctly, but it doesn't
+ * always read old values from the buffer correctly.  Therefore, whenever the
+ * blending/logic-op mode causes the final value of covered samples to depend
+ * on the old values of those samples, we need to do a workaround.
+ */
+static inline bool
+cms_blending_workaround_needed(struct brw_context *brw, int b)
+{
+   struct gl_context *ctx = &brw->ctx;
+   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[b];
+   struct intel_renderbuffer *irb = intel_renderbuffer(rb);
+   if (irb->mt->msaa_layout != INTEL_MSAA_LAYOUT_CMS)
+      return false;
+
+   /* _NEW_COLOR */
+   if (ctx->Color.ColorLogicOpEnabled) {
+      switch (ctx->Color.LogicOp) {
+      case GL_CLEAR:
+      case GL_COPY:
+      case GL_COPY_INVERTED:
+      case GL_SET:
+         /* In these modes, the final sample value depends only on the
+          * "source" value from the shader; they don't depend on the
+          * destination sample value.
+          */
+         return false;
+      default:
+         return true;
+      }
+   }
+
+   if (!(ctx->Color.BlendEnabled & (1 << b)))
+      return false;
+
+   GLenum eqRGB = ctx->Color.Blend[b].EquationRGB;
+   if (eqRGB == GL_MIN || eqRGB == GL_MAX)
+      return true;
+   switch (ctx->Color.Blend[b].DstRGB) {
+   case GL_ZERO:
+      break;
+   case GL_ONE_MINUS_DST_ALPHA:
+      /* If the buffer is missing an alpha channel, alpha is effectively
+       * always 1.0, so GL_ONE_MINUS_DST_ALPHA mode reduces to GL_ZERO mode.
+       */
+      return _mesa_base_format_has_channel(rb->_BaseFormat,
+                                           GL_TEXTURE_ALPHA_TYPE);
+   default:
+      return true;
+   }
+
+   if (_mesa_base_format_has_channel(rb->_BaseFormat, GL_TEXTURE_ALPHA_TYPE)) {
+      GLenum eqA = ctx->Color.Blend[b].EquationA;
+      if (eqA == GL_MIN || eqA == GL_MAX)
+         return true;
+      if (ctx->Color.Blend[b].DstA != GL_ZERO)
+         return true;
+   }
+
+   return false;
+}
+
+
+/**
+ * When the CMS MSAA layout is in use, the hardware's pixel backend always
+ * seems to write new color values into the buffer correctly, but it doesn't
+ * always read old values from the buffer correctly.
+ *
+ * Therefore, if we're rendering in a way that causes the pixel backend to
+ * read color values from the buffer, we need to first convert from the CMS to
+ * the UMS layout.
+ */
+void
+brw_workaround_cms_blending(struct brw_context *brw)
+{
+   struct gl_context *ctx = &brw->ctx;
+
+   if (!(brw->NewGLState & (_NEW_BUFFERS | _NEW_COLOR)))
+      return;
+
+   /* Prior to Gen7, compressed multisampling wasn't supported.  Hopefully
+    * this bug is fixed in Gen8.
+    */
+   if (brw->gen != 7)
+      return;
+
+   /* _NEW_BUFFERS */
+   int nr_draw_buffers = ctx->DrawBuffer->_NumColorDrawBuffers;
+   for (int b = 0; b < nr_draw_buffers; b++) {
+      if (!cms_blending_workaround_needed(brw, b))
+         continue;
+
+      struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[b];
+      struct intel_renderbuffer *irb = intel_renderbuffer(rb);
+      brw_blorp_cms_to_ums(brw, irb->mt);
+   }
+}

@@ -196,7 +196,7 @@ gen7_blorp_emit_surface_state(struct brw_context *brw,
    surf[3] = pitch_bytes - 1;
 
    surf[4] = gen7_surface_msaa_bits(surface->num_samples, surface->msaa_layout);
-   if (surface->mt->mcs_mt) {
+   if (surface->mt->mcs_mt && surface->msaa_layout != INTEL_MSAA_LAYOUT_UMS) {
       gen7_set_surface_mcs_info(brw, surf, wm_surf_offset, surface->mt->mcs_mt,
                                 is_render_target);
    }
