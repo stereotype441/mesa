@@ -402,6 +402,14 @@ gen7_blorp_emit_gs_disable(struct brw_context *brw,
    OUT_BATCH(0);
    ADVANCE_BATCH();
 
+   if (!brw->is_haswell && brw->gt == 2) {
+      if (brw->batch.ivbgt2_gs_flush_needed ==
+          IVBGT2_GS_FLUSH_NEEDED_BEFORE_DISABLE) {
+         gen7_emit_cs_stall_flush(brw);
+      }
+      brw->batch.ivbgt2_gs_flush_needed = IVBGT2_GS_FLUSH_NEEDED_BEFORE_ENABLE;
+   }
+
    BEGIN_BATCH(7);
    OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
    OUT_BATCH(0);

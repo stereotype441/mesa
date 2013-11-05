@@ -861,6 +861,44 @@ struct intel_sync_object {
    drm_intel_bo *bo;
 };
 
+
+/**
+ * From Graphics BSpec: 3D-Media-GPGPU Engine > 3D Pipeline Stages > Geometry
+ * > Geometry Shader > State:
+ *
+ *     "Note: Because of corruption in IVB:GT2, software needs to flush the
+ *     whole fixed function pipeline when the GS enable changes value in the
+ *     3DSTATE_GS."
+ *
+ * The hardware architects have clarified that in this context "flush the
+ * whole fixed function pipeline" means to emit a PIPE_CONTROL with the "CS
+ * Stall" bit set.
+ *
+ * This enum keeps track of the information we need to determine when a flush
+ * needs to happen.
+ */
+enum ivbgt2_gs_flush_workaround_state {
+
+   /**
+    * The pipeline has been flushed since the last 3DSTATE_GS, so no further
+    * flushing is needed right now.
+    */
+   IVBGT2_GS_FLUSH_UNNECESSARY,
+
+   /**
+    * Since the last flush, primitives have been rendered with GS enabled.  So
+    * a flush will be needed next time we want to disable the GS.
+    */
+   IVBGT2_GS_FLUSH_NEEDED_BEFORE_DISABLE,
+
+   /**
+    * Since the last flush, primitives have been rendered with GS disabled.
+    * So a flush will be needed next time we want to enable the GS.
+    */
+   IVBGT2_GS_FLUSH_NEEDED_BEFORE_ENABLE,
+};
+
+
 struct intel_batchbuffer {
    /** Current batchbuffer being queued up. */
    drm_intel_bo *bo;
@@ -869,6 +907,12 @@ struct intel_batchbuffer {
    /** BO for post-sync nonzero writes for gen6 workaround. */
    drm_intel_bo *workaround_bo;
    bool need_workaround_flush;
+
+   /**
+    * For Ivy Bridge GT2, state machine to determine whether a flush is needed
+    * before changing GS enable.  Undefined for all other platforms.
+    */
+   enum ivbgt2_gs_flush_workaround_state ivbgt2_gs_flush_needed;
 
    struct cached_batch_item *cached_items;
 

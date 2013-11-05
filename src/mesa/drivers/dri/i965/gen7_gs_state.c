@@ -81,6 +81,15 @@ upload_gs_state(struct brw_context *brw)
    gen7_upload_constant_state(brw, stage_state, active, _3DSTATE_CONSTANT_GS);
 
    if (active) {
+      if (!brw->is_haswell && brw->gt == 2) {
+         if (brw->batch.ivbgt2_gs_flush_needed ==
+             IVBGT2_GS_FLUSH_NEEDED_BEFORE_ENABLE) {
+            gen7_emit_cs_stall_flush(brw);
+         }
+         brw->batch.ivbgt2_gs_flush_needed =
+            IVBGT2_GS_FLUSH_NEEDED_BEFORE_DISABLE;
+      }
+
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
       OUT_BATCH(stage_state->prog_offset);
@@ -161,6 +170,15 @@ upload_gs_state(struct brw_context *brw)
       OUT_BATCH(dw6);
       ADVANCE_BATCH();
    } else {
+      if (!brw->is_haswell && brw->gt == 2) {
+         if (brw->batch.ivbgt2_gs_flush_needed ==
+             IVBGT2_GS_FLUSH_NEEDED_BEFORE_DISABLE) {
+            gen7_emit_cs_stall_flush(brw);
+         }
+         brw->batch.ivbgt2_gs_flush_needed =
+            IVBGT2_GS_FLUSH_NEEDED_BEFORE_ENABLE;
+      }
+
       BEGIN_BATCH(7);
       OUT_BATCH(_3DSTATE_GS << 16 | (7 - 2));
       OUT_BATCH(0); /* prog_bo */
