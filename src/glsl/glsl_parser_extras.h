@@ -256,6 +256,15 @@ struct _mesa_glsl_parse_state {
       unsigned MaxFragmentAtomicCounters;
       unsigned MaxCombinedAtomicCounters;
       unsigned MaxAtomicBufferBindings;
+
+      /* ARB_shader_image_load_store */
+      unsigned MaxImageUnits;
+      unsigned MaxCombinedImageUnitsAndFragmentOutputs;
+      unsigned MaxImageSamples;
+      unsigned MaxVertexImageUniforms;
+      unsigned MaxGeometryImageUniforms;
+      unsigned MaxFragmentImageUniforms;
+      unsigned MaxCombinedImageUniforms;
    } Const;
 
    /**

@@ -125,6 +125,14 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
    this->Const.MaxCombinedAtomicCounters = ctx->Const.MaxCombinedAtomicCounters;
    this->Const.MaxAtomicBufferBindings = ctx->Const.MaxAtomicBufferBindings;
 
+   this->Const.MaxImageUnits = ctx->Const.MaxImageUnits;
+   this->Const.MaxCombinedImageUnitsAndFragmentOutputs = ctx->Const.MaxCombinedImageUnitsAndFragmentOutputs;
+   this->Const.MaxImageSamples = ctx->Const.MaxImageSamples;
+   this->Const.MaxVertexImageUniforms = ctx->Const.VertexProgram.MaxImageUniforms;
+   this->Const.MaxGeometryImageUniforms = ctx->Const.GeometryProgram.MaxImageUniforms;
+   this->Const.MaxFragmentImageUniforms = ctx->Const.FragmentProgram.MaxImageUniforms;
+   this->Const.MaxCombinedImageUniforms = ctx->Const.MaxCombinedImageUniforms;
+
    this->current_function = NULL;
    this->toplevel_ir = NULL;
    this->found_return = false;
