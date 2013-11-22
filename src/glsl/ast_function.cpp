@@ -93,6 +93,57 @@ prototype_string(const glsl_type *return_type, const char *name,
    return str;
 }
 
+static bool
+verify_image_parameter(YYLTYPE *loc, _mesa_glsl_parse_state *state,
+                       const ir_variable *formal, const ir_variable *actual)
+{
+   /**
+    * From the ARB_shader_image_load_store specification:
+    *
+    * "The values of image variables qualified with coherent,
+    *  volatile, restrict, readonly, or writeonly may not be passed
+    *  to functions whose formal parameters lack such
+    *  qualifiers. [...] It is legal to have additional qualifiers
+    *  on a formal parameter, but not to have fewer."
+    */
+   if (actual->image.coherent && !formal->image.coherent) {
+      _mesa_glsl_error(loc, state,
+                       "function call parameter `%s' drops "
+                       "`coherent' qualifier", formal->name);
+      return false;
+   }
+
+   if (actual->image._volatile && !formal->image._volatile) {
+      _mesa_glsl_error(loc, state,
+                       "function call parameter `%s' drops "
+                       "`volatile' qualifier", formal->name);
+      return false;
+   }
+
+   if (actual->image._restrict && !formal->image._restrict) {
+      _mesa_glsl_error(loc, state,
+                       "function call parameter `%s' drops "
+                       "`restrict' qualifier", formal->name);
+      return false;
+   }
+
+   if (actual->image.read_only && !formal->image.read_only) {
+      _mesa_glsl_error(loc, state,
+                       "function call parameter `%s' drops "
+                       "`readonly' qualifier", formal->name);
+      return false;
+   }
+
+   if (actual->image.write_only && !formal->image.write_only) {
+      _mesa_glsl_error(loc, state,
+                       "function call parameter `%s' drops "
+                       "`writeonly' qualifier", formal->name);
+      return false;
+   }
+
+   return true;
+}
+
 /**
  * Verify that 'out' and 'inout' actual parameters are lvalues.  Also, verify
  * that 'const_in' formal parameters (an extension in our IR) correspond to
@@ -178,6 +229,13 @@ verify_parameter_modes(_mesa_glsl_parse_state *state,
                return false;
             }
 	 }
+      }
+
+      if (formal->type->is_image() &&
+          actual->variable_referenced()) {
+         if (!verify_image_parameter(&loc, state, formal,
+                                     actual->variable_referenced()))
+            return false;
       }
 
       actual_ir_node  = actual_ir_node->next;
