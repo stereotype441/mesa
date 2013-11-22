@@ -1988,6 +1988,55 @@ check_resources(struct gl_context *ctx, struct gl_shader_program *prog)
    }
 }
 
+/**
+ * Validate shader image resources.
+ */
+static void
+check_image_resources(struct gl_context *ctx, struct gl_shader_program *prog)
+{
+   STATIC_ASSERT(MESA_SHADER_TYPES == 3);
+   static const char *const shader_names[MESA_SHADER_TYPES] = {
+      "vertex", "geometry", "fragment"
+   };
+   const unsigned max_images[MESA_SHADER_TYPES] = {
+      ctx->Const.VertexProgram.MaxImageUniforms,
+      ctx->Const.GeometryProgram.MaxImageUniforms,
+      ctx->Const.FragmentProgram.MaxImageUniforms
+   };
+   unsigned total_image_units = 0;
+   unsigned fragment_outputs = 0;
+
+   if (!ctx->Extensions.ARB_shader_image_load_store)
+      return;
+
+   for (unsigned i = 0; i < MESA_SHADER_TYPES; i++) {
+      struct gl_shader *sh = prog->_LinkedShaders[i];
+
+      if (sh) {
+         if (sh->NumImages > max_images[i])
+            linker_error(prog, "Too many %s shader image uniforms",
+                         shader_names[i]);
+
+         total_image_units += sh->NumImages;
+
+         if (i == MESA_SHADER_FRAGMENT) {
+            foreach_list(node, sh->ir) {
+               ir_variable *var = ((ir_instruction *)node)->as_variable();
+               if (var && var->mode == ir_var_shader_out)
+                  fragment_outputs += var->type->count_attribute_slots();
+            }
+         }
+      }
+   }
+
+   if (total_image_units > ctx->Const.MaxCombinedImageUniforms)
+      linker_error(prog, "Too many combined image uniforms");
+
+   if (total_image_units + fragment_outputs >
+       ctx->Const.MaxCombinedImageUnitsAndFragmentOutputs)
+      linker_error(prog, "Too many combined image uniforms and fragment outputs");
+}
+
 void
 link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 {
@@ -2375,6 +2424,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
    store_fragdepth_layout(prog);
 
    check_resources(ctx, prog);
+   check_image_resources(ctx, prog);
    link_check_atomic_counter_resources(ctx, prog);
 
    if (!prog->LinkStatus)
