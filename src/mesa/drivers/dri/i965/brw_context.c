@@ -429,6 +429,15 @@ brw_initialize_context_constants(struct brw_context *brw)
       ctx->Const.VertexProgram.MaxAtomicBuffers = BRW_MAX_ABO;
       ctx->Const.GeometryProgram.MaxAtomicBuffers = BRW_MAX_ABO;
       ctx->Const.MaxCombinedAtomicBuffers = 3 * BRW_MAX_ABO;
+
+      ctx->Const.FragmentProgram.MaxImageUniforms = BRW_MAX_IMAGES;
+      ctx->Const.VertexProgram.MaxImageUniforms = BRW_MAX_IMAGES;
+      ctx->Const.FragmentProgram.MaxImageUniforms = BRW_MAX_IMAGES;
+      ctx->Const.MaxImageUnits = MAX_IMAGE_UNITS;
+      ctx->Const.MaxCombinedImageUnitsAndFragmentOutputs =
+         MAX_IMAGE_UNITS + BRW_MAX_DRAW_BUFFERS;
+      ctx->Const.MaxImageSamples = 1;
+      ctx->Const.MaxCombinedImageUniforms = 3 * BRW_MAX_IMAGES;
    }
 
    /* Gen6 converts quads to polygon in beginning of 3D pipeline,
