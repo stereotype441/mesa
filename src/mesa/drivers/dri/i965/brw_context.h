@@ -345,6 +345,7 @@ struct brw_stage_prog_data {
       uint32_t gather_texture_start;
       uint32_t ubo_start;
       uint32_t abo_start;
+      uint32_t image_start;
       uint32_t shader_time_start;
       /** @} */
    } binding_table;
@@ -656,6 +657,9 @@ struct brw_gs_prog_data
 /** Max number of atomic counter buffer objects in a shader */
 #define BRW_MAX_ABO 16
 
+/** Max number of image units in a shader */
+#define BRW_MAX_IMAGES 16
+
 /**
  * Max number of binding table entries used for stream output.
  *
@@ -688,6 +692,7 @@ struct brw_gs_prog_data
                             BRW_MAX_TEX_UNIT * 2 + /* normal, gather */ \
                             12 + /* ubo */                              \
                             BRW_MAX_ABO +                               \
+                            BRW_MAX_IMAGES +                            \
                             2 /* shader time, pull constants */)
 
 #define SURF_INDEX_GEN6_SOL_BINDING(t) (t)
