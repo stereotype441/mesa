@@ -978,6 +978,11 @@ struct brw_context
 					  struct gl_renderbuffer *rb,
 					  bool layered,
 					  unsigned unit);
+      void (*update_image_surface)(struct brw_context *brw,
+                                   struct gl_image_unit *u,
+                                   GLenum access,
+                                   uint32_t *surf_offset,
+                                   struct brw_image_param *param);
       void (*update_null_renderbuffer_surface)(struct brw_context *brw,
 					       unsigned unit);
 
@@ -1643,6 +1648,11 @@ void brw_upload_abo_surfaces(struct brw_context *brw,
                              struct gl_shader_program *prog,
                              struct brw_stage_state *stage_state,
                              struct brw_stage_prog_data *prog_data);
+void brw_upload_image_surfaces(struct brw_context *brw,
+                               struct gl_shader *shader,
+                               struct brw_stage_state *stage_state,
+                               struct brw_stage_prog_data *prog_data,
+                               struct brw_image_param *params);
 
 /* brw_surface_formats.c */
 bool brw_is_hiz_depth_format(struct brw_context *ctx, gl_format format);

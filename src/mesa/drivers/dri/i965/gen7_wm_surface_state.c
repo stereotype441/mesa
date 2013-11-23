@@ -569,6 +569,180 @@ gen7_update_renderbuffer_surface(struct brw_context *brw,
    gen7_check_surface_setup(surf, true /* is_render_target */);
 }
 
+static uint32_t
+get_image_format(struct brw_context *brw, gl_format format)
+{
+   switch (format) {
+   case MESA_FORMAT_RGBA_UINT32:
+   case MESA_FORMAT_RGBA_INT32:
+   case MESA_FORMAT_RGBA_FLOAT32:
+      /* Fail...  We need to fall back to untyped surface access for
+       * all 128 bpp formats.
+       */
+      return BRW_SURFACEFORMAT_RAW;
+
+   case MESA_FORMAT_RGBA_UINT16:
+   case MESA_FORMAT_RGBA_INT16:
+   case MESA_FORMAT_RGBA_FLOAT16:
+   case MESA_FORMAT_RGBA_16:
+   case MESA_FORMAT_SIGNED_RGBA_16:
+   case MESA_FORMAT_RG_UINT32:
+   case MESA_FORMAT_RG_INT32:
+   case MESA_FORMAT_RG_FLOAT32:
+      /* HSW supports the R16G16B16A16_UINT format natively and
+       * handles the pixel packing, unpacking and type conversion in
+       * the shader for other 64 bpp formats.  IVB falls back to
+       * untyped.
+       */
+      return (brw->is_haswell ? BRW_SURFACEFORMAT_R16G16B16A16_UINT :
+              BRW_SURFACEFORMAT_RAW);
+
+   case MESA_FORMAT_RGBA_UINT8:
+   case MESA_FORMAT_RGBA_INT8:
+   case MESA_FORMAT_RGBA8888_REV:
+   case MESA_FORMAT_SIGNED_RGBA8888_REV:
+      /* HSW supports the R8G8B8A8_UINT format natively, type
+       * conversion to other formats is handled in the shader.  IVB
+       * uses R32_UINT and handles the pixel packing, unpacking and
+       * type conversion in the shader.
+       */
+      return (brw->is_haswell ? BRW_SURFACEFORMAT_R8G8B8A8_UINT :
+              BRW_SURFACEFORMAT_R32_UINT);
+
+   case MESA_FORMAT_RG_UINT16:
+   case MESA_FORMAT_RG_INT16:
+   case MESA_FORMAT_RG_FLOAT16:
+   case MESA_FORMAT_GR1616:
+   case MESA_FORMAT_SIGNED_GR1616:
+      /* HSW supports the R16G16_UINT format natively, type conversion
+       * to other formats is handled in the shader.  IVB uses R32_UINT
+       * and handles the pixel packing, unpacking and type conversion
+       * in the shader.
+       */
+      return (brw->is_haswell ? BRW_SURFACEFORMAT_R16G16_UINT :
+              BRW_SURFACEFORMAT_R32_UINT);
+
+   case MESA_FORMAT_ABGR2101010_UINT:
+   case MESA_FORMAT_ABGR2101010:
+   case MESA_FORMAT_R11_G11_B10_FLOAT:
+   case MESA_FORMAT_R_UINT32:
+      /* Neither the 2/10/10/10 nor the 11/11/10 packed formats are
+       * supported by the hardware.  Use R32_UINT and handle the pixel
+       * packing, unpacking, and type conversion in the shader.
+       */
+      return BRW_SURFACEFORMAT_R32_UINT;
+
+   case MESA_FORMAT_R_INT32:
+      return BRW_SURFACEFORMAT_R32_SINT;
+
+   case MESA_FORMAT_R_FLOAT32:
+      return BRW_SURFACEFORMAT_R32_FLOAT;
+
+   case MESA_FORMAT_RG_UINT8:
+   case MESA_FORMAT_RG_INT8:
+   case MESA_FORMAT_GR88:
+   case MESA_FORMAT_SIGNED_RG88_REV:
+      /* HSW supports the R8G8_UINT format natively, type conversion
+       * to other formats is handled in the shader.  IVB uses R16_UINT
+       * and handles the pixel packing, unpacking and type conversion
+       * in the shader.  Note that this relies on the undocumented
+       * behavior that typed reads from R16_UINT surfaces actually do
+       * a 32-bit misaligned read on IVB.  The alternative would be to
+       * use two surface state entries with different formats for each
+       * image, one for reading (using R32_UINT) and another one for
+       * writing (using R8G8_UINT), but that would complicate the
+       * shaders we generate even more.
+       */
+      return (brw->is_haswell ? BRW_SURFACEFORMAT_R8G8_UINT :
+              BRW_SURFACEFORMAT_R16_UINT);
+
+   case MESA_FORMAT_R_UINT16:
+   case MESA_FORMAT_R_FLOAT16:
+   case MESA_FORMAT_R_INT16:
+   case MESA_FORMAT_R16:
+   case MESA_FORMAT_SIGNED_R16:
+      /* HSW supports the R16_UINT format natively, type conversion to
+       * other formats is handled in the shader.  IVB relies on the
+       * same undocumented behavior described above.
+       */
+      return BRW_SURFACEFORMAT_R16_UINT;
+
+   case MESA_FORMAT_R_UINT8:
+   case MESA_FORMAT_R_INT8:
+   case MESA_FORMAT_R8:
+   case MESA_FORMAT_SIGNED_R8:
+      /* HSW supports the R8_UINT format natively, type conversion to
+       * other formats is handled in the shader.  IVB relies on the
+       * same undocumented behavior described above.
+       */
+      return BRW_SURFACEFORMAT_R8_UINT;
+
+   default:
+      unreachable();
+   }
+}
+
+static void
+gen7_update_image_surface(struct brw_context *brw,
+                          struct gl_image_unit *u,
+                          GLenum access,
+                          uint32_t *surf_offset,
+                          struct brw_image_param *param)
+{
+   struct gl_texture_object *obj = u->TexObj;
+   /* Typed surface reads support a very limited subset of the shader
+    * image formats.  Translate it into the closest format the
+    * hardware supports.
+    */
+   const unsigned format = (access == GL_WRITE_ONLY ?
+                            brw_format_for_mesa_format(u->_ActualFormat) :
+                            get_image_format(brw, u->_ActualFormat));
+
+   if (obj->Target == GL_TEXTURE_BUFFER) {
+      struct intel_buffer_object *intel_obj =
+         intel_buffer_object(obj->BufferObject);
+      const unsigned texel_size = (format == BRW_SURFACEFORMAT_RAW ? 1 :
+                                   _mesa_get_format_bytes(format));
+
+      gen7_emit_buffer_surface_state(brw,
+                                     surf_offset,
+                                     intel_obj->buffer,
+                                     0,
+                                     format,
+                                     intel_obj->Base.Size / texel_size,
+                                     texel_size,
+                                     0 /* mocs */,
+                                     access != GL_READ_ONLY);
+
+   } else {
+      struct intel_texture_object *intel_obj = intel_texture_object(obj);
+      struct intel_mipmap_tree *mt = intel_obj->mt;
+
+      if (format == BRW_SURFACEFORMAT_RAW) {
+         gen7_emit_buffer_surface_state(brw,
+                                        surf_offset,
+                                        mt->region->bo,
+                                        mt->offset,
+                                        format,
+                                        mt->region->bo->size - mt->offset,
+                                        1 /* pitch */,
+                                        0 /* mocs */,
+                                        access != GL_READ_ONLY);
+
+      } else {
+         const unsigned depth = (u->Layered ? mt->logical_depth0 : 1);
+
+         gen7_emit_texture_surface_state(brw, obj,
+                                         u->Layer, u->Layer + depth,
+                                         u->Level, u->Level + 1,
+                                         format,
+                                         surf_offset,
+                                         access != GL_READ_ONLY,
+                                         false);
+      }
+   }
+}
+
 void
 gen7_init_vtable_surface_functions(struct brw_context *brw)
 {
@@ -578,4 +752,5 @@ gen7_init_vtable_surface_functions(struct brw_context *brw)
       gen7_update_null_renderbuffer_surface;
    brw->vtbl.create_raw_surface = gen7_create_raw_surface;
    brw->vtbl.emit_buffer_surface_state = gen7_emit_buffer_surface_state;
+   brw->vtbl.update_image_surface = gen7_update_image_surface;
 }
