@@ -41,6 +41,7 @@
 
 #include "brw_context.h"
 #include "brw_wm.h"
+#include "intel_batchbuffer.h"
 
 static unsigned
 get_new_program_id(struct intel_screen *screen)
@@ -188,6 +189,33 @@ brwProgramStringNotify(struct gl_context *ctx,
    return true;
 }
 
+static void
+brwMemoryBarrier(struct gl_context *ctx, GLbitfield barriers)
+{
+   struct brw_context *brw = brw_context(ctx);
+   unsigned bits = (PIPE_CONTROL_DATA_CACHE_INVALIDATE |
+                    PIPE_CONTROL_NO_WRITE |
+                    PIPE_CONTROL_CS_STALL);
+
+   if (barriers & (GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT |
+                   GL_ELEMENT_ARRAY_BARRIER_BIT |
+                   GL_COMMAND_BARRIER_BIT))
+      bits |= PIPE_CONTROL_VF_CACHE_INVALIDATE;
+
+   if (barriers & (GL_UNIFORM_BARRIER_BIT |
+                   GL_TEXTURE_FETCH_BARRIER_BIT))
+      bits |= PIPE_CONTROL_TC_FLUSH;
+
+   if (barriers & GL_TEXTURE_UPDATE_BARRIER_BIT)
+      bits |= PIPE_CONTROL_WRITE_FLUSH;
+
+   if (barriers & GL_FRAMEBUFFER_BARRIER_BIT)
+      bits |= (PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+               PIPE_CONTROL_WRITE_FLUSH);
+
+   intel_batchbuffer_emit_pipe_control(brw, bits);
+}
+
 void
 brw_add_texrect_params(struct gl_program *prog)
 {
@@ -248,6 +276,8 @@ void brwInitFragProgFuncs( struct dd_function_table *functions )
    functions->NewShader = brw_new_shader;
    functions->NewShaderProgram = brw_new_shader_program;
    functions->LinkShader = brw_link_shader;
+
+   functions->MemoryBarrier = brwMemoryBarrier;
 }
 
 void
