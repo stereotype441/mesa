@@ -310,6 +310,8 @@ intelInitExtensions(struct gl_context *ctx)
 
    ctx->Extensions.ANGLE_texture_compression_dxt = true;
 
-   if (brw->gen >= 7)
+   if (brw->gen >= 7) {
       ctx->Extensions.ARB_shader_atomic_counters = true;
+      ctx->Extensions.ARB_shader_image_load_store = true;
+   }
 }
