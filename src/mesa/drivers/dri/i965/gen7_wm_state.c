@@ -235,6 +235,9 @@ upload_ps_state(struct brw_context *brw)
       _mesa_get_min_invocations_per_fragment(ctx, brw->fragment_program);
    assert(min_inv_per_frag >= 1);
 
+   if (brw->is_haswell && brw->wm.prog_data->base.nr_image_params)
+      dw4 |= HSW_PS_UAV_ACCESS_ENABLE;
+
    if (brw->wm.prog_data->prog_offset_16) {
       dw4 |= GEN7_PS_16_DISPATCH_ENABLE;
       if (min_inv_per_frag == 1) {
