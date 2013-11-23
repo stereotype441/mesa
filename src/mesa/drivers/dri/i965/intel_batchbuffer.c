@@ -627,6 +627,30 @@ intel_emit_post_sync_nonzero_flush(struct brw_context *brw)
    brw->batch.need_workaround_flush = false;
 }
 
+void
+intel_batchbuffer_emit_pipe_control(struct brw_context *brw,
+                                    unsigned bits)
+{
+   assert(brw->gen >= 6);
+
+   if (brw->gen == 6) {
+      /* Hardware workaround: SNB B-Spec says:
+       *
+       * [Dev-SNB{W/A}]: Before a PIPE_CONTROL with Write Cache Flush
+       * Enable =1, a PIPE_CONTROL with any non-zero post-sync-op is
+       * required.
+       */
+      intel_emit_post_sync_nonzero_flush(brw);
+   }
+
+   BEGIN_BATCH(4);
+   OUT_BATCH(_3DSTATE_PIPE_CONTROL | (4 - 2));
+   OUT_BATCH(bits);
+   OUT_BATCH(0); /* write address */
+   OUT_BATCH(0); /* write data */
+   ADVANCE_BATCH();
+}
+
 /* Emit a pipelined flush to either flush render and texture cache for
  * reading from a FBO-drawn texture, or flush so that frontbuffer
  * render appears on the screen in DRI1.
@@ -645,28 +669,14 @@ intel_batchbuffer_emit_mi_flush(struct brw_context *brw)
 	 OUT_BATCH(0);
 	 ADVANCE_BATCH();
       } else {
-	 if (brw->gen == 6) {
-	    /* Hardware workaround: SNB B-Spec says:
-	     *
-	     * [Dev-SNB{W/A}]: Before a PIPE_CONTROL with Write Cache
-	     * Flush Enable =1, a PIPE_CONTROL with any non-zero
-	     * post-sync-op is required.
-	     */
-	    intel_emit_post_sync_nonzero_flush(brw);
-	 }
-
-	 BEGIN_BATCH(4);
-	 OUT_BATCH(_3DSTATE_PIPE_CONTROL | (4 - 2));
-	 OUT_BATCH(PIPE_CONTROL_INSTRUCTION_FLUSH |
-		   PIPE_CONTROL_WRITE_FLUSH |
-		   PIPE_CONTROL_DEPTH_CACHE_FLUSH |
-                   PIPE_CONTROL_VF_CACHE_INVALIDATE |
-		   PIPE_CONTROL_TC_FLUSH |
-		   PIPE_CONTROL_NO_WRITE |
-                   PIPE_CONTROL_CS_STALL);
-	 OUT_BATCH(0); /* write address */
-	 OUT_BATCH(0); /* write data */
-	 ADVANCE_BATCH();
+         intel_batchbuffer_emit_pipe_control(
+            brw, (PIPE_CONTROL_INSTRUCTION_FLUSH |
+                  PIPE_CONTROL_WRITE_FLUSH |
+                  PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+                  PIPE_CONTROL_VF_CACHE_INVALIDATE |
+                  PIPE_CONTROL_TC_FLUSH |
+                  PIPE_CONTROL_NO_WRITE |
+                  PIPE_CONTROL_CS_STALL));
       }
    } else {
       BEGIN_BATCH(4);

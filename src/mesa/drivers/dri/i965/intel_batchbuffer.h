@@ -65,6 +65,8 @@ bool intel_batchbuffer_emit_reloc_fenced(struct brw_context *brw,
 					      uint32_t write_domain,
 					      uint32_t offset);
 void intel_batchbuffer_emit_mi_flush(struct brw_context *brw);
+void intel_batchbuffer_emit_pipe_control(struct brw_context *brw,
+                                         unsigned flush_bits);
 void intel_emit_post_sync_nonzero_flush(struct brw_context *brw);
 void intel_emit_depth_stall_flushes(struct brw_context *brw);
 void gen7_emit_vs_workaround_flush(struct brw_context *brw);
