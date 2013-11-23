@@ -268,46 +268,35 @@ gen7_emit_buffer_surface_state(struct brw_context *brw,
 }
 
 static void
-gen7_update_texture_surface(struct gl_context *ctx,
-                            unsigned unit,
-                            uint32_t *surf_offset,
-                            bool for_gather)
+gen7_emit_texture_surface_state(struct brw_context *brw,
+                                struct gl_texture_object *obj,
+                                unsigned min_array_element,
+                                unsigned max_array_element,
+                                unsigned min_level,
+                                unsigned max_level,
+                                unsigned format,
+                                uint32_t *surf_offset,
+                                bool rw, bool for_gather)
 {
-   struct brw_context *brw = brw_context(ctx);
-   struct gl_texture_object *tObj = ctx->Texture.Unit[unit]._Current;
-   struct intel_texture_object *intelObj = intel_texture_object(tObj);
+   struct intel_texture_object *intelObj = intel_texture_object(obj);
    struct intel_mipmap_tree *mt = intelObj->mt;
-   struct gl_texture_image *firstImage = tObj->Image[0][tObj->BaseLevel];
-   struct gl_sampler_object *sampler = _mesa_get_samplerobj(ctx, unit);
-
-   if (tObj->Target == GL_TEXTURE_BUFFER) {
-      brw_update_buffer_texture_surface(ctx, unit, surf_offset);
-      return;
-   }
-
+   const unsigned depth = max_array_element - min_array_element;
    uint32_t *surf = brw_state_batch(brw, AUB_TRACE_SURFACE_STATE,
                                     8 * 4, 32, surf_offset);
+
    memset(surf, 0, 8 * 4);
 
-   uint32_t tex_format = translate_tex_format(brw,
-                                              mt->format,
-                                              tObj->DepthMode,
-                                              sampler->sRGBDecode);
-
-   if (for_gather && tex_format == BRW_SURFACEFORMAT_R32G32_FLOAT)
-      tex_format = BRW_SURFACEFORMAT_R32G32_FLOAT_LD;
-
-   surf[0] = translate_tex_target(tObj->Target) << BRW_SURFACE_TYPE_SHIFT |
-             tex_format << BRW_SURFACE_FORMAT_SHIFT |
-             gen7_surface_tiling_mode(mt->region->tiling) |
-             BRW_SURFACE_CUBEFACE_ENABLES;
+   surf[0] = translate_tex_target(obj->Target) << BRW_SURFACE_TYPE_SHIFT |
+      format << BRW_SURFACE_FORMAT_SHIFT |
+      gen7_surface_tiling_mode(mt->region->tiling) |
+      BRW_SURFACE_CUBEFACE_ENABLES;
 
    if (mt->align_h == 4)
       surf[0] |= GEN7_SURFACE_VALIGN_4;
    if (mt->align_w == 8)
       surf[0] |= GEN7_SURFACE_HALIGN_8;
 
-   if (mt->logical_depth0 > 1 && tObj->Target != GL_TEXTURE_3D)
+   if (mt->logical_depth0 > 1 && obj->Target != GL_TEXTURE_3D)
       surf[0] |= GEN7_SURFACE_IS_ARRAY;
 
    if (mt->array_spacing_lod0)
@@ -317,30 +306,32 @@ gen7_update_texture_surface(struct gl_context *ctx,
 
    surf[2] = SET_FIELD(mt->logical_width0 - 1, GEN7_SURFACE_WIDTH) |
              SET_FIELD(mt->logical_height0 - 1, GEN7_SURFACE_HEIGHT);
-   surf[3] = SET_FIELD(mt->logical_depth0 - 1, BRW_SURFACE_DEPTH) |
-             ((intelObj->mt->region->pitch) - 1);
+   surf[3] = SET_FIELD(depth - 1, BRW_SURFACE_DEPTH) |
+             ((mt->region->pitch) - 1);
 
-   surf[4] = gen7_surface_msaa_bits(mt->num_samples, mt->msaa_layout);
+   surf[4] = gen7_surface_msaa_bits(mt->num_samples, mt->msaa_layout) |
+             min_array_element << GEN7_SURFACE_MIN_ARRAY_ELEMENT_SHIFT |
+             (depth - 1) << GEN7_SURFACE_RENDER_TARGET_VIEW_EXTENT_SHIFT;
 
    surf[5] = (SET_FIELD(GEN7_MOCS_L3, GEN7_SURFACE_MOCS) |
-              SET_FIELD(tObj->BaseLevel - mt->first_level,
+              SET_FIELD(min_level - mt->first_level,
                         GEN7_SURFACE_MIN_LOD) |
-              /* mip count */
-              (intelObj->_MaxLevel - tObj->BaseLevel));
+              /* mip count */ (max_level - min_level));
 
    if (brw->is_haswell) {
       /* Handling GL_ALPHA as a surface format override breaks 1.30+ style
        * texturing functions that return a float, as our code generation always
        * selects the .x channel (which would always be 0).
        */
-      const bool alpha_depth = tObj->DepthMode == GL_ALPHA &&
+      struct gl_texture_image *firstImage = obj->Image[0][obj->BaseLevel];
+      const bool alpha_depth = obj->DepthMode == GL_ALPHA &&
          (firstImage->_BaseFormat == GL_DEPTH_COMPONENT ||
           firstImage->_BaseFormat == GL_DEPTH_STENCIL);
 
       const int swizzle = unlikely(alpha_depth)
-         ? SWIZZLE_XYZW : brw_get_texture_swizzle(ctx, tObj);
+         ? SWIZZLE_XYZW : brw_get_texture_swizzle(&brw->ctx, obj);
 
-      const bool need_scs_green_to_blue = for_gather && tex_format == BRW_SURFACEFORMAT_R32G32_FLOAT_LD;
+      const bool need_scs_green_to_blue = for_gather && format == BRW_SURFACEFORMAT_R32G32_FLOAT_LD;
 
       surf[7] =
          SET_FIELD(brw_swizzle_to_scs(GET_SWZ(swizzle, 0), need_scs_green_to_blue), GEN7_SURFACE_SCS_R) |
@@ -357,11 +348,42 @@ gen7_update_texture_surface(struct gl_context *ctx,
    /* Emit relocation to surface contents */
    drm_intel_bo_emit_reloc(brw->batch.bo,
 			   *surf_offset + 4,
-			   intelObj->mt->region->bo,
-                           surf[1] - intelObj->mt->region->bo->offset,
-			   I915_GEM_DOMAIN_SAMPLER, 0);
+			   mt->region->bo,
+                           surf[1] - mt->region->bo->offset,
+			   I915_GEM_DOMAIN_SAMPLER,
+                           (rw ? I915_GEM_DOMAIN_SAMPLER : 0));
 
    gen7_check_surface_setup(surf, false /* is_render_target */);
+}
+
+static void
+gen7_update_texture_surface(struct gl_context *ctx,
+                            unsigned unit,
+                            uint32_t *surf_offset,
+                            bool for_gather)
+{
+   struct brw_context *brw = brw_context(ctx);
+   struct gl_texture_object *obj = ctx->Texture.Unit[unit]._Current;
+
+   if (obj->Target == GL_TEXTURE_BUFFER) {
+      brw_update_buffer_texture_surface(ctx, unit, surf_offset);
+
+   } else {
+      struct intel_texture_object *intel_obj = intel_texture_object(obj);
+      struct intel_mipmap_tree *mt = intel_obj->mt;
+      struct gl_sampler_object *sampler = _mesa_get_samplerobj(ctx, unit);
+      unsigned tex_format = translate_tex_format(
+         brw, mt->format, obj->DepthMode, sampler->sRGBDecode);
+
+      if (for_gather && tex_format == BRW_SURFACEFORMAT_R32G32_FLOAT)
+         tex_format = BRW_SURFACEFORMAT_R32G32_FLOAT_LD;
+
+      gen7_emit_texture_surface_state(brw, obj,
+                                      0, mt->logical_depth0,
+                                      obj->BaseLevel, intel_obj->_MaxLevel,
+                                      tex_format, surf_offset,
+                                      false, for_gather);
+   }
 }
 
 /**
