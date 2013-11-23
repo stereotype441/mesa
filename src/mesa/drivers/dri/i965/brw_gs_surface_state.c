@@ -110,3 +110,27 @@ const struct brw_tracked_state brw_gs_abo_surfaces = {
    },
    .emit = brw_upload_gs_abo_surfaces,
 };
+
+static void
+brw_upload_gs_image_surfaces(struct brw_context *brw)
+{
+   struct gl_context *ctx = &brw->ctx;
+   /* _NEW_PROGRAM */
+   struct gl_shader_program *prog = ctx->Shader.CurrentGeometryProgram;
+
+   if (prog) {
+      /* CACHE_NEW_GS_PROG */
+      brw_upload_image_surfaces(brw, prog->_LinkedShaders[MESA_SHADER_GEOMETRY],
+                                &brw->gs.base, &brw->gs.prog_data->base.base,
+                                brw->gs.prog_data->base.base.image_param);
+   }
+}
+
+const struct brw_tracked_state brw_gs_image_surfaces = {
+   .dirty = {
+      .mesa = _NEW_PROGRAM,
+      .brw = BRW_NEW_BATCH | BRW_NEW_IMAGE_UNITS,
+      .cache = CACHE_NEW_GS_PROG,
+   },
+   .emit = brw_upload_gs_image_surfaces,
+};

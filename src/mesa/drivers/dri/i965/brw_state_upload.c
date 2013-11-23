@@ -195,6 +195,10 @@ static const struct brw_tracked_state *gen7_atoms[] =
    &gen6_color_calc_state,	/* must do before cc unit */
    &gen6_depth_stencil_state,	/* must do before cc unit */
 
+   &brw_vs_image_surfaces, /* Before vs push/pull constants and binding table */
+   &brw_gs_image_surfaces, /* Before gs push/pull constants and binding table */
+   &brw_wm_image_surfaces, /* Before wm push/pull constants and binding table */
+
    &gen6_vs_push_constants, /* Before vs_state */
    &gen7_gs_push_constants, /* Before gs_state */
    &gen6_wm_push_constants, /* Before wm_surfaces and constant_buffer */
@@ -308,6 +312,7 @@ void brw_init_state( struct brw_context *brw )
    ctx->DriverFlags.NewRasterizerDiscard = BRW_NEW_RASTERIZER_DISCARD;
    ctx->DriverFlags.NewUniformBuffer = BRW_NEW_UNIFORM_BUFFER;
    ctx->DriverFlags.NewAtomicBuffer = BRW_NEW_ATOMIC_BUFFER;
+   ctx->DriverFlags.NewImageUnits = BRW_NEW_IMAGE_UNITS;
 }
 
 
@@ -416,6 +421,7 @@ static struct dirty_bit_map brw_bits[] = {
    DEFINE_BIT(BRW_NEW_STATS_WM),
    DEFINE_BIT(BRW_NEW_UNIFORM_BUFFER),
    DEFINE_BIT(BRW_NEW_ATOMIC_BUFFER),
+   DEFINE_BIT(BRW_NEW_IMAGE_UNITS),
    DEFINE_BIT(BRW_NEW_META_IN_PROGRESS),
    DEFINE_BIT(BRW_NEW_INTERPOLATION_MAP),
    DEFINE_BIT(BRW_NEW_PUSH_CONSTANT_ALLOCATION),

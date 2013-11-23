@@ -925,6 +925,56 @@ const struct brw_tracked_state brw_wm_abo_surfaces = {
 };
 
 void
+brw_upload_image_surfaces(struct brw_context *brw,
+                          struct gl_shader *shader,
+                          struct brw_stage_state *stage_state,
+                          struct brw_stage_prog_data *prog_data,
+                          struct brw_image_param *params)
+{
+   struct gl_context *ctx = &brw->ctx;
+   uint32_t *surf_offsets =
+      &stage_state->surf_offset[prog_data->binding_table.image_start];
+
+   if (!shader)
+      return;
+
+   for (int i = 0; i < shader->NumImages; i++) {
+      struct gl_image_unit *u = &ctx->ImageUnits[shader->ImageUnits[i]];
+
+      if (u->_Valid)
+         brw->vtbl.update_image_surface(brw, u, shader->ImageAccess[i],
+                                        &surf_offsets[i], &params[i]);
+   }
+
+   if (shader->NumImages)
+      brw->state.dirty.brw |= BRW_NEW_SURFACES;
+}
+
+static void
+brw_upload_wm_image_surfaces(struct brw_context *brw)
+{
+   struct gl_context *ctx = &brw->ctx;
+   /* _NEW_PROGRAM */
+   struct gl_shader_program *prog = ctx->Shader._CurrentFragmentProgram;
+
+   if (prog) {
+      /* CACHE_NEW_WM_PROG */
+      brw_upload_image_surfaces(brw, prog->_LinkedShaders[MESA_SHADER_FRAGMENT],
+                                &brw->wm.base, &brw->wm.prog_data->base,
+                                brw->wm.prog_data->base.image_param);
+   }
+}
+
+const struct brw_tracked_state brw_wm_image_surfaces = {
+   .dirty = {
+      .mesa = _NEW_PROGRAM,
+      .brw = BRW_NEW_BATCH | BRW_NEW_IMAGE_UNITS,
+      .cache = CACHE_NEW_WM_PROG,
+   },
+   .emit = brw_upload_wm_image_surfaces,
+};
+
+void
 gen4_init_vtable_surface_functions(struct brw_context *brw)
 {
    brw->vtbl.update_texture_surface = brw_update_texture_surface;
