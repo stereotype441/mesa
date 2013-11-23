@@ -2888,6 +2888,13 @@ fs_visitor::resolve_bool_comparison(ir_rvalue *rvalue, fs_reg *reg)
    *reg = temp;
 }
 
+fs_reg &
+fs_visitor::visit_result(ir_instruction *ir)
+{
+   ir->accept(this);
+   return result;
+}
+
 fs_visitor::fs_visitor(struct brw_context *brw,
                        struct brw_wm_compile *c,
                        struct gl_shader_program *shader_prog,

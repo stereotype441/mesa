@@ -237,6 +237,9 @@ public:
    void visit(ir_emit_vertex *);
    void visit(ir_end_primitive *);
 
+   /** Visit an instruction \p ir and extract the result. */
+   virtual fs_reg &visit_result(ir_instruction *ir);
+
    uint32_t gather_channel(ir_texture *ir, int sampler);
    void swizzle_result(ir_texture *ir, fs_reg orig_val, int sampler);
 

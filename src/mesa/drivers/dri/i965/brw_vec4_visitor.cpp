@@ -3261,6 +3261,13 @@ vec4_visitor::resolve_ud_negate(src_reg *reg)
    *reg = temp;
 }
 
+src_reg &
+vec4_visitor::visit_result(ir_instruction *ir)
+{
+   ir->accept(this);
+   return result;
+}
+
 vec4_visitor::vec4_visitor(struct brw_context *brw,
                            struct brw_vec4_compile *c,
                            struct gl_program *prog,

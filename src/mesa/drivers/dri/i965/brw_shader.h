@@ -141,6 +141,9 @@ public:
     */
    exec_list instructions;
 
+   /** Visit an instruction \p ir and extract the result. */
+   virtual backend_reg &visit_result(ir_instruction *ir) = 0;
+
    virtual void dump_instruction(backend_instruction *inst) = 0;
    void dump_instructions();
 

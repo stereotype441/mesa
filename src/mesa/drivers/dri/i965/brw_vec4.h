@@ -354,6 +354,9 @@ public:
    virtual void visit(ir_end_primitive *);
    /*@}*/
 
+   /** Visit an instruction \p ir and extract the result. */
+   virtual src_reg &visit_result(ir_instruction *ir);
+
    src_reg result;
 
    /* Regs for vertex results.  Generated at ir_variable visiting time
