@@ -696,6 +696,20 @@ public:
    } atomic;
 
    /**
+    * ARB_shader_image_load_store qualifiers.
+    */
+   struct {
+      bool read_only; /**< "readonly" qualifier. */
+      bool write_only; /**< "writeonly" qualifier. */
+      bool coherent;
+      bool _volatile;
+      bool _restrict;
+
+      /** Image internal format if specified explicitly, otherwise GL_NONE. */
+      GLenum format;
+   } image;
+
+   /**
     * Built-in state that backs this uniform
     *
     * Once set at variable creation, \c state_slots must remain invariant.

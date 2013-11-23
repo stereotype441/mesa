@@ -60,6 +60,7 @@ ir_variable::clone(void *mem_ctx, struct hash_table *ht) const
    var->binding = this->binding;
    var->atomic.buffer_index = this->atomic.buffer_index;
    var->atomic.offset = this->atomic.offset;
+   var->image = this->image;
    var->warn_extension = this->warn_extension;
    var->origin_upper_left = this->origin_upper_left;
    var->pixel_center_integer = this->pixel_center_integer;

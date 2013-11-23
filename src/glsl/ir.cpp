@@ -1582,7 +1582,7 @@ ir_variable::ir_variable(const struct glsl_type *type, const char *name,
    : max_array_access(0), max_ifc_array_access(NULL),
      read_only(false), centroid(false), sample(false), invariant(false),
      how_declared(ir_var_declared_normally), mode(mode),
-     interpolation(INTERP_QUALIFIER_NONE), atomic()
+     interpolation(INTERP_QUALIFIER_NONE), atomic(), image()
 {
    this->ir_type = ir_type_variable;
    this->type = type;
