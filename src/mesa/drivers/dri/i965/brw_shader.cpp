@@ -529,6 +529,26 @@ brw_instruction_name(enum opcode op)
    case GS_OPCODE_SET_CHANNEL_MASKS:
       return "set_channel_masks";
 
+   case SHADER_OPCODE_SHADER_TIME_ADD:
+      return "shader_time_add";
+
+   case SHADER_OPCODE_UNTYPED_ATOMIC:
+      return "untyped_atomic";
+   case SHADER_OPCODE_UNTYPED_SURFACE_READ:
+      return "untyped_surface_read";
+   case SHADER_OPCODE_UNTYPED_SURFACE_WRITE:
+      return "untyped_surface_write";
+
+   case SHADER_OPCODE_TYPED_ATOMIC:
+      return "typed_atomic";
+   case SHADER_OPCODE_TYPED_SURFACE_READ:
+      return "typed_surface_read";
+   case SHADER_OPCODE_TYPED_SURFACE_WRITE:
+      return "typed_surface_write";
+
+   case SHADER_OPCODE_MEMORY_FENCE:
+      return "memory_fence";
+
    default:
       /* Yes, this leaks.  It's in debug code, it should never occur, and if
        * it does, you should just add the case to the list above.
