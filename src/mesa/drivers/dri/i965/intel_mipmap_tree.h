@@ -705,6 +705,16 @@ void
 intel_miptree_upsample(struct brw_context *brw,
                        struct intel_mipmap_tree *mt);
 
+unsigned
+brw_miptree_get_horizontal_slice_pitch(struct brw_context *brw,
+                                       struct intel_mipmap_tree *mt,
+                                       unsigned level);
+
+unsigned
+brw_miptree_get_vertical_slice_pitch(struct brw_context *brw,
+                                     struct intel_mipmap_tree *mt,
+                                     unsigned level);
+
 void brw_miptree_layout(struct brw_context *brw, struct intel_mipmap_tree *mt);
 
 void *intel_miptree_map_raw(struct brw_context *brw,

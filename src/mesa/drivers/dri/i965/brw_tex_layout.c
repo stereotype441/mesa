@@ -222,6 +222,45 @@ brw_miptree_layout_2d(struct intel_mipmap_tree *mt)
    }
 }
 
+unsigned
+brw_miptree_get_horizontal_slice_pitch(struct brw_context *brw,
+                                       struct intel_mipmap_tree *mt,
+                                       unsigned level)
+{
+   if (mt->target == GL_TEXTURE_3D ||
+       (brw->gen == 4 && mt->target == GL_TEXTURE_CUBE_MAP)) {
+      return ALIGN(minify(mt->physical_width0, level), mt->align_w);
+   } else {
+      return 0;
+   }
+}
+
+unsigned
+brw_miptree_get_vertical_slice_pitch(struct brw_context *brw,
+                                     struct intel_mipmap_tree *mt,
+                                     unsigned level)
+{
+   if (mt->target == GL_TEXTURE_3D ||
+       (brw->gen == 4 && mt->target == GL_TEXTURE_CUBE_MAP)) {
+      return ALIGN(minify(mt->physical_height0, level), mt->align_h);
+
+   } else {
+      const unsigned h0 = ALIGN(mt->physical_height0, mt->align_h);
+      const unsigned h1 = ALIGN(minify(mt->physical_height0, 1), mt->align_h);
+      unsigned qpitch;
+
+      if (mt->array_spacing_lod0)
+         qpitch = h0;
+      else
+         qpitch = (h0 + h1 + (brw->gen >= 7 ? 12 : 11) * mt->align_h);
+
+      if (mt->compressed)
+         return qpitch / 4;
+      else
+         return qpitch;
+   }
+}
+
 static void
 align_cube(struct intel_mipmap_tree *mt)
 {
@@ -238,17 +277,7 @@ static void
 brw_miptree_layout_texture_array(struct brw_context *brw,
 				 struct intel_mipmap_tree *mt)
 {
-   unsigned qpitch = 0;
-   int h0, h1;
-
-   h0 = ALIGN(mt->physical_height0, mt->align_h);
-   h1 = ALIGN(minify(mt->physical_height0, 1), mt->align_h);
-   if (mt->array_spacing_lod0)
-      qpitch = h0;
-   else
-      qpitch = (h0 + h1 + (brw->gen >= 7 ? 12 : 11) * mt->align_h);
-   if (mt->compressed)
-      qpitch /= 4;
+   const unsigned qpitch = brw_miptree_get_vertical_slice_pitch(brw, mt, 0);
 
    brw_miptree_layout_2d(mt);
 
