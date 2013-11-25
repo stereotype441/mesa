@@ -238,6 +238,21 @@ glsl_type::sampler_index() const
    }
 }
 
+bool
+glsl_type::contains_image() const
+{
+   if (this->is_array()) {
+      return this->fields.array->contains_image();
+   } else if (this->is_record()) {
+      for (unsigned int i = 0; i < this->length; i++) {
+	 if (this->fields.structure[i].type->contains_image())
+	    return true;
+      }
+      return false;
+   } else {
+      return this->is_image();
+   }
+}
 
 const glsl_type *glsl_type::get_base_type() const
 {
@@ -948,36 +963,67 @@ glsl_type::count_attribute_slots() const
 }
 
 int
-glsl_type::sampler_coordinate_components() const
+glsl_type::coordinate_components() const
 {
-   assert(is_sampler());
-
    int size;
 
-   switch (sampler_dimensionality) {
-   case GLSL_SAMPLER_DIM_1D:
-   case GLSL_SAMPLER_DIM_BUF:
-      size = 1;
-      break;
-   case GLSL_SAMPLER_DIM_2D:
-   case GLSL_SAMPLER_DIM_RECT:
-   case GLSL_SAMPLER_DIM_MS:
-   case GLSL_SAMPLER_DIM_EXTERNAL:
-      size = 2;
-      break;
-   case GLSL_SAMPLER_DIM_3D:
-   case GLSL_SAMPLER_DIM_CUBE:
-      size = 3;
-      break;
-   default:
+   if (is_sampler()) {
+      switch (sampler_dimensionality) {
+      case GLSL_SAMPLER_DIM_1D:
+      case GLSL_SAMPLER_DIM_BUF:
+         size = 1;
+         break;
+      case GLSL_SAMPLER_DIM_2D:
+      case GLSL_SAMPLER_DIM_RECT:
+      case GLSL_SAMPLER_DIM_MS:
+      case GLSL_SAMPLER_DIM_EXTERNAL:
+         size = 2;
+         break;
+      case GLSL_SAMPLER_DIM_3D:
+      case GLSL_SAMPLER_DIM_CUBE:
+         size = 3;
+         break;
+      default:
+         assert(!"Should not get here.");
+         size = 1;
+         break;
+      }
+
+      /* Array textures need an additional component for the array
+       * index. */
+      if (sampler_array)
+         size += 1;
+
+   } else if (is_image()) {
+      switch (fields.image.dimension) {
+      case GLSL_IMAGE_DIM_1D:
+      case GLSL_IMAGE_DIM_BUFFER:
+         size = 1;
+         break;
+      case GLSL_IMAGE_DIM_2D:
+      case GLSL_IMAGE_DIM_RECT:
+      case GLSL_IMAGE_DIM_MS:
+         size = 2;
+         break;
+      case GLSL_IMAGE_DIM_3D:
+      case GLSL_IMAGE_DIM_CUBE:
+         size = 3;
+         break;
+      default:
+         assert(!"Should not get here.");
+         size = 1;
+         break;
+      }
+
+      /* Array textures need an additional component for the array
+       * index. */
+      if (fields.image.array)
+         size += 1;
+
+   } else {
       assert(!"Should not get here.");
       size = 1;
-      break;
    }
-
-   /* Array textures need an additional component for the array index. */
-   if (sampler_array)
-      size += 1;
 
    return size;
 }
