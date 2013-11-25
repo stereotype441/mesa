@@ -80,6 +80,24 @@ glsl_type::glsl_type(GLenum gl_type,
    memset(& fields, 0, sizeof(fields));
 }
 
+glsl_type::glsl_type(GLenum gl_type,
+		     enum glsl_image_dim dim, bool array,
+		     glsl_base_type type, const char *name) :
+   gl_type(gl_type),
+   base_type(GLSL_TYPE_IMAGE),
+   sampler_dimensionality(0), sampler_shadow(0),
+   sampler_array(0), sampler_type(0), interface_packing(0),
+   vector_elements(1), matrix_columns(1),
+   length(0), fields()
+{
+   init_ralloc_type_ctx();
+   assert(name != NULL);
+   this->name = ralloc_strdup(this->mem_ctx, name);
+   fields.image.type = type;
+   fields.image.dimension = dim;
+   fields.image.array = array;
+}
+
 glsl_type::glsl_type(const glsl_struct_field *fields, unsigned num_fields,
 		     const char *name) :
    gl_type(0),
@@ -174,6 +192,7 @@ bool
 glsl_type::contains_opaque() const {
    switch (base_type) {
    case GLSL_TYPE_SAMPLER:
+   case GLSL_TYPE_IMAGE:
    case GLSL_TYPE_ATOMIC_UINT:
       return true;
    case GLSL_TYPE_ARRAY:
@@ -623,6 +642,9 @@ glsl_type::component_slots() const
    case GLSL_TYPE_ARRAY:
       return this->length * this->fields.array->component_slots();
 
+   case GLSL_TYPE_IMAGE:
+      return 1;
+
    case GLSL_TYPE_SAMPLER:
    case GLSL_TYPE_ATOMIC_UINT:
    case GLSL_TYPE_VOID:
@@ -913,6 +935,7 @@ glsl_type::count_attribute_slots() const
       return this->length * this->fields.array->count_attribute_slots();
 
    case GLSL_TYPE_SAMPLER:
+   case GLSL_TYPE_IMAGE:
    case GLSL_TYPE_ATOMIC_UINT:
    case GLSL_TYPE_VOID:
    case GLSL_TYPE_ERROR:

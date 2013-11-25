@@ -53,6 +53,7 @@ enum glsl_base_type {
    GLSL_TYPE_FLOAT,
    GLSL_TYPE_BOOL,
    GLSL_TYPE_SAMPLER,
+   GLSL_TYPE_IMAGE,
    GLSL_TYPE_ATOMIC_UINT,
    GLSL_TYPE_STRUCT,
    GLSL_TYPE_INTERFACE,
@@ -70,6 +71,16 @@ enum glsl_sampler_dim {
    GLSL_SAMPLER_DIM_BUF,
    GLSL_SAMPLER_DIM_EXTERNAL,
    GLSL_SAMPLER_DIM_MS
+};
+
+enum glsl_image_dim {
+   GLSL_IMAGE_DIM_1D,
+   GLSL_IMAGE_DIM_2D,
+   GLSL_IMAGE_DIM_3D,
+   GLSL_IMAGE_DIM_RECT,
+   GLSL_IMAGE_DIM_CUBE,
+   GLSL_IMAGE_DIM_BUFFER,
+   GLSL_IMAGE_DIM_MS
 };
 
 enum glsl_interface_packing {
@@ -152,6 +163,12 @@ struct glsl_type {
       const struct glsl_type *array;            /**< Type of array elements. */
       const struct glsl_type *parameters;       /**< Parameters to function. */
       struct glsl_struct_field *structure;      /**< List of struct fields. */
+
+      struct {
+         glsl_base_type type; /**< Image data type as seen by the shader. */
+         glsl_image_dim dimension; /**< Base dimensionality of this image. */
+         bool array; /**< True if this is an array image type. */
+      } image;
    } fields;
 
    /**
@@ -561,6 +578,11 @@ private:
    glsl_type(GLenum gl_type,
 	     enum glsl_sampler_dim dim, bool shadow, bool array,
 	     unsigned type, const char *name);
+
+   /** Constructor for image types */
+   glsl_type(GLenum gl_type,
+	     enum glsl_image_dim dim, bool array,
+	     glsl_base_type type, const char *name);
 
    /** Constructor for record types */
    glsl_type(const glsl_struct_field *fields, unsigned num_fields,
