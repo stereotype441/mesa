@@ -885,7 +885,7 @@ fs_visitor::setup_uniform_values(ir_variable *ir)
     * order we'd walk the type, so walk the list of storage and find anything
     * with our name, or the prefix of a component that starts with our name.
     */
-   unsigned params_before = c->prog_data.nr_params;
+   unsigned params_before = uniforms;
    for (unsigned u = 0; u < shader_prog->NumUserUniformStorage; u++) {
       struct gl_uniform_storage *storage = &shader_prog->UniformStorage[u];
 
@@ -901,14 +901,13 @@ fs_visitor::setup_uniform_values(ir_variable *ir)
          slots *= storage->array_elements;
 
       for (unsigned i = 0; i < slots; i++) {
-         c->prog_data.param[c->prog_data.nr_params++] =
+         c->prog_data.param[uniforms++] =
             &storage->storage[i].f;
       }
    }
 
    /* Make sure we actually initialized the right amount of stuff here. */
-   assert(params_before + ir->type->component_slots() ==
-          c->prog_data.nr_params);
+   assert(params_before + ir->type->component_slots() == uniforms);
    (void)params_before;
 }
 
@@ -941,7 +940,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 	    break;
 	 last_swiz = swiz;
 
-	 c->prog_data.param[c->prog_data.nr_params++] =
+	 c->prog_data.param[uniforms++] =
             &fp->Base.Parameters->ParameterValues[index][swiz].f;
       }
    }
@@ -1370,12 +1369,16 @@ fs_visitor::emit_math(enum opcode opcode, fs_reg dst, fs_reg src0, fs_reg src1)
 void
 fs_visitor::assign_curb_setup()
 {
-   c->prog_data.curb_read_length = ALIGN(c->prog_data.nr_params, 8) / 8;
    if (dispatch_width == 8) {
       c->prog_data.first_curbe_grf = c->nr_payload_regs;
+      c->prog_data.nr_params = uniforms;
    } else {
       c->prog_data.first_curbe_grf_16 = c->nr_payload_regs;
+      /* Make sure we didn't try to sneak in an extra uniform */
+      assert(uniforms == 0);
    }
+
+   c->prog_data.curb_read_length = ALIGN(c->prog_data.nr_params, 8) / 8;
 
    /* Map the offsets in the UNIFORM file to fixed HW regs. */
    foreach_list(node, &this->instructions) {
@@ -1697,10 +1700,10 @@ bool
 fs_visitor::remove_dead_constants()
 {
    if (dispatch_width == 8) {
-      this->params_remap = ralloc_array(mem_ctx, int, c->prog_data.nr_params);
-      this->nr_params_remap = c->prog_data.nr_params;
+      this->params_remap = ralloc_array(mem_ctx, int, uniforms);
+      this->nr_params_remap = uniforms;
 
-      for (unsigned int i = 0; i < c->prog_data.nr_params; i++)
+      for (unsigned int i = 0; i < uniforms; i++)
 	 this->params_remap[i] = -1;
 
       /* Find which params are still in use. */
@@ -1718,7 +1721,7 @@ fs_visitor::remove_dead_constants()
 	     *     "Out-of-bounds reads return undefined values, which include
 	     *     values from other variables of the active program or zero."
 	     */
-	    if (constant_nr < 0 || constant_nr >= (int)c->prog_data.nr_params) {
+	    if (constant_nr < 0 || constant_nr >= (int)uniforms) {
 	       constant_nr = 0;
 	    }
 
@@ -1736,14 +1739,14 @@ fs_visitor::remove_dead_constants()
        * now we don't care.
        */
       unsigned int new_nr_params = 0;
-      for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
+      for (unsigned int i = 0; i < uniforms; i++) {
 	 if (this->params_remap[i] != -1) {
 	    this->params_remap[i] = new_nr_params++;
 	 }
       }
 
       /* Update the list of params to be uploaded to match our new numbering. */
-      for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
+      for (unsigned int i = 0; i < uniforms; i++) {
 	 int remapped = this->params_remap[i];
 
 	 if (remapped == -1)
@@ -1752,7 +1755,7 @@ fs_visitor::remove_dead_constants()
 	 c->prog_data.param[remapped] = c->prog_data.param[i];
       }
 
-      c->prog_data.nr_params = new_nr_params;
+      uniforms = new_nr_params;
    } else {
       /* This should have been generated in the 8-wide pass already. */
       assert(this->params_remap);
@@ -1796,9 +1799,9 @@ fs_visitor::remove_dead_constants()
 void
 fs_visitor::move_uniform_array_access_to_pull_constants()
 {
-   int pull_constant_loc[c->prog_data.nr_params];
+   int pull_constant_loc[uniforms];
 
-   for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
+   for (unsigned int i = 0; i < uniforms; i++) {
       pull_constant_loc[i] = -1;
    }
 
@@ -1869,7 +1872,7 @@ fs_visitor::setup_pull_constants()
 {
    /* Only allow 16 registers (128 uniform components) as push constants. */
    unsigned int max_uniform_components = 16 * 8;
-   if (c->prog_data.nr_params <= max_uniform_components)
+   if (uniforms <= max_uniform_components)
       return;
 
    if (dispatch_width == 16) {
@@ -1882,8 +1885,8 @@ fs_visitor::setup_pull_constants()
     */
    unsigned int pull_uniform_base = max_uniform_components;
 
-   int pull_constant_loc[c->prog_data.nr_params];
-   for (unsigned int i = 0; i < c->prog_data.nr_params; i++) {
+   int pull_constant_loc[uniforms];
+   for (unsigned int i = 0; i < uniforms; i++) {
       if (i < pull_uniform_base) {
          pull_constant_loc[i] = -1;
       } else {
@@ -1904,7 +1907,7 @@ fs_visitor::setup_pull_constants()
          }
       }
    }
-   c->prog_data.nr_params = pull_uniform_base;
+   uniforms = pull_uniform_base;
 
    foreach_list(node, &this->instructions) {
       fs_inst *inst = (fs_inst *)node;
@@ -3099,7 +3102,6 @@ bool
 fs_visitor::run()
 {
    sanity_param_count = fp->Base.Parameters->NumParameters;
-   uint32_t orig_nr_params = c->prog_data.nr_params;
    bool allocated_without_spills;
 
    assign_binding_table_offsets();
@@ -3242,15 +3244,10 @@ fs_visitor::run()
    if (!allocated_without_spills)
       schedule_instructions(SCHEDULE_POST);
 
-   if (dispatch_width == 8) {
+   if (dispatch_width == 8)
       c->prog_data.reg_blocks = brw_register_blocks(grf_used);
-   } else {
+   else
       c->prog_data.reg_blocks_16 = brw_register_blocks(grf_used);
-
-      /* Make sure we didn't try to sneak in an extra uniform */
-      assert(orig_nr_params == c->prog_data.nr_params);
-      (void) orig_nr_params;
-   }
 
    /* If any state parameters were appended, then ParameterValues could have
     * been realloced, in which case the driver uniform storage set up by

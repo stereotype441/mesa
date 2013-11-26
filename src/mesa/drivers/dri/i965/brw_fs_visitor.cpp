@@ -102,7 +102,7 @@ fs_visitor::visit(ir_variable *ir)
 	 }
       }
    } else if (ir->mode == ir_var_uniform) {
-      int param_index = c->prog_data.nr_params;
+      int param_index = uniforms;
 
       /* Thanks to the lower_ubo_reference pass, we will see only
        * ir_binop_ubo_load expressions and not ir_dereference_variable for UBO
@@ -1460,14 +1460,14 @@ fs_visitor::rescale_texcoord(ir_texture *ir, fs_reg coordinate,
 	 return coordinate;
       }
 
-      scale_x = fs_reg(UNIFORM, c->prog_data.nr_params);
-      scale_y = fs_reg(UNIFORM, c->prog_data.nr_params + 1);
+      scale_x = fs_reg(UNIFORM, uniforms);
+      scale_y = fs_reg(UNIFORM, uniforms + 1);
 
       GLuint index = _mesa_add_state_reference(params,
 					       (gl_state_index *)tokens);
-      c->prog_data.param[c->prog_data.nr_params++] =
+      c->prog_data.param[uniforms++] =
          &prog->Parameters->ParameterValues[index][0].f;
-      c->prog_data.param[c->prog_data.nr_params++] =
+      c->prog_data.param[uniforms++] =
          &prog->Parameters->ParameterValues[index][1].f;
    }
 
@@ -2931,6 +2931,7 @@ fs_visitor::fs_visitor(struct brw_context *brw,
    this->virtual_grf_end = NULL;
    this->live_intervals = NULL;
 
+   this->uniforms = 0;
    this->params_remap = NULL;
    this->nr_params_remap = 0;
 
