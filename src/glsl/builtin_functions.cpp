@@ -334,11 +334,20 @@ shader_atomic_counters(const _mesa_glsl_parse_state *state)
    return state->ARB_shader_atomic_counters_enable;
 }
 
+static bool
+shader_image_load_store(const _mesa_glsl_parse_state *state)
+{
+   return (state->is_version(420, 0) ||
+           state->ARB_shader_image_load_store_enable);
+}
+
 /** @} */
 
 /******************************************************************************/
 
 namespace {
+
+class image_builtin_builder;
 
 /**
  * builtin_builder: A singleton object representing the core of the built-in
@@ -406,6 +415,22 @@ private:
 
    /** Create a new function and add the given signatures. */
    void add_function(const char *name, ...);
+
+   /**
+    * Create a new function calling \p func for each known image type
+    * to generate its signatures.
+    */
+   void add_image_function(const char *name,
+                           const image_builtin_builder &func);
+
+   /**
+    * Create new functions for all known image built-ins and types.
+    * If \p glsl is \c true, use the GLSL built-in names and emit code
+    * to call into the actual compiler intrinsic.  If \p glsl is
+    * false, emit a function prototype with no body for each image
+    * intrinsic name.
+    */
+   void add_image_functions(bool glsl);
 
    ir_function_signature *new_sig(const glsl_type *return_type,
                                   builtin_available_predicate avail,
@@ -570,6 +595,11 @@ private:
    ir_function_signature *_atomic_op(const char *intrinsic,
                                      builtin_available_predicate avail);
 
+   ir_function_signature *_memory_barrier_intrinsic(
+      builtin_available_predicate avail);
+   ir_function_signature *_memory_barrier(
+      builtin_available_predicate avail);
+
 #undef B0
 #undef B1
 #undef B2
@@ -577,6 +607,170 @@ private:
 #undef BA1
 #undef BA2
    /** @} */
+
+   friend class image_builtin_builder;
+};
+
+/**
+ * Functor that generates image load, store or atomic built-in
+ * signatures given some settings.
+ */
+class image_builtin_builder
+{
+public:
+   /**
+    * If \p emit_stub is \c true build a stub function that calls \c
+    * intrinsic_name forwarding arguments and return value.
+    */
+   image_builtin_builder(builtin_builder &bld, bool emit_stub)
+      : bld(bld),
+        _emit_stub(emit_stub),
+        _intrinsic_name(NULL),
+        _has_return(false),
+        _has_arguments(0),
+        _has_vector_data_type(false),
+        _supports_float_data_type(false),
+        _read_only(false),
+        _write_only(false)
+   {
+   }
+
+   image_builtin_builder &
+   intrinsic_name(const char *s)
+   {
+      _intrinsic_name = s;
+      return *this;
+   }
+
+   image_builtin_builder &
+   has_return()
+   {
+      _has_return = true;
+      return *this;
+   }
+
+   image_builtin_builder &
+   has_arguments(unsigned n)
+   {
+      _has_arguments = n;
+      return *this;
+   }
+
+   image_builtin_builder &
+   has_vector_data_type()
+   {
+      _has_vector_data_type = true;
+      return *this;
+   }
+
+   image_builtin_builder &
+   supports_float_data_type()
+   {
+      _supports_float_data_type = true;
+      return *this;
+   }
+
+   image_builtin_builder &
+   read_only()
+   {
+      _read_only = true;
+      return *this;
+   }
+
+   image_builtin_builder &
+   write_only()
+   {
+      _write_only = true;
+      return *this;
+   }
+
+   /**
+    * Generate the image built-in.
+    */
+   ir_function_signature *
+   operator()(const glsl_type *image_type) const
+   {
+      if (image_type->fields.image.type == GLSL_TYPE_FLOAT &&
+          !_supports_float_data_type)
+         return NULL;
+
+      ir_function_signature *sig = create_signature(image_type);
+
+      if (_emit_stub) {
+         ir_factory body(&sig->body, bld.mem_ctx);
+         ir_function *f = bld.shader->symbols->get_function(_intrinsic_name);
+
+         if (_has_return) {
+            ir_variable *ret_val =
+               body.make_temp(sig->return_type, "_ret_val");
+            body.emit(bld.call(f, ret_val, sig->parameters));
+            body.emit(ret(ret_val));
+         } else {
+            body.emit(bld.call(f, NULL, sig->parameters));
+         }
+
+         sig->is_defined = true;
+
+      } else {
+         sig->is_intrinsic = true;
+      }
+
+      return sig;
+   }
+
+private:
+   ir_function_signature *
+   create_signature(const glsl_type *image_type) const
+   {
+      const glsl_type *data_type =
+         glsl_type::get_instance(image_type->fields.image.type,
+                                 (_has_vector_data_type ? 4 : 1), 1);
+      const glsl_type *ret_type = (_has_return ? data_type :
+                                   glsl_type::void_type);
+
+      /* Addressing arguments that are always present. */
+      ir_variable *image = bld.in_var(image_type, "image");
+      ir_variable *coord = bld.in_var(
+         glsl_type::ivec(image_type->coordinate_components()), "coord");
+
+      ir_function_signature *sig =
+         bld.new_sig(ret_type, shader_image_load_store, 2, image, coord);
+
+      /* Sample index for multisample images. */
+      if (image_type->fields.image.dimension == GLSL_IMAGE_DIM_MS)
+         sig->parameters.push_tail(
+            bld.in_var(glsl_type::int_type, "sample"));
+
+      /* Data arguments. */
+      for (unsigned i = 0; i < _has_arguments; ++i)
+         sig->parameters.push_tail(
+            bld.in_var(data_type, ralloc_asprintf(NULL, "arg%d", i)));
+
+      /* Set the maximal set of qualifiers allowed for this image
+       * built-in.  Function calls with arguments having fewer
+       * qualifiers than present in the prototype are allowed by the
+       * spec, but not with more, i.e. this will make the compiler
+       * accept everything that needs to be accepted, and reject cases
+       * like loads from write-only or stores to read-only images.
+       */
+      image->image.read_only = _read_only;
+      image->image.write_only = _write_only;
+      image->image.coherent = true;
+      image->image._volatile = true;
+      image->image._restrict = true;
+
+      return sig;
+   }
+
+   builtin_builder &bld;
+   bool _emit_stub;
+   const char *_intrinsic_name;
+   bool _has_return;
+   unsigned _has_arguments;
+   bool _has_vector_data_type;
+   bool _supports_float_data_type;
+   bool _read_only;
+   bool _write_only;
 };
 
 } /* anonymous namespace */
@@ -683,6 +877,14 @@ builtin_builder::create_intrinsics()
                 NULL);
    add_function("__intrinsic_atomic_predecrement",
                 _atomic_intrinsic(shader_atomic_counters),
+                NULL);
+
+   add_image_functions(false /* No body, just the intrinsic
+                              * prototypes.
+                              */);
+
+   add_function("__intrinsic_memory_barrier",
+                _memory_barrier_intrinsic(shader_image_load_store),
                 NULL);
 }
 
@@ -2106,6 +2308,15 @@ builtin_builder::create_builtins()
                            shader_atomic_counters),
                 NULL);
 
+   add_image_functions(true /* Emit functions with the GLSL image
+                             * built-in names that call into the
+                             * actual compiler intrinsics.
+                             */);
+
+   add_function("memoryBarrier",
+                _memory_barrier(shader_image_load_store),
+                NULL);
+
 #undef F
 #undef FI
 #undef FIU
@@ -2137,6 +2348,127 @@ builtin_builder::add_function(const char *name, ...)
    va_end(ap);
 
    shader->symbols->add_function(f);
+}
+
+void
+builtin_builder::add_image_function(const char *name,
+                                    const image_builtin_builder &proc)
+{
+   static const glsl_type *const types[] = {
+      glsl_type::image1D_type,
+      glsl_type::image2D_type,
+      glsl_type::image3D_type,
+      glsl_type::image2DRect_type,
+      glsl_type::imageCube_type,
+      glsl_type::imageBuffer_type,
+      glsl_type::image1DArray_type,
+      glsl_type::image2DArray_type,
+      glsl_type::imageCubeArray_type,
+      glsl_type::image2DMS_type,
+      glsl_type::image2DMSArray_type,
+      glsl_type::iimage1D_type,
+      glsl_type::iimage2D_type,
+      glsl_type::iimage3D_type,
+      glsl_type::iimage2DRect_type,
+      glsl_type::iimageCube_type,
+      glsl_type::iimageBuffer_type,
+      glsl_type::iimage1DArray_type,
+      glsl_type::iimage2DArray_type,
+      glsl_type::iimageCubeArray_type,
+      glsl_type::iimage2DMS_type,
+      glsl_type::iimage2DMSArray_type,
+      glsl_type::uimage1D_type,
+      glsl_type::uimage2D_type,
+      glsl_type::uimage3D_type,
+      glsl_type::uimage2DRect_type,
+      glsl_type::uimageCube_type,
+      glsl_type::uimageBuffer_type,
+      glsl_type::uimage1DArray_type,
+      glsl_type::uimage2DArray_type,
+      glsl_type::uimageCubeArray_type,
+      glsl_type::uimage2DMS_type,
+      glsl_type::uimage2DMSArray_type
+   };
+   ir_function *f = new(mem_ctx) ir_function(name);
+
+   for (unsigned i = 0; i < Elements(types); ++i) {
+      ir_function_signature *sig = proc(types[i]);
+
+      if (sig)
+         f->add_signature(sig);
+   }
+
+   shader->symbols->add_function(f);
+}
+
+void
+builtin_builder::add_image_functions(bool glsl)
+{
+   add_image_function(glsl ? "imageLoad" : "__intrinsic_image_load",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_load")
+                      .has_return()
+                      .has_vector_data_type()
+                      .supports_float_data_type()
+                      .read_only());
+
+   add_image_function(glsl ? "imageStore" : "__intrinsic_image_store",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_store")
+                      .has_arguments(1)
+                      .has_vector_data_type()
+                      .supports_float_data_type()
+                      .write_only());
+
+   add_image_function(glsl ? "imageAtomicAdd" : "__intrinsic_image_atomic_add",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_add")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function(glsl ? "imageAtomicMin" : "__intrinsic_image_atomic_min",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_min")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function(glsl ? "imageAtomicMax" : "__intrinsic_image_atomic_max",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_max")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function(glsl ? "imageAtomicAnd" : "__intrinsic_image_atomic_and",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_and")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function(glsl ? "imageAtomicOr" : "__intrinsic_image_atomic_or",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_or")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function(glsl ? "imageAtomicXor" : "__intrinsic_image_atomic_xor",
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_xor")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function((glsl ? "imageAtomicExchange" :
+                       "__intrinsic_image_atomic_exchange"),
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_exchange")
+                      .has_return()
+                      .has_arguments(1));
+
+   add_image_function((glsl ? "imageAtomicCompSwap" :
+                       "__intrinsic_image_atomic_comp_swap"),
+                      image_builtin_builder(*this, glsl)
+                      .intrinsic_name("__intrinsic_image_atomic_comp_swap")
+                      .has_return()
+                      .has_arguments(2));
 }
 
 ir_variable *
@@ -3988,6 +4320,22 @@ builtin_builder::_atomic_op(const char *intrinsic,
    body.emit(call(shader->symbols->get_function(intrinsic), retval,
                   sig->parameters));
    body.emit(ret(retval));
+   return sig;
+}
+
+ir_function_signature *
+builtin_builder::_memory_barrier_intrinsic(builtin_available_predicate avail)
+{
+   MAKE_INTRINSIC(glsl_type::void_type, avail, 0);
+   return sig;
+}
+
+ir_function_signature *
+builtin_builder::_memory_barrier(builtin_available_predicate avail)
+{
+   MAKE_SIG(glsl_type::void_type, avail, 0);
+   body.emit(call(shader->symbols->get_function("__intrinsic_memory_barrier"),
+                  NULL, sig->parameters));
    return sig;
 }
 
