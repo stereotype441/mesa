@@ -59,15 +59,6 @@ fs_generator::~fs_generator()
 }
 
 void
-fs_generator::mark_surface_used(unsigned surf_index)
-{
-   assert(surf_index < BRW_MAX_SURFACES);
-
-   c->prog_data.base.binding_table.size_bytes =
-      MAX2(c->prog_data.base.binding_table.size_bytes, (surf_index + 1) * 4);
-}
-
-void
 fs_generator::patch_discard_jumps_to_fb_writes()
 {
    if (brw->gen < 6 || this->discard_halt_patches.is_empty())
@@ -187,7 +178,7 @@ fs_generator::generate_fb_write(fs_inst *inst)
 		eot,
 		inst->header_present);
 
-   mark_surface_used(surf_index);
+   brw_mark_surface_used(&c->prog_data.base, surf_index);
 }
 
 /* Computes the integer pixel x,y values from the origin.
@@ -586,7 +577,7 @@ fs_generator::generate_tex(fs_inst *inst, struct brw_reg dst, struct brw_reg src
 	      simd_mode,
 	      return_format);
 
-   mark_surface_used(surface_index);
+   brw_mark_surface_used(&c->prog_data.base, surface_index);
 }
 
 
@@ -798,7 +789,7 @@ fs_generator::generate_uniform_pull_constant_load(fs_inst *inst,
    brw_oword_block_read(p, dst, brw_message_reg(inst->base_mrf),
 			read_offset, surf_index);
 
-   mark_surface_used(surf_index);
+   brw_mark_surface_used(&c->prog_data.base, surf_index);
 }
 
 void
@@ -840,7 +831,7 @@ fs_generator::generate_uniform_pull_constant_load_gen7(fs_inst *inst,
                            BRW_SAMPLER_SIMD_MODE_SIMD4X2,
                            0);
 
-   mark_surface_used(surf_index);
+   brw_mark_surface_used(&c->prog_data.base, surf_index);
 }
 
 void
@@ -907,7 +898,7 @@ fs_generator::generate_varying_pull_constant_load(fs_inst *inst,
                            simd_mode,
                            return_format);
 
-   mark_surface_used(surf_index);
+   brw_mark_surface_used(&c->prog_data.base, surf_index);
 }
 
 void
@@ -951,7 +942,7 @@ fs_generator::generate_varying_pull_constant_load_gen7(fs_inst *inst,
                            simd_mode,
                            0);
 
-   mark_surface_used(surf_index);
+   brw_mark_surface_used(&c->prog_data.base, surf_index);
 }
 
 /**
@@ -1259,7 +1250,8 @@ fs_generator::generate_shader_time_add(fs_inst *inst,
                        c->prog_data.base.binding_table.shader_time_start);
    brw_pop_insn_state(p);
 
-   mark_surface_used(c->prog_data.base.binding_table.shader_time_start);
+   brw_mark_surface_used(&c->prog_data.base,
+                         c->prog_data.base.binding_table.shader_time_start);
 }
 
 void
@@ -1276,7 +1268,7 @@ fs_generator::generate_untyped_atomic(fs_inst *inst, struct brw_reg dst,
                       atomic_op.dw1.ud, surf_index.dw1.ud,
                       inst->mlen, dispatch_width / 8);
 
-   mark_surface_used(surf_index.dw1.ud);
+   brw_mark_surface_used(&c->prog_data.base, surf_index.dw1.ud);
 }
 
 void
@@ -1290,7 +1282,7 @@ fs_generator::generate_untyped_surface_read(fs_inst *inst, struct brw_reg dst,
                             surf_index.dw1.ud,
                             inst->mlen, dispatch_width / 8);
 
-   mark_surface_used(surf_index.dw1.ud);
+   brw_mark_surface_used(&c->prog_data.base, surf_index.dw1.ud);
 }
 
 void
