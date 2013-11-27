@@ -102,34 +102,40 @@ fs_visitor::visit(ir_variable *ir)
 	 }
       }
    } else if (ir->mode == ir_var_uniform) {
-      int param_index = uniforms;
-
-      /* Thanks to the lower_ubo_reference pass, we will see only
-       * ir_binop_ubo_load expressions and not ir_dereference_variable for UBO
-       * variables, so no need for them to be in variable_ht.
-       *
-       * Atomic counters take no uniform storage, no need to do
-       * anything here.
-       */
-      if (ir->is_in_uniform_block() || ir->type->contains_atomic())
+      if (ir->is_in_uniform_block()) {
+         /* Thanks to the lower_ubo_reference pass, we will see only
+          * ir_binop_ubo_load expressions and not ir_dereference_variable for UBO
+          * variables, so no need for them to be in variable_ht.
+          */
          return;
 
-      if (dispatch_width == 16) {
-	 if (!variable_storage(ir)) {
-	    fail("Failed to find uniform '%s' in 16-wide\n", ir->name);
-	 }
-	 return;
-      }
+      } else if (ir->type->contains_atomic()) {
+         reg = new(this->mem_ctx) fs_reg(ir->atomic.offset);
 
-      param_size[param_index] = type_size(ir->type);
-      if (!strncmp(ir->name, "gl_", 3)) {
-	 setup_builtin_uniform_values(ir);
+         brw_mark_surface_used(stage_prog_data,
+                               stage_prog_data->binding_table.abo_start +
+                               ir->atomic.buffer_index);
+
       } else {
-	 setup_uniform_values(ir);
-      }
+         int param_index = uniforms;
 
-      reg = new(this->mem_ctx) fs_reg(UNIFORM, param_index);
-      reg->type = brw_type_for_base_type(ir->type);
+         if (dispatch_width == 16) {
+            if (!variable_storage(ir)) {
+               fail("Failed to find uniform '%s' in 16-wide\n", ir->name);
+            }
+            return;
+         }
+
+         param_size[param_index] = type_size(ir->type);
+         if (!strncmp(ir->name, "gl_", 3)) {
+            setup_builtin_uniform_values(ir);
+         } else {
+            setup_uniform_values(ir);
+         }
+
+         reg = new(this->mem_ctx) fs_reg(UNIFORM, param_index);
+         reg->type = brw_type_for_base_type(ir->type);
+      }
 
    } else if (ir->mode == ir_var_system_value) {
       if (ir->location == SYSTEM_VALUE_SAMPLE_POS) {
@@ -182,31 +188,43 @@ fs_visitor::visit(ir_dereference_array *ir)
    src = this->result;
    src.type = brw_type_for_base_type(ir->type);
 
-   if (constant_index) {
-      assert(src.file == UNIFORM || src.file == GRF);
-      src.reg_offset += constant_index->value.i[0] * element_size;
-   } else {
-      /* Variable index array dereference.  We attach the variable index
-       * component to the reg as a pointer to a register containing the
-       * offset.  Currently only uniform arrays are supported in this patch,
-       * and that reladdr pointer is resolved by
-       * move_uniform_array_access_to_pull_constants().  All other array types
-       * are lowered by lower_variable_index_to_cond_assign().
-       */
+   if (ir->array->type->contains_atomic()) {
+      fs_reg tmp(this, glsl_type::uint_type);
+
       ir->array_index->accept(this);
 
-      fs_reg index_reg;
-      index_reg = fs_reg(this, glsl_type::int_type);
-      emit(BRW_OPCODE_MUL, index_reg, this->result, fs_reg(element_size));
+      emit(MUL(tmp, this->result, ATOMIC_COUNTER_SIZE));
+      emit(ADD(tmp, tmp, src));
+      this->result = tmp;
 
-      if (src.reladdr) {
-         emit(BRW_OPCODE_ADD, index_reg, *src.reladdr, index_reg);
+   } else {
+      if (constant_index) {
+         assert(src.file == UNIFORM || src.file == GRF);
+         src.reg_offset += constant_index->value.i[0] * element_size;
+      } else {
+         /* Variable index array dereference.  We attach the variable index
+          * component to the reg as a pointer to a register containing the
+          * offset.  Currently only uniform arrays are supported in this patch,
+          * and that reladdr pointer is resolved by
+          * move_uniform_array_access_to_pull_constants().  All other array types
+          * are lowered by lower_variable_index_to_cond_assign().
+          */
+         ir->array_index->accept(this);
+
+         fs_reg index_reg;
+         index_reg = fs_reg(this, glsl_type::int_type);
+         emit(BRW_OPCODE_MUL, index_reg, this->result, fs_reg(element_size));
+
+         if (src.reladdr) {
+            emit(BRW_OPCODE_ADD, index_reg, *src.reladdr, index_reg);
+         }
+
+         src.reladdr = ralloc(mem_ctx, fs_reg);
+         memcpy(src.reladdr, &index_reg, sizeof(index_reg));
       }
 
-      src.reladdr = ralloc(mem_ctx, fs_reg);
-      memcpy(src.reladdr, &index_reg, sizeof(index_reg));
+      this->result = src;
    }
-   this->result = src;
 }
 
 void
