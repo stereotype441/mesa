@@ -166,6 +166,7 @@ bool do_wm_prog(struct brw_context *brw,
    param_count += 2 * BRW_MAX_TEX_UNIT;
    c->prog_data.param = rzalloc_array(NULL, const float *, param_count);
    c->prog_data.pull_param = rzalloc_array(NULL, const float *, param_count);
+   c->prog_data.nr_params = param_count;
 
    memcpy(&c->key, key, sizeof(*key));
 
