@@ -1295,6 +1295,15 @@ layout_qualifier_id:
          }
       }
 
+      /* Layout qualifiers for ARB_shader_image_load_store. */
+      if (state->ARB_shader_image_load_store_enable ||
+          state->is_version(420, 0)) {
+         if (!$$.flags.i &&
+             match_layout_qualifier($1, "early_fragment_tests", state) == 0) {
+            $$.flags.q.early_fragment_tests = 1;
+         }
+      }
+
       if (!$$.flags.i) {
          _mesa_glsl_error(& @1, state, "unrecognized layout identifier "
                           "`%s'", $1);
@@ -2378,30 +2387,40 @@ layout_defaults:
    | layout_qualifier IN_TOK ';'
    {
       void *ctx = state;
+      ast_type_qualifier qualifier = $1;
+
       $$ = NULL;
-      if (state->target != geometry_shader) {
-         _mesa_glsl_error(& @1, state,
-                          "input layout qualifiers only valid in "
-                          "geometry shaders");
-      } else if (!$1.flags.q.prim_type) {
-         _mesa_glsl_error(& @1, state,
-                          "input layout qualifiers must specify a primitive"
-                          " type");
-      } else {
-         /* Make sure this is a valid input primitive type. */
-         switch ($1.prim_type) {
-         case GL_POINTS:
-         case GL_LINES:
-         case GL_LINES_ADJACENCY:
-         case GL_TRIANGLES:
-         case GL_TRIANGLES_ADJACENCY:
-            $$ = new(ctx) ast_gs_input_layout(@1, $1.prim_type);
-            break;
-         default:
-            _mesa_glsl_error(&@1, state,
-                             "invalid geometry shader input primitive type");
-            break;
+
+      if (state->target == geometry_shader) {
+         if (qualifier.flags.q.prim_type) {
+            /* Make sure this is a valid input primitive type. */
+            switch (qualifier.prim_type) {
+            case GL_POINTS:
+            case GL_LINES:
+            case GL_LINES_ADJACENCY:
+            case GL_TRIANGLES:
+            case GL_TRIANGLES_ADJACENCY:
+               $$ = new(ctx) ast_gs_input_layout(@1, qualifier.prim_type);
+               break;
+            default:
+               _mesa_glsl_error(&@1, state,
+                                "invalid geometry shader input primitive type");
+               break;
+            }
+
+            qualifier.flags.q.prim_type = 0;
          }
+      }
+
+      if (state->target == fragment_shader) {
+         if (qualifier.flags.q.early_fragment_tests) {
+            state->early_fragment_tests = true;
+            qualifier.flags.q.early_fragment_tests = 0;
+         }
+      }
+
+      if (qualifier.flags.i) {
+         _mesa_glsl_error(&@1, state, "invalid input layout qualifier");
       }
    }
 
