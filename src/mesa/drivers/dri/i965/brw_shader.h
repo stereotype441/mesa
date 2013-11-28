@@ -81,6 +81,13 @@ public:
 };
 
 static inline backend_reg
+retype(backend_reg reg, unsigned type)
+{
+   reg.fixed_hw_reg.type = reg.type = type;
+   return reg;
+}
+
+static inline backend_reg
 offset(backend_reg reg, unsigned delta)
 {
    assert(delta == 0 || (reg.file != HW_REG && reg.file != IMM));

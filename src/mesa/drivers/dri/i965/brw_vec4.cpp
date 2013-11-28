@@ -118,6 +118,7 @@ src_reg::src_reg(struct brw_reg reg)
 
    this->file = HW_REG;
    this->fixed_hw_reg = reg;
+   this->type = reg.type;
 }
 
 src_reg::src_reg(const backend_reg &reg)
@@ -190,6 +191,7 @@ dst_reg::dst_reg(struct brw_reg reg)
 
    this->file = HW_REG;
    this->fixed_hw_reg = reg;
+   this->type = reg.type;
 }
 
 dst_reg::dst_reg(const backend_reg &reg)
