@@ -80,6 +80,14 @@ public:
    } imm;
 };
 
+static inline backend_reg
+offset(backend_reg reg, unsigned delta)
+{
+   assert(delta == 0 || (reg.file != HW_REG && reg.file != IMM));
+   reg.reg_offset += delta;
+   return reg;
+}
+
 class backend_instruction : public exec_node {
 public:
    bool is_tex();
