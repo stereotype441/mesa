@@ -985,8 +985,9 @@ static uint32_t brw_file_from_reg(fs_reg *reg)
 }
 
 struct brw_reg
-brw_reg_from_fs_reg(fs_reg *reg)
+brw_reg_from_fs_reg(fs_reg *reg, unsigned dispatch_width)
 {
+   const int reg_size = 4 * dispatch_width;
    struct brw_reg brw_reg;
 
    switch (reg->file) {
@@ -1000,7 +1001,8 @@ brw_reg_from_fs_reg(fs_reg *reg)
       }
 
       brw_reg = retype(brw_reg, reg->type);
-      brw_reg = byte_offset(brw_reg, reg->subreg_offset);
+      brw_reg = byte_offset(brw_reg, (reg->subreg_offset +
+                                      reg->reg_offset * reg_size));
       break;
    case IMM:
       switch (reg->type) {
@@ -1353,7 +1355,7 @@ fs_generator::generate_code(exec_list *instructions)
       }
 
       for (unsigned int i = 0; i < 3; i++) {
-	 src[i] = brw_reg_from_fs_reg(&inst->src[i]);
+	 src[i] = brw_reg_from_fs_reg(&inst->src[i], dispatch_width);
 
 	 /* The accumulator result appears to get used for the
 	  * conditional modifier generation.  When negating a UD
@@ -1365,7 +1367,7 @@ fs_generator::generate_code(exec_list *instructions)
 		inst->src[i].type != BRW_REGISTER_TYPE_UD ||
 		!inst->src[i].negate);
       }
-      dst = brw_reg_from_fs_reg(&inst->dst);
+      dst = brw_reg_from_fs_reg(&inst->dst, dispatch_width);
 
       brw_set_conditionalmod(p, inst->conditional_mod);
       brw_set_predicate_control(p, inst->predicate);

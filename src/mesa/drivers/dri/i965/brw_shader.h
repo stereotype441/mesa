@@ -61,9 +61,10 @@ public:
    /**
     * Offset from the start of the contiguous register block.
     *
-    * For pre-register-allocation GRFs, this is in units of a float per pixel
-    * (1 hardware register for SIMD8 mode, or 2 registers for SIMD16 mode).
-    * For uniforms, this is in units of 1 float.
+    * For pre-register-allocation GRFs and MRFs, this is in units of a
+    * float per pixel (1 hardware register for SIMD8 mode, or 2
+    * registers for SIMD16 mode).  For uniforms, this is in units of 1
+    * float.
     */
    int reg_offset;
 
