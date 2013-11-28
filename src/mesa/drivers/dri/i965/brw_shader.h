@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include "brw_defines.h"
+#include "brw_reg.h"
 #include "glsl/ir.h"
 
 #pragma once
@@ -38,6 +39,45 @@ enum register_file {
 };
 
 #ifdef __cplusplus
+
+class backend_reg {
+public:
+   backend_reg();
+   backend_reg(struct brw_reg reg);
+
+   bool is_zero() const;
+   bool is_one() const;
+   bool is_null() const;
+
+   /** Register file: GRF, MRF, IMM. */
+   enum register_file file;
+
+   /**
+    * Register number.  For MRF, it's the hardware register.  For
+    * GRF, it's a virtual register number until register allocation
+    */
+   int reg;
+
+   /**
+    * Offset from the start of the contiguous register block.
+    *
+    * For pre-register-allocation GRFs, this is in units of a float per pixel
+    * (1 hardware register for SIMD8 mode, or 2 registers for SIMD16 mode).
+    * For uniforms, this is in units of 1 float.
+    */
+   int reg_offset;
+
+   /** Register type.  BRW_REGISTER_TYPE_* */
+   int type;
+   struct brw_reg fixed_hw_reg;
+
+   /** Value for file == BRW_IMMMEDIATE_FILE */
+   union {
+      int32_t i;
+      uint32_t u;
+      float f;
+   } imm;
+};
 
 class backend_instruction : public exec_node {
 public:

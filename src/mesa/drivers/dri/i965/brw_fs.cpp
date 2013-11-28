@@ -426,6 +426,12 @@ fs_reg::fs_reg(struct brw_reg fixed_hw_reg)
    this->type = fixed_hw_reg.type;
 }
 
+fs_reg::fs_reg(const backend_reg &reg)
+{
+   init();
+   *static_cast<backend_reg *>(this) = reg;
+}
+
 bool
 fs_reg::equals(const fs_reg &r) const
 {
@@ -448,32 +454,6 @@ fs_reg::retype(uint32_t type)
    fs_reg result = *this;
    result.type = type;
    return result;
-}
-
-bool
-fs_reg::is_zero() const
-{
-   if (file != IMM)
-      return false;
-
-   return type == BRW_REGISTER_TYPE_F ? imm.f == 0.0 : imm.i == 0;
-}
-
-bool
-fs_reg::is_one() const
-{
-   if (file != IMM)
-      return false;
-
-   return type == BRW_REGISTER_TYPE_F ? imm.f == 1.0 : imm.i == 1;
-}
-
-bool
-fs_reg::is_null() const
-{
-   return file == HW_REG &&
-          fixed_hw_reg.file == BRW_ARCHITECTURE_REGISTER_FILE &&
-          fixed_hw_reg.nr == BRW_ARF_NULL;
 }
 
 bool

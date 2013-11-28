@@ -44,6 +44,7 @@
 
 #include <stdbool.h>
 #include "program/prog_instruction.h"
+#include "main/compiler.h"
 #include "brw_defines.h"
 
 #ifdef __cplusplus

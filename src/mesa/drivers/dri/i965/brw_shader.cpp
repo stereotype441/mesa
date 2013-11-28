@@ -538,6 +538,59 @@ brw_instruction_name(enum opcode op)
    }
 }
 
+backend_reg::backend_reg() :
+   file(BAD_FILE),
+   reg(0), reg_offset(0),
+   type(BRW_REGISTER_TYPE_UD),
+   fixed_hw_reg(),
+   imm()
+{
+
+}
+
+backend_reg::backend_reg(struct brw_reg fixed_hw_reg) :
+   file(HW_REG),
+   reg(0), reg_offset(0),
+   type(BRW_REGISTER_TYPE_UD),
+   fixed_hw_reg(fixed_hw_reg),
+   imm()
+{
+}
+
+bool
+backend_reg::is_zero() const
+{
+   if (file != IMM)
+      return false;
+
+   if (type == BRW_REGISTER_TYPE_F) {
+      return imm.f == 0.0;
+   } else {
+      return imm.i == 0;
+   }
+}
+
+bool
+backend_reg::is_one() const
+{
+   if (file != IMM)
+      return false;
+
+   if (type == BRW_REGISTER_TYPE_F) {
+      return imm.f == 1.0;
+   } else {
+      return imm.i == 1;
+   }
+}
+
+bool
+backend_reg::is_null() const
+{
+   return file == HW_REG &&
+          fixed_hw_reg.file == BRW_ARCHITECTURE_REGISTER_FILE &&
+          fixed_hw_reg.nr == BRW_ARF_NULL;
+}
+
 bool
 backend_instruction::is_tex()
 {

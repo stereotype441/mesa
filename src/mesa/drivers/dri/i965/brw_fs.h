@@ -59,7 +59,7 @@ namespace brw {
    class fs_live_variables;
 }
 
-class fs_reg {
+class fs_reg : public backend_reg {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(fs_reg)
 
@@ -70,46 +70,19 @@ public:
    fs_reg(int32_t i);
    fs_reg(uint32_t u);
    fs_reg(struct brw_reg fixed_hw_reg);
+   fs_reg(const backend_reg &reg);
    fs_reg(enum register_file file, int reg);
    fs_reg(enum register_file file, int reg, uint32_t type);
    fs_reg(class fs_visitor *v, const struct glsl_type *type);
 
    bool equals(const fs_reg &r) const;
-   bool is_zero() const;
-   bool is_one() const;
-   bool is_null() const;
    bool is_valid_3src() const;
    fs_reg retype(uint32_t type);
 
-   /** Register file: GRF, MRF, IMM. */
-   enum register_file file;
-   /**
-    * Register number.  For MRF, it's the hardware register.  For
-    * GRF, it's a virtual register number until register allocation
-    */
-   int reg;
-   /**
-    * Offset from the start of the contiguous register block.
-    *
-    * For pre-register-allocation GRFs, this is in units of a float per pixel
-    * (1 hardware register for SIMD8 mode, or 2 registers for SIMD16 mode).
-    * For uniforms, this is in units of 1 float.
-    */
-   int reg_offset;
-   /** Register type.  BRW_REGISTER_TYPE_* */
-   int type;
    bool negate;
    bool abs;
    bool sechalf;
-   struct brw_reg fixed_hw_reg;
    int smear; /* -1, or a channel of the reg to smear to all channels. */
-
-   /** Value for file == IMM */
-   union {
-      int32_t i;
-      uint32_t u;
-      float f;
-   } imm;
 
    fs_reg *reladdr;
 };

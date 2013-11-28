@@ -89,28 +89,7 @@ class dst_reg;
 unsigned
 swizzle_for_size(int size);
 
-class reg
-{
-public:
-   /** Register file: GRF, MRF, IMM. */
-   enum register_file file;
-   /** virtual register number.  0 = fixed hw reg */
-   int reg;
-   /** Offset within the virtual register. */
-   int reg_offset;
-   /** Register type.  BRW_REGISTER_TYPE_* */
-   int type;
-   struct brw_reg fixed_hw_reg;
-
-   /** Value for file == BRW_IMMMEDIATE_FILE */
-   union {
-      int32_t i;
-      uint32_t u;
-      float f;
-   } imm;
-};
-
-class src_reg : public reg
+class src_reg : public backend_reg
 {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(src_reg)
@@ -123,10 +102,9 @@ public:
    src_reg(uint32_t u);
    src_reg(int32_t i);
    src_reg(struct brw_reg reg);
+   src_reg(const backend_reg &reg);
 
    bool equals(src_reg *r);
-   bool is_zero() const;
-   bool is_one() const;
 
    src_reg(class vec4_visitor *v, const struct glsl_type *type);
 
@@ -139,7 +117,7 @@ public:
    src_reg *reladdr;
 };
 
-class dst_reg : public reg
+class dst_reg : public backend_reg
 {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(dst_reg)
@@ -151,6 +129,7 @@ public:
    dst_reg(register_file file, int reg, const glsl_type *type, int writemask);
    dst_reg(struct brw_reg reg);
    dst_reg(class vec4_visitor *v, const struct glsl_type *type);
+   dst_reg(const backend_reg &reg);
 
    explicit dst_reg(src_reg reg);
 

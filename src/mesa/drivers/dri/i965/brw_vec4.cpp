@@ -120,20 +120,22 @@ src_reg::src_reg(struct brw_reg reg)
    this->fixed_hw_reg = reg;
 }
 
-src_reg::src_reg(dst_reg reg)
+src_reg::src_reg(const backend_reg &reg)
 {
    init();
+   *static_cast<backend_reg *>(this) = reg;
+   this->swizzle = BRW_SWIZZLE_XYZW;
+}
 
-   this->file = reg.file;
-   this->reg = reg.reg;
-   this->reg_offset = reg.reg_offset;
-   this->type = reg.type;
-   this->reladdr = reg.reladdr;
-   this->fixed_hw_reg = reg.fixed_hw_reg;
-
+src_reg::src_reg(dst_reg reg)
+{
    int swizzles[4];
    int next_chan = 0;
    int last = 0;
+
+   init();
+   *static_cast<backend_reg *>(this) = reg;
+   this->reladdr = reg.reladdr;
 
    for (int i = 0; i < 4; i++) {
       if (!(reg.writemask & (1 << i)))
@@ -190,14 +192,18 @@ dst_reg::dst_reg(struct brw_reg reg)
    this->fixed_hw_reg = reg;
 }
 
+dst_reg::dst_reg(const backend_reg &reg)
+{
+   init();
+   *static_cast<backend_reg *>(this) = reg;
+}
+
 dst_reg::dst_reg(src_reg reg)
 {
    init();
+   *static_cast<backend_reg *>(this) = reg;
+   this->reladdr = reg.reladdr;
 
-   this->file = reg.file;
-   this->reg = reg.reg;
-   this->reg_offset = reg.reg_offset;
-   this->type = reg.type;
    /* How should we do writemasking when converting from a src_reg?  It seems
     * pretty obvious that for src.xxxx the caller wants to write to src.x, but
     * what about for src.wx?  Just special-case src.xxxx for now.
@@ -206,8 +212,6 @@ dst_reg::dst_reg(src_reg reg)
       this->writemask = WRITEMASK_X;
    else
       this->writemask = WRITEMASK_XYZW;
-   this->reladdr = reg.reladdr;
-   this->fixed_hw_reg = reg.fixed_hw_reg;
 }
 
 bool
@@ -474,32 +478,6 @@ vec4_visitor::pack_uniform_registers()
 	 int sw = BRW_GET_SWZ(inst->src[i].swizzle, 3) + new_chan[src];
 	 inst->src[i].swizzle = BRW_SWIZZLE4(sx, sy, sz, sw);
       }
-   }
-}
-
-bool
-src_reg::is_zero() const
-{
-   if (file != IMM)
-      return false;
-
-   if (type == BRW_REGISTER_TYPE_F) {
-      return imm.f == 0.0;
-   } else {
-      return imm.i == 0;
-   }
-}
-
-bool
-src_reg::is_one() const
-{
-   if (file != IMM)
-      return false;
-
-   if (type == BRW_REGISTER_TYPE_F) {
-      return imm.f == 1.0;
-   } else {
-      return imm.i == 1;
    }
 }
 
