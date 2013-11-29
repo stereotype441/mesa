@@ -683,6 +683,78 @@ get_image_format(struct brw_context *brw, gl_format format)
 }
 
 static void
+update_buffer_image_param(struct brw_context *brw,
+                          struct gl_image_unit *u,
+                          struct brw_image_param *param)
+{
+   struct gl_buffer_object *obj = u->TexObj->BufferObject;
+
+   param->size[0] = (obj->Size / _mesa_get_format_bytes(u->_ActualFormat));
+   param->size[1] = 0;
+   param->size[2] = 0;
+   param->offset[0] = 0;
+   param->offset[1] = 0;
+   param->stride[0] = _mesa_get_format_bytes(u->_ActualFormat);
+   param->stride[1] = 0;
+   param->stride[2] = 0;
+   param->stride[3] = 0;
+   param->tiling[0] = 0;
+   param->tiling[1] = 0;
+   param->tiling[2] = 0;
+   param->swizzling[0] = 0xff;
+   param->swizzling[1] = 0xff;
+}
+
+static void
+update_texture_image_param(struct brw_context *brw,
+                           struct gl_image_unit *u,
+                           struct brw_image_param *param)
+{
+   struct intel_mipmap_tree *mt = intel_texture_object(u->TexObj)->mt;
+
+   param->size[0] = minify(mt->logical_width0, u->Level);
+   param->size[1] = minify(mt->logical_height0, u->Level);
+
+   if (u->Layered)
+      param->size[2] = minify(mt->logical_depth0, u->Level);
+   else
+      param->size[2] = 1;
+
+   intel_miptree_get_image_offset(mt, u->Level, u->Layer,
+                                  &param->offset[0],
+                                  &param->offset[1]);
+
+   param->stride[0] = mt->region->cpp;
+   param->stride[1] = mt->region->pitch;
+   param->stride[2] =
+      brw_miptree_get_horizontal_slice_pitch(brw, mt, u->Level);
+   param->stride[3] =
+      brw_miptree_get_vertical_slice_pitch(brw, mt, u->Level);
+
+   if (mt->region->tiling == I915_TILING_X) {
+      param->tiling[0] = (ffs(512 / mt->region->cpp) - 1);
+      param->tiling[1] = 3;
+      param->swizzling[0] = 3;
+      param->swizzling[1] = 4;
+   } else if (mt->region->tiling == I915_TILING_Y) {
+      param->tiling[0] = (ffs(16 / mt->region->cpp) - 1);
+      param->tiling[1] = 5;
+      param->swizzling[0] = 3;
+      param->swizzling[1] = 0xff;
+   } else {
+      param->tiling[0] = 0;
+      param->tiling[1] = 0;
+      param->swizzling[0] = 0xff;
+      param->swizzling[1] = 0xff;
+   }
+
+   if (u->TexObj->Target == GL_TEXTURE_3D)
+      param->tiling[2] = u->Level;
+   else
+      param->tiling[2] = 0;
+}
+
+static void
 gen7_update_image_surface(struct brw_context *brw,
                           struct gl_image_unit *u,
                           GLenum access,
@@ -714,6 +786,8 @@ gen7_update_image_surface(struct brw_context *brw,
                                      0 /* mocs */,
                                      access != GL_READ_ONLY);
 
+      update_buffer_image_param(brw, u, param);
+
    } else {
       struct intel_texture_object *intel_obj = intel_texture_object(obj);
       struct intel_mipmap_tree *mt = intel_obj->mt;
@@ -740,6 +814,8 @@ gen7_update_image_surface(struct brw_context *brw,
                                          access != GL_READ_ONLY,
                                          false);
       }
+
+      update_texture_image_param(brw, u, param);
    }
 }
 

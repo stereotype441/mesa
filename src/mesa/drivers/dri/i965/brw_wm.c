@@ -149,7 +149,9 @@ bool do_wm_prog(struct brw_context *brw,
     */
    int param_count;
    if (fs) {
-      param_count = fs->num_uniform_components;
+      param_count = (fs->num_uniform_components +
+                     fs->NumImages * BRW_IMAGE_PARAM_SIZE);
+      c->prog_data.base.nr_image_params = fs->NumImages;
    } else {
       param_count = fp->program.Base.Parameters->NumParameters * 4;
    }
@@ -158,6 +160,9 @@ bool do_wm_prog(struct brw_context *brw,
    c->prog_data.base.param = rzalloc_array(NULL, const float *, param_count);
    c->prog_data.base.pull_param =
       rzalloc_array(NULL, const float *, param_count);
+   c->prog_data.base.image_param =
+      rzalloc_array(NULL, struct brw_image_param,
+                    c->prog_data.base.nr_image_params);
    c->prog_data.base.nr_params = param_count;
 
    memcpy(&c->key, key, sizeof(*key));

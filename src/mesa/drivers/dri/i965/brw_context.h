@@ -352,6 +352,7 @@ struct brw_stage_prog_data {
 
    GLuint nr_params;       /**< number of float params/constants */
    GLuint nr_pull_params;
+   GLuint nr_image_params;
 
    /* Pointers to tracked values (only valid once
     * _mesa_load_state_parameters has been called at runtime).
@@ -361,6 +362,47 @@ struct brw_stage_prog_data {
     */
    const float **param;
    const float **pull_param;
+   struct brw_image_param *image_param;
+};
+
+/*
+ * Image meta-data structure as laid out in the shader parameter
+ * buffer.  Entries have to be 16B-aligned for the vec4 back-end to be
+ * able to use them.  That's okay because the padding and any unused
+ * entries [most of them except when we're doing untyped surface
+ * access] will be removed by the uniform packing pass.
+ */
+#define BRW_IMAGE_PARAM_SURFACE_IDX_OFFSET      0
+#define BRW_IMAGE_PARAM_OFFSET_OFFSET           4
+#define BRW_IMAGE_PARAM_SIZE_OFFSET             8
+#define BRW_IMAGE_PARAM_STRIDE_OFFSET           12
+#define BRW_IMAGE_PARAM_TILING_OFFSET           16
+#define BRW_IMAGE_PARAM_SWIZZLING_OFFSET        20
+#define BRW_IMAGE_PARAM_SIZE                    24
+
+struct brw_image_param {
+   /** Surface binding table index. */
+   uint32_t surface_idx;
+
+   /** Surface X, Y and Z dimensions. */
+   uint32_t size[3];
+
+   /** Offset applied to the X and Y surface coordinates. */
+   uint32_t offset[2];
+
+   /** X-stride in bytes, Y-stride in bytes, horizontal Z-stride in
+    * pixels, vertical Z-stride in pixels.
+    */
+   uint32_t stride[4];
+
+   /** Log2 of the tiling modulus in the X, Y and Z dimension. */
+   uint32_t tiling[3];
+
+   /** Right shift to apply for surface address swizzling.  Two
+    * different swizzles can be specified and will be applied one
+    * after the other.  Use \c 0xff if any of the swizzles is not
+    * required. */
+   uint32_t swizzling[2];
 };
 
 /* Data about a particular attempt to compile a program.  Note that

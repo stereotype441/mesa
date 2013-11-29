@@ -552,6 +552,10 @@ brw_stage_prog_data_compare(const void *in_a, const void *in_b)
    if (memcmp(a->pull_param, b->pull_param, a->nr_pull_params * sizeof(void *)))
       return false;
 
+   if (memcmp(a->image_param, b->image_param,
+              a->nr_image_params * sizeof(struct brw_image_param)))
+      return false;
+
    return true;
 }
 
@@ -562,4 +566,5 @@ brw_stage_prog_data_free(const void *p)
 
    ralloc_free(prog_data->param);
    ralloc_free(prog_data->pull_param);
+   ralloc_free(prog_data->image_param);
 }
