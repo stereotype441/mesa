@@ -437,8 +437,12 @@ public:
    fs_reg get_timestamp();
 
    struct brw_reg interp_reg(int location, int channel);
+
+   virtual void setup_vector_uniform_values(void *values, unsigned stride,
+                                            unsigned size);
    void setup_uniform_values(ir_variable *ir);
    void setup_builtin_uniform_values(ir_variable *ir);
+
    int implied_mrf_writes(fs_inst *inst);
 
    void dump_instruction(backend_instruction *inst);

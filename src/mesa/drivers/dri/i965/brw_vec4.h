@@ -377,6 +377,8 @@ public:
 
    int virtual_grf_alloc(int size);
    void setup_uniform_clipplane_values();
+   virtual void setup_vector_uniform_values(void *values, unsigned stride,
+                                            unsigned size);
    void setup_uniform_values(ir_variable *ir);
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_uniforms(int payload_reg);

@@ -570,6 +570,8 @@ type_size(const struct glsl_type *type)
       return 1;
    case GLSL_TYPE_ATOMIC_UINT:
       return 0;
+   case GLSL_TYPE_IMAGE:
+      return BRW_IMAGE_PARAM_SIZE / 4;
    case GLSL_TYPE_VOID:
    case GLSL_TYPE_ERROR:
    case GLSL_TYPE_INTERFACE:
@@ -631,6 +633,22 @@ dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
    this->type = brw_type_for_base_type(type);
 }
 
+void
+vec4_visitor::setup_vector_uniform_values(void *values, unsigned stride,
+                                          unsigned size)
+{
+   static float zero = 0;
+
+   for (unsigned i = 0; i < size; ++i)
+      stage_prog_data->param[4 * uniforms + i] =
+         (float *)((char *)values + i * stride);
+
+   for (unsigned i = size; i < 4; ++i)
+      stage_prog_data->param[4 * uniforms + i] = &zero;
+
+   uniform_vector_size[uniforms++] = size;
+}
+
 /* Our support for uniforms is piggy-backed on the struct
  * gl_fragment_program, because that's where the values actually
  * get stored, rather than in some global gl_shader_program uniform
@@ -657,24 +675,20 @@ vec4_visitor::setup_uniform_values(ir_variable *ir)
          continue;
       }
 
-      gl_constant_value *components = storage->storage;
-      unsigned vector_count = (MAX2(storage->array_elements, 1) *
-                               storage->type->matrix_columns);
+      if (storage->type->is_image()) {
+         setup_image_uniform_values(storage);
 
-      for (unsigned s = 0; s < vector_count; s++) {
-         uniform_vector_size[uniforms] = storage->type->vector_elements;
+      } else {
+         gl_constant_value *components = storage->storage;
+         unsigned vector_count = (MAX2(storage->array_elements, 1) *
+                                  storage->type->matrix_columns);
 
-         int i;
-         for (i = 0; i < uniform_vector_size[uniforms]; i++) {
-            stage_prog_data->param[uniforms * 4 + i] = &components->f;
-            components++;
+         for (unsigned s = 0; s < vector_count; s++) {
+            setup_vector_uniform_values(&components->f, sizeof(*components),
+                                        storage->type->vector_elements);
+
+            components += storage->type->vector_elements;
          }
-         for (; i < 4; i++) {
-            static float zero = 0;
-            stage_prog_data->param[uniforms * 4 + i] = &zero;
-         }
-
-         uniforms++;
       }
    }
 }

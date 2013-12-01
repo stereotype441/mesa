@@ -310,6 +310,8 @@ brw_type_for_base_type(const struct glsl_type *type)
        * way to trip up if we don't.
        */
       return BRW_REGISTER_TYPE_UD;
+   case GLSL_TYPE_IMAGE:
+      return BRW_REGISTER_TYPE_UD;
    case GLSL_TYPE_VOID:
    case GLSL_TYPE_ERROR:
    case GLSL_TYPE_INTERFACE:
@@ -763,4 +765,27 @@ backend_visitor::assign_common_binding_table_offsets(uint32_t next_binding_table
    assert(next_binding_table_offset <= BRW_MAX_SURFACES);
 
    /* prog_data->base.binding_table.size will be set by brw_mark_surface_used. */
+}
+
+void
+backend_visitor::setup_image_uniform_values(const gl_uniform_storage *storage)
+{
+   const unsigned stage = _mesa_program_target_to_index(prog->Target);
+
+   for (unsigned i = 0; i < MAX2(storage->array_elements, 1); i++) {
+      const unsigned image_idx = storage->image[stage].index + i;
+      brw_image_param *param = &stage_prog_data->image_param[image_idx];
+
+      param->surface_idx =
+         stage_prog_data->binding_table.image_start + image_idx;
+
+      setup_vector_uniform_values(&param->surface_idx, sizeof(uint32_t), 1);
+      setup_vector_uniform_values(param->offset, sizeof(uint32_t), 2);
+      setup_vector_uniform_values(param->size, sizeof(uint32_t), 3);
+      setup_vector_uniform_values(param->stride, sizeof(uint32_t), 4);
+      setup_vector_uniform_values(param->tiling, sizeof(uint32_t), 3);
+      setup_vector_uniform_values(param->swizzling, sizeof(uint32_t), 2);
+
+      brw_mark_surface_used(stage_prog_data, param->surface_idx);
+   }
 }

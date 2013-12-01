@@ -506,6 +506,8 @@ fs_visitor::type_size(const struct glsl_type *type)
       return 0;
    case GLSL_TYPE_ATOMIC_UINT:
       return 0;
+   case GLSL_TYPE_IMAGE:
+      return BRW_IMAGE_PARAM_SIZE;
    case GLSL_TYPE_VOID:
    case GLSL_TYPE_ERROR:
    case GLSL_TYPE_INTERFACE:
@@ -873,6 +875,20 @@ fs_visitor::import_uniforms(fs_visitor *v)
    this->nr_params_remap = v->nr_params_remap;
 }
 
+void
+fs_visitor::setup_vector_uniform_values(void *values, unsigned stride,
+                                        unsigned size)
+{
+   static float zero = 0;
+
+   for (unsigned i = 0; i < size; ++i)
+      stage_prog_data->param[uniforms++] =
+         (float *)((char *)values + i * stride);
+
+   for (unsigned i = size; i < 4; ++i)
+      stage_prog_data->param[uniforms++] = &zero;
+}
+
 /* Our support for uniforms is piggy-backed on the struct
  * gl_fragment_program, because that's where the values actually
  * get stored, rather than in some global gl_shader_program uniform
@@ -889,7 +905,6 @@ fs_visitor::setup_uniform_values(ir_variable *ir)
     * order we'd walk the type, so walk the list of storage and find anything
     * with our name, or the prefix of a component that starts with our name.
     */
-   unsigned params_before = uniforms;
    for (unsigned u = 0; u < shader_prog->NumUserUniformStorage; u++) {
       struct gl_uniform_storage *storage = &shader_prog->UniformStorage[u];
 
@@ -900,17 +915,18 @@ fs_visitor::setup_uniform_values(ir_variable *ir)
          continue;
       }
 
-      unsigned slots = storage->type->component_slots();
-      if (storage->array_elements)
-         slots *= storage->array_elements;
+      if (storage->type->is_image()) {
+         setup_image_uniform_values(storage);
 
-      for (unsigned i = 0; i < slots; i++)
-         stage_prog_data->param[uniforms++] = &storage->storage[i].f;
+      } else {
+         unsigned slots = storage->type->component_slots();
+         if (storage->array_elements)
+            slots *= storage->array_elements;
+
+         for (unsigned i = 0; i < slots; i++)
+            stage_prog_data->param[uniforms++] = &storage->storage[i].f;
+      }
    }
-
-   /* Make sure we actually initialized the right amount of stuff here. */
-   assert(params_before + ir->type->component_slots() == uniforms);
-   (void)params_before;
 }
 
 
