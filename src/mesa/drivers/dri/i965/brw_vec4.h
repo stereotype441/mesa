@@ -667,15 +667,6 @@ private:
    void generate_unpack_flags(vec4_instruction *inst,
                               struct brw_reg dst);
 
-   void generate_untyped_atomic(vec4_instruction *inst,
-                                struct brw_reg dst,
-                                struct brw_reg atomic_op,
-                                struct brw_reg surf_index);
-
-   void generate_untyped_surface_read(vec4_instruction *inst,
-                                      struct brw_reg dst,
-                                      struct brw_reg surf_index);
-
    struct brw_context *brw;
 
    struct brw_compile *p;

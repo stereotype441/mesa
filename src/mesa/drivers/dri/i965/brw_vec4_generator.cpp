@@ -851,38 +851,6 @@ vec4_generator::generate_pull_constant_load_gen7(vec4_instruction *inst,
    brw_mark_surface_used(&prog_data->base, surf_index.dw1.ud);
 }
 
-void
-vec4_generator::generate_untyped_atomic(vec4_instruction *inst,
-                                        struct brw_reg dst,
-                                        struct brw_reg atomic_op,
-                                        struct brw_reg surf_index)
-{
-   assert(atomic_op.file == BRW_IMMEDIATE_VALUE &&
-          atomic_op.type == BRW_REGISTER_TYPE_UD &&
-          surf_index.file == BRW_IMMEDIATE_VALUE &&
-	  surf_index.type == BRW_REGISTER_TYPE_UD);
-
-   brw_untyped_atomic(p, dst, brw_message_reg(inst->base_mrf),
-                      surf_index, atomic_op.dw1.ud,
-                      inst->mlen, true);
-
-   brw_mark_surface_used(&prog_data->base, surf_index.dw1.ud);
-}
-
-void
-vec4_generator::generate_untyped_surface_read(vec4_instruction *inst,
-                                              struct brw_reg dst,
-                                              struct brw_reg surf_index)
-{
-   assert(surf_index.file == BRW_IMMEDIATE_VALUE &&
-	  surf_index.type == BRW_REGISTER_TYPE_UD);
-
-   brw_untyped_surface_read(p, dst, brw_message_reg(inst->base_mrf),
-                            surf_index, inst->mlen, 1);
-
-   brw_mark_surface_used(&prog_data->base, surf_index.dw1.ud);
-}
-
 /**
  * Generate assembly for a Vec4 IR instruction.
  *
@@ -1198,11 +1166,15 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
       break;
 
    case SHADER_OPCODE_UNTYPED_ATOMIC:
-      generate_untyped_atomic(inst, dst, src[0], src[1]);
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_untyped_atomic(p, dst, brw_message_reg(inst->base_mrf),
+                         src[0], src[1].dw1.ud, inst->mlen, true);
       break;
 
    case SHADER_OPCODE_UNTYPED_SURFACE_READ:
-      generate_untyped_surface_read(inst, dst, src[0]);
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_untyped_surface_read(p, dst, brw_message_reg(inst->base_mrf),
+                               src[0], inst->mlen, src[1].dw1.ud);
       break;
 
    case VS_OPCODE_UNPACK_FLAGS_SIMD4X2:
