@@ -94,8 +94,6 @@ class src_reg : public backend_reg
 public:
    DECLARE_RALLOC_CXX_OPERATORS(src_reg)
 
-   void init();
-
    src_reg(register_file file, int reg, const glsl_type *type);
    src_reg();
    src_reg(float f);
@@ -115,6 +113,9 @@ public:
    bool abs;
 
    src_reg *reladdr;
+
+private:
+   void init();
 };
 
 static inline src_reg
@@ -161,8 +162,6 @@ class dst_reg : public backend_reg
 public:
    DECLARE_RALLOC_CXX_OPERATORS(dst_reg)
 
-   void init();
-
    dst_reg();
    dst_reg(register_file file, int reg);
    dst_reg(register_file file, int reg, const glsl_type *type, int writemask);
@@ -175,6 +174,9 @@ public:
    int writemask; /**< Bitfield of WRITEMASK_[XYZW] */
 
    src_reg *reladdr;
+
+private:
+   void init();
 };
 
 static inline dst_reg

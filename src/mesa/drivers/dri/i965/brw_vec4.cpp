@@ -62,17 +62,17 @@ swizzle_for_size(int size)
 void
 src_reg::init()
 {
-   memset(this, 0, sizeof(*this));
-
-   this->file = BAD_FILE;
+   swizzle = BRW_SWIZZLE_XXXX;
+   negate = false;
+   abs = false;
+   reladdr = NULL;
 }
 
-src_reg::src_reg(register_file file, int reg, const glsl_type *type)
+src_reg::src_reg(register_file file, int reg, const glsl_type *type) :
+   backend_reg(file, reg, BRW_REGISTER_TYPE_UD)
 {
    init();
 
-   this->file = file;
-   this->reg = reg;
    if (type && (type->is_scalar() || type->is_vector() || type->is_matrix()))
       this->swizzle = swizzle_for_size(type->vector_elements);
    else
@@ -85,57 +85,44 @@ src_reg::src_reg()
    init();
 }
 
-src_reg::src_reg(float f)
+src_reg::src_reg(float f) :
+   backend_reg(f)
 {
    init();
-
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_F;
-   this->imm.f = f;
 }
 
-src_reg::src_reg(uint32_t u)
+src_reg::src_reg(uint32_t u) :
+   backend_reg(u)
 {
    init();
-
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_UD;
-   this->imm.u = u;
 }
 
-src_reg::src_reg(int32_t i)
+src_reg::src_reg(int32_t i) :
+   backend_reg(i)
 {
    init();
-
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_D;
-   this->imm.i = i;
 }
 
-src_reg::src_reg(struct brw_reg reg)
+src_reg::src_reg(struct brw_reg reg) :
+   backend_reg(reg)
 {
    init();
-
-   this->file = HW_REG;
-   this->fixed_hw_reg = reg;
-   this->type = reg.type;
 }
 
-src_reg::src_reg(const backend_reg &reg)
+src_reg::src_reg(const backend_reg &reg) :
+   backend_reg(reg)
 {
    init();
-   *static_cast<backend_reg *>(this) = reg;
-   this->swizzle = BRW_SWIZZLE_XYZW;
 }
 
-src_reg::src_reg(dst_reg reg)
+src_reg::src_reg(dst_reg reg) :
+   backend_reg(reg)
 {
    int swizzles[4];
    int next_chan = 0;
    int last = 0;
 
    init();
-   *static_cast<backend_reg *>(this) = reg;
    this->reladdr = reg.reladdr;
 
    for (int i = 0; i < 4; i++) {
@@ -156,9 +143,8 @@ src_reg::src_reg(dst_reg reg)
 void
 dst_reg::init()
 {
-   memset(this, 0, sizeof(*this));
-   this->file = BAD_FILE;
    this->writemask = WRITEMASK_XYZW;
+   this->reladdr = NULL;
 }
 
 dst_reg::dst_reg()
@@ -166,44 +152,36 @@ dst_reg::dst_reg()
    init();
 }
 
-dst_reg::dst_reg(register_file file, int reg)
+dst_reg::dst_reg(register_file file, int reg) :
+   backend_reg(file, reg, BRW_REGISTER_TYPE_UD)
 {
    init();
-
-   this->file = file;
-   this->reg = reg;
 }
 
 dst_reg::dst_reg(register_file file, int reg, const glsl_type *type,
-                 int writemask)
+                 int writemask) :
+   backend_reg(file, reg, brw_type_for_base_type(type))
 {
    init();
-
-   this->file = file;
-   this->reg = reg;
-   this->type = brw_type_for_base_type(type);
    this->writemask = writemask;
 }
 
-dst_reg::dst_reg(struct brw_reg reg)
+dst_reg::dst_reg(struct brw_reg reg) :
+   backend_reg(reg)
 {
    init();
-
-   this->file = HW_REG;
-   this->fixed_hw_reg = reg;
-   this->type = reg.type;
 }
 
-dst_reg::dst_reg(const backend_reg &reg)
+dst_reg::dst_reg(const backend_reg &reg) :
+   backend_reg(reg)
 {
    init();
-   *static_cast<backend_reg *>(this) = reg;
 }
 
-dst_reg::dst_reg(src_reg reg)
+dst_reg::dst_reg(src_reg reg) :
+   backend_reg(reg)
 {
    init();
-   *static_cast<backend_reg *>(this) = reg;
    this->reladdr = reg.reladdr;
 
    /* How should we do writemasking when converting from a src_reg?  It seems

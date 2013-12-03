@@ -44,6 +44,10 @@ class backend_reg {
 public:
    backend_reg();
    backend_reg(struct brw_reg reg);
+   backend_reg(float f);
+   backend_reg(int32_t i);
+   backend_reg(uint32_t u);
+   backend_reg(enum register_file file, int reg, uint32_t type);
 
    bool is_zero() const;
    bool is_one() const;

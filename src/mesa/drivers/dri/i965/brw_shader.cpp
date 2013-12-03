@@ -573,8 +573,44 @@ backend_reg::backend_reg() :
 backend_reg::backend_reg(struct brw_reg fixed_hw_reg) :
    file(HW_REG),
    reg(0), reg_offset(0),
-   type(BRW_REGISTER_TYPE_UD),
+   type(fixed_hw_reg.type),
    fixed_hw_reg(fixed_hw_reg),
+   imm()
+{
+}
+
+backend_reg::backend_reg(float f) :
+   file(IMM),
+   reg(0), reg_offset(0),
+   type(BRW_REGISTER_TYPE_F),
+   fixed_hw_reg()
+{
+   imm.f = f;
+}
+
+backend_reg::backend_reg(int32_t i) :
+   file(IMM),
+   reg(0), reg_offset(0),
+   type(BRW_REGISTER_TYPE_D),
+   fixed_hw_reg()
+{
+   imm.i = i;
+}
+
+backend_reg::backend_reg(uint32_t u) :
+   file(IMM),
+   reg(0), reg_offset(0),
+   type(BRW_REGISTER_TYPE_UD),
+   fixed_hw_reg()
+{
+   imm.u = u;
+}
+
+backend_reg::backend_reg(enum register_file file, int reg, uint32_t type) :
+   file(file),
+   reg(reg), reg_offset(0),
+   type(type),
+   fixed_hw_reg(),
    imm()
 {
 }

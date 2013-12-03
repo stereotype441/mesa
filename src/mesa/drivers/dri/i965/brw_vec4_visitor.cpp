@@ -602,36 +602,30 @@ vec4_visitor::virtual_grf_alloc(int size)
    return virtual_grf_count++;
 }
 
-src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
+src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type) :
+   backend_reg(GRF, v->virtual_grf_alloc(type_size(type)),
+               brw_type_for_base_type(type))
 {
    init();
-
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(type_size(type));
 
    if (type->is_array() || type->is_record()) {
       this->swizzle = BRW_SWIZZLE_NOOP;
    } else {
       this->swizzle = swizzle_for_size(type->vector_elements);
    }
-
-   this->type = brw_type_for_base_type(type);
 }
 
-dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
+dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type) :
+   backend_reg(GRF, v->virtual_grf_alloc(type_size(type)),
+               brw_type_for_base_type(type))
 {
    init();
-
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(type_size(type));
 
    if (type->is_array() || type->is_record()) {
       this->writemask = WRITEMASK_XYZW;
    } else {
       this->writemask = (1 << type->vector_elements) - 1;
    }
-
-   this->type = brw_type_for_base_type(type);
 }
 
 void
@@ -983,7 +977,7 @@ vec4_visitor::visit(ir_variable *ir)
          return;
 
       } else if (ir->type->contains_atomic()) {
-         reg = new(this->mem_ctx) dst_reg(ir->atomic.offset);
+         reg = new(this->mem_ctx) dst_reg(src_reg(ir->atomic.offset));
 
          brw_mark_surface_used(stage_prog_data,
                                stage_prog_data->binding_table.abo_start +

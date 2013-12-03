@@ -379,57 +379,51 @@ fs_visitor::can_do_source_mods(fs_inst *inst)
 void
 fs_reg::init()
 {
-   memset(this, 0, sizeof(*this));
+   negate = false;
+   abs = false;
+   subreg_offset = 0;
    stride = 1;
+   reladdr = NULL;
 }
 
 /** Generic unset register constructor. */
 fs_reg::fs_reg()
 {
    init();
-   this->file = BAD_FILE;
 }
 
 /** Immediate value constructor. */
-fs_reg::fs_reg(float f)
+fs_reg::fs_reg(float f) :
+   backend_reg(f)
 {
    init();
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_F;
-   this->imm.f = f;
 }
 
 /** Immediate value constructor. */
-fs_reg::fs_reg(int32_t i)
+fs_reg::fs_reg(int32_t i) :
+   backend_reg(i)
 {
    init();
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_D;
-   this->imm.i = i;
 }
 
 /** Immediate value constructor. */
-fs_reg::fs_reg(uint32_t u)
+fs_reg::fs_reg(uint32_t u) :
+   backend_reg(u)
 {
    init();
-   this->file = IMM;
-   this->type = BRW_REGISTER_TYPE_UD;
-   this->imm.u = u;
 }
 
 /** Fixed brw_reg. */
-fs_reg::fs_reg(struct brw_reg fixed_hw_reg)
+fs_reg::fs_reg(struct brw_reg fixed_hw_reg) :
+   backend_reg(fixed_hw_reg)
 {
    init();
-   this->file = HW_REG;
-   this->fixed_hw_reg = fixed_hw_reg;
-   this->type = fixed_hw_reg.type;
 }
 
-fs_reg::fs_reg(const backend_reg &reg)
+fs_reg::fs_reg(const backend_reg &reg) :
+   backend_reg(reg)
 {
    init();
-   *static_cast<backend_reg *>(this) = reg;
 }
 
 bool
@@ -813,33 +807,23 @@ fs_visitor::virtual_grf_alloc(int size)
    return virtual_grf_count++;
 }
 
-/** Fixed HW reg constructor. */
-fs_reg::fs_reg(enum register_file file, int reg)
+fs_reg::fs_reg(enum register_file file, int reg) :
+   backend_reg(file, reg, BRW_REGISTER_TYPE_F)
 {
    init();
-   this->file = file;
-   this->reg = reg;
-   this->type = BRW_REGISTER_TYPE_F;
 }
 
-/** Fixed HW reg constructor. */
-fs_reg::fs_reg(enum register_file file, int reg, uint32_t type)
+fs_reg::fs_reg(enum register_file file, int reg, uint32_t type) :
+   backend_reg(file, reg, type)
 {
    init();
-   this->file = file;
-   this->reg = reg;
-   this->type = type;
 }
 
-/** Automatic reg constructor. */
-fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type)
+fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type) :
+   backend_reg(GRF, v->virtual_grf_alloc(v->type_size(type)),
+               brw_type_for_base_type(type))
 {
    init();
-
-   this->file = GRF;
-   this->reg = v->virtual_grf_alloc(v->type_size(type));
-   this->reg_offset = 0;
-   this->type = brw_type_for_base_type(type);
 }
 
 fs_reg *

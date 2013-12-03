@@ -63,8 +63,6 @@ class fs_reg : public backend_reg {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(fs_reg)
 
-   void init();
-
    fs_reg();
    fs_reg(float f);
    fs_reg(int32_t i);
@@ -90,6 +88,9 @@ public:
    int stride; /**< Register region horizontal stride */
 
    fs_reg *reladdr;
+
+private:
+   void init();
 };
 
 static inline fs_reg
