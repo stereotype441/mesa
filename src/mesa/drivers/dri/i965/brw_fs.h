@@ -77,13 +77,16 @@ public:
 
    bool equals(const fs_reg &r) const;
    bool is_valid_3src() const;
+   bool is_contiguous() const;
    fs_reg retype(uint32_t type);
+   fs_reg &apply_stride(unsigned stride);
 
    bool negate;
    bool abs;
    bool sechalf;
    int smear; /* -1, or a channel of the reg to smear to all channels. */
    int subreg_offset; /**< Offset in bytes from the start of the register. */
+   int stride; /**< Register region horizontal stride */
 
    fs_reg *reladdr;
 };
