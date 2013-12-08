@@ -2919,6 +2919,75 @@ brw_typed_surface_write(struct brw_compile *p,
    brw_send_indirect_message(p, sfid, dst, mrf, desc);
 }
 
+static void
+brw_set_memory_fence_message(struct brw_compile *p,
+                             struct brw_instruction *insn,
+                             enum brw_message_target sfid,
+                             bool commit_enable)
+{
+   brw_set_message_descriptor(p, insn, sfid,
+                              1 /* message length */,
+                              (commit_enable ? 1 : 0) /* response length */,
+                              true /* header present */,
+                              false);
+
+   switch (sfid) {
+   case GEN6_SFID_DATAPORT_RENDER_CACHE:
+      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_RC_MEMORY_FENCE;
+      break;
+   case GEN7_SFID_DATAPORT_DATA_CACHE:
+      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_DC_MEMORY_FENCE;
+      break;
+   default:
+      unreachable();
+   }
+
+   if (commit_enable)
+      insn->bits3.ud |= 1 << 13;
+}
+
+void
+brw_memory_fence(struct brw_compile *p,
+                 struct brw_reg mrf)
+{
+   const bool commit_enable = !p->brw->is_haswell;
+   struct brw_instruction *insn;
+
+   /* Set mrf as destination for dependency tracking, the MEMORY_FENCE
+    * message doesn't write anything back.
+    */
+   insn = next_insn(p, BRW_OPCODE_SEND);
+   mrf = retype(mrf, BRW_REGISTER_TYPE_UD);
+   brw_set_dest(p, insn, mrf);
+   brw_set_src0(p, insn, mrf);
+   brw_set_memory_fence_message(p, insn, GEN7_SFID_DATAPORT_DATA_CACHE,
+                                commit_enable);
+
+   if (!p->brw->is_haswell) {
+      /* IVB does typed surface access through the render cache, so we
+       * need to flush that too.  Use a different register so both
+       * flushes can be pipelined by the hardware.
+       */
+      insn = next_insn(p, BRW_OPCODE_SEND);
+      brw_set_dest(p, insn, offset(mrf, 1));
+      brw_set_src0(p, insn, offset(mrf, 1));
+      brw_set_memory_fence_message(p, insn, GEN6_SFID_DATAPORT_RENDER_CACHE,
+                                   commit_enable);
+
+      /* Now write the response of the second message into the
+       * response of the first to trigger a pipeline stall -- This way
+       * future render and data cache messages will be properly
+       * ordered with respect to past data and render cache messages
+       * respectively.
+       */
+      brw_push_insn_state(p);
+      brw_set_compression_control(p, BRW_COMPRESSION_NONE);
+      brw_set_mask_control(p, BRW_MASK_DISABLE);
+      brw_MOV(p, mrf, offset(mrf, 1));
+      brw_pop_insn_state(p);
+   }
+}
+
 /**
  * This instruction is generated as a single-channel align1 instruction by
  * both the VS and FS stages when using INTEL_DEBUG=shader_time.

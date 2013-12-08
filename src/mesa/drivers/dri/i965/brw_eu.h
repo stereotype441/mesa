@@ -408,6 +408,10 @@ brw_typed_surface_write(struct brw_compile *p,
                         unsigned msg_length,
                         unsigned num_channels);
 
+void
+brw_memory_fence(struct brw_compile *p,
+                 struct brw_reg mrf);
+
 /***********************************************************************
  * brw_eu_util.c:
  */

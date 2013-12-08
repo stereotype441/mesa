@@ -788,6 +788,8 @@ fs_visitor::implied_mrf_writes(fs_inst *inst)
    case SHADER_OPCODE_TYPED_SURFACE_READ:
    case SHADER_OPCODE_TYPED_SURFACE_WRITE:
       return 0;
+   case SHADER_OPCODE_MEMORY_FENCE:
+      return 1;
    default:
       assert(!"not reached");
       return inst->mlen;

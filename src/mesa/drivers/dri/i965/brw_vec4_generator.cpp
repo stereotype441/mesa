@@ -1201,6 +1201,10 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
                               src[0], inst->mlen, src[1].dw1.ud);
       break;
 
+   case SHADER_OPCODE_MEMORY_FENCE:
+      brw_memory_fence(p, brw_message_reg(inst->base_mrf));
+      break;
+
    case VS_OPCODE_UNPACK_FLAGS_SIMD4X2:
       generate_unpack_flags(inst, dst);
       break;

@@ -666,6 +666,7 @@ backend_instruction::has_side_effects() const
    case SHADER_OPCODE_UNTYPED_ATOMIC:
    case SHADER_OPCODE_TYPED_ATOMIC:
    case SHADER_OPCODE_TYPED_SURFACE_WRITE:
+   case SHADER_OPCODE_MEMORY_FENCE:
       return true;
    default:
       return false;
