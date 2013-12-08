@@ -1705,7 +1705,12 @@ ir_function_signature::qualifiers_match(exec_list *params)
 	  !modes_match(a->mode, b->mode) ||
 	  a->interpolation != b->interpolation ||
 	  a->centroid != b->centroid ||
-         a->sample != b->sample) {
+          a->sample != b->sample ||
+          a->image.read_only != b->image.read_only ||
+          a->image.write_only != b->image.write_only ||
+          a->image.coherent != b->image.coherent ||
+          a->image._volatile != b->image._volatile ||
+          a->image._restrict != b->image._restrict) {
 
 	 /* parameter a's qualifiers don't match */
 	 return a->name;
