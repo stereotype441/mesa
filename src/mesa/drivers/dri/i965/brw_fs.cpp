@@ -438,6 +438,7 @@ fs_reg::equals(const fs_reg &r) const
    return (file == r.file &&
            reg == r.reg &&
            reg_offset == r.reg_offset &&
+           subreg_offset == r.subreg_offset &&
            type == r.type &&
            negate == r.negate &&
            abs == r.abs &&
@@ -1370,7 +1371,9 @@ fs_visitor::assign_curb_setup()
 						  constant_nr % 8);
 
 	    inst->src[i].file = HW_REG;
-	    inst->src[i].fixed_hw_reg = retype(brw_reg, inst->src[i].type);
+	    inst->src[i].fixed_hw_reg = byte_offset(
+               retype(brw_reg, inst->src[i].type),
+               inst->src[i].subreg_offset);
 	 }
       }
    }
@@ -2309,7 +2312,8 @@ fs_visitor::compute_to_mrf()
 	  inst->is_partial_write() ||
 	  inst->dst.file != MRF || inst->src[0].file != GRF ||
 	  inst->dst.type != inst->src[0].type ||
-	  inst->src[0].abs || inst->src[0].negate || inst->src[0].smear != -1)
+	  inst->src[0].abs || inst->src[0].negate ||
+          inst->src[0].smear != -1 || inst->src[0].subreg_offset)
 	 continue;
 
       /* Work out which hardware MRF registers are written by this
@@ -2828,8 +2832,8 @@ fs_visitor::dump_instruction(backend_instruction *be_inst)
    switch (inst->dst.file) {
    case GRF:
       printf("vgrf%d", inst->dst.reg);
-      if (inst->dst.reg_offset)
-         printf("+%d", inst->dst.reg_offset);
+      if (inst->dst.reg_offset || inst->dst.subreg_offset)
+         printf("+%d.%d", inst->dst.reg_offset, inst->dst.subreg_offset);
       break;
    case MRF:
       printf("m%d", inst->dst.reg);
@@ -2881,16 +2885,18 @@ fs_visitor::dump_instruction(backend_instruction *be_inst)
       switch (inst->src[i].file) {
       case GRF:
          printf("vgrf%d", inst->src[i].reg);
-         if (inst->src[i].reg_offset)
-            printf("+%d", inst->src[i].reg_offset);
+         if (inst->src[i].reg_offset || inst->src[i].subreg_offset)
+            printf("+%d.%d", inst->src[i].reg_offset,
+                   inst->src[i].subreg_offset);
          break;
       case MRF:
          printf("***m%d***", inst->src[i].reg);
          break;
       case UNIFORM:
          printf("u%d", inst->src[i].reg);
-         if (inst->src[i].reg_offset)
-            printf(".%d", inst->src[i].reg_offset);
+         if (inst->src[i].reg_offset || inst->src[i].subreg_offset)
+            printf("+%d.%d", inst->src[i].reg_offset,
+                   inst->src[i].subreg_offset);
          break;
       case BAD_FILE:
          printf("(null)");
