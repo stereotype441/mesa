@@ -63,6 +63,7 @@ i965_FILES = \
 	brw_fs_peephole_predicated_break.cpp \
 	brw_fs_reg_allocate.cpp \
 	brw_fs_sel_peephole.cpp \
+	brw_fs_surface_visitor.cpp \
 	brw_fs_vector_splitting.cpp \
 	brw_fs_visitor.cpp \
 	brw_gs.c \
@@ -90,6 +91,7 @@ i965_FILES = \
 	brw_state_dump.c \
 	brw_state_upload.c \
 	brw_surface_formats.c \
+	brw_surface_visitor.cpp \
 	brw_tex.c \
 	brw_tex_layout.c \
 	brw_urb.c \
@@ -101,6 +103,7 @@ i965_FILES = \
 	brw_vec4_gs_visitor.cpp \
 	brw_vec4_live_variables.cpp \
 	brw_vec4_reg_allocate.cpp \
+	brw_vec4_surface_visitor.cpp \
 	brw_vec4_visitor.cpp \
 	brw_vec4_vp.cpp \
 	brw_vec4_vs_visitor.cpp \
