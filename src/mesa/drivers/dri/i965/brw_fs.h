@@ -81,10 +81,12 @@ public:
    fs_reg retype(uint32_t type);
    fs_reg &apply_stride(unsigned stride);
 
+   /** Smear a channel of the reg to all channels. */
+   fs_reg &set_smear(unsigned subreg);
+
    bool negate;
    bool abs;
    bool sechalf;
-   int smear; /* -1, or a channel of the reg to smear to all channels. */
    int subreg_offset; /**< Offset in bytes from the start of the register. */
    int stride; /**< Register region horizontal stride */
 
