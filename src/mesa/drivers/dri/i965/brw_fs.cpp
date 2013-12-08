@@ -900,10 +900,8 @@ fs_visitor::setup_uniform_values(ir_variable *ir)
       if (storage->array_elements)
          slots *= storage->array_elements;
 
-      for (unsigned i = 0; i < slots; i++) {
-         c->prog_data.param[uniforms++] =
-            &storage->storage[i].f;
-      }
+      for (unsigned i = 0; i < slots; i++)
+         stage_prog_data->param[uniforms++] = &storage->storage[i].f;
    }
 
    /* Make sure we actually initialized the right amount of stuff here. */
@@ -940,7 +938,7 @@ fs_visitor::setup_builtin_uniform_values(ir_variable *ir)
 	    break;
 	 last_swiz = swiz;
 
-	 c->prog_data.param[uniforms++] =
+         stage_prog_data->param[uniforms++] =
             &fp->Base.Parameters->ParameterValues[index][swiz].f;
       }
    }
@@ -1371,14 +1369,14 @@ fs_visitor::assign_curb_setup()
 {
    if (dispatch_width == 8) {
       c->prog_data.first_curbe_grf = c->nr_payload_regs;
-      c->prog_data.nr_params = uniforms;
+      stage_prog_data->nr_params = uniforms;
    } else {
       c->prog_data.first_curbe_grf_16 = c->nr_payload_regs;
       /* Make sure we didn't try to sneak in an extra uniform */
       assert(uniforms == 0);
    }
 
-   c->prog_data.curb_read_length = ALIGN(c->prog_data.nr_params, 8) / 8;
+   c->prog_data.curb_read_length = ALIGN(stage_prog_data->nr_params, 8) / 8;
 
    /* Map the offsets in the UNIFORM file to fixed HW regs. */
    foreach_list(node, &this->instructions) {
@@ -1752,7 +1750,7 @@ fs_visitor::remove_dead_constants()
 	 if (remapped == -1)
 	    continue;
 
-	 c->prog_data.param[remapped] = c->prog_data.param[i];
+	 stage_prog_data->param[remapped] = stage_prog_data->param[i];
       }
 
       uniforms = new_nr_params;
@@ -1824,15 +1822,15 @@ fs_visitor::move_uniform_array_access_to_pull_constants()
           * add it.
           */
          if (pull_constant_loc[uniform] == -1) {
-            const float **values = &c->prog_data.param[uniform];
+            const float **values = &stage_prog_data->param[uniform];
 
-            pull_constant_loc[uniform] = c->prog_data.nr_pull_params;
+            pull_constant_loc[uniform] = stage_prog_data->nr_pull_params;
 
             assert(param_size[uniform]);
 
             for (int j = 0; j < param_size[uniform]; j++) {
-               c->prog_data.pull_param[c->prog_data.nr_pull_params++] =
-                  values[j];
+               stage_prog_data->pull_param[stage_prog_data->nr_pull_params++]
+                  = values[j];
             }
          }
 
@@ -1840,7 +1838,7 @@ fs_visitor::move_uniform_array_access_to_pull_constants()
          base_ir = inst->ir;
          current_annotation = inst->annotation;
 
-         fs_reg surf_index = fs_reg(c->prog_data.base.binding_table.pull_constants_start);
+         fs_reg surf_index(stage_prog_data->binding_table.pull_constants_start);
          fs_reg temp = fs_reg(this, glsl_type::float_type);
          exec_list list = VARYING_PULL_CONSTANT_LOAD(temp,
                                                      surf_index,
@@ -1894,16 +1892,16 @@ fs_visitor::setup_pull_constants()
          /* If our constant is already being uploaded for reladdr purposes,
           * reuse it.
           */
-         for (unsigned int j = 0; j < c->prog_data.nr_pull_params; j++) {
-            if (c->prog_data.pull_param[j] == c->prog_data.param[i]) {
+         for (unsigned int j = 0; j < stage_prog_data->nr_pull_params; j++) {
+            if (stage_prog_data->pull_param[j] == stage_prog_data->param[i]) {
                pull_constant_loc[i] = j;
                break;
             }
          }
          if (pull_constant_loc[i] == -1) {
-            int pull_index = c->prog_data.nr_pull_params++;
-            c->prog_data.pull_param[pull_index] = c->prog_data.param[i];
-            pull_constant_loc[i] = pull_index;;
+            int pull_index = stage_prog_data->nr_pull_params++;
+            stage_prog_data->pull_param[pull_index] = stage_prog_data->param[i];
+            pull_constant_loc[i] = pull_index;
          }
       }
    }
@@ -1924,7 +1922,7 @@ fs_visitor::setup_pull_constants()
          assert(!inst->src[i].reladdr);
 
 	 fs_reg dst = fs_reg(this, glsl_type::float_type);
-	 fs_reg index = fs_reg(c->prog_data.base.binding_table.pull_constants_start);
+	 fs_reg index(stage_prog_data->binding_table.pull_constants_start);
 	 fs_reg offset = fs_reg((unsigned)(pull_index * 4) & ~15);
 	 fs_inst *pull =
             new(mem_ctx) fs_inst(FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD,
@@ -3308,7 +3306,7 @@ brw_wm_fs_emit(struct brw_context *brw, struct brw_wm_compile *c,
    exec_list *simd16_instructions = NULL;
    fs_visitor v2(brw, c, prog, fp, 16);
    if (brw->gen >= 5 && likely(!(INTEL_DEBUG & DEBUG_NO16))) {
-      if (c->prog_data.nr_pull_params == 0) {
+      if (c->prog_data.base.nr_pull_params == 0) {
          /* Try a 16-wide compile */
          v2.import_uniforms(&v);
          if (!v2.run()) {

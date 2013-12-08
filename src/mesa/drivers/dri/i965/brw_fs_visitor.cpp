@@ -1465,9 +1465,9 @@ fs_visitor::rescale_texcoord(ir_texture *ir, fs_reg coordinate,
 
       GLuint index = _mesa_add_state_reference(params,
 					       (gl_state_index *)tokens);
-      c->prog_data.param[uniforms++] =
+      stage_prog_data->param[uniforms++] =
          &prog->Parameters->ParameterValues[index][0].f;
-      c->prog_data.param[uniforms++] =
+      stage_prog_data->param[uniforms++] =
          &prog->Parameters->ParameterValues[index][1].f;
    }
 
@@ -2939,7 +2939,7 @@ fs_visitor::fs_visitor(struct brw_context *brw,
 
    this->spilled_any_registers = false;
 
-   this->param_size = rzalloc_array(mem_ctx, int, c->prog_data.nr_params);
+   this->param_size = rzalloc_array(mem_ctx, int, stage_prog_data->nr_params);
 }
 
 fs_visitor::~fs_visitor()
