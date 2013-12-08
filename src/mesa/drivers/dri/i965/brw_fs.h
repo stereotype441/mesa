@@ -78,7 +78,7 @@ public:
    bool equals(const fs_reg &r) const;
    bool is_valid_3src() const;
    bool is_contiguous() const;
-   fs_reg retype(uint32_t type);
+
    fs_reg &apply_stride(unsigned stride);
 
    /** Smear a channel of the reg to all channels. */
