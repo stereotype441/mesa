@@ -2527,23 +2527,87 @@ brw_svb_write(struct brw_compile *p,
                             send_commit_msg); /* send_commit_msg */
 }
 
+static struct brw_instruction *
+brw_load_indirect_message_descriptor(struct brw_compile *p,
+                                     struct brw_reg dst,
+                                     struct brw_reg src,
+                                     unsigned msg_length,
+                                     unsigned response_length,
+                                     bool header_present)
+{
+   struct brw_instruction *insn;
+
+   brw_push_insn_state(p);
+   brw_set_access_mode(p, BRW_ALIGN_1);
+   brw_set_mask_control(p, BRW_MASK_DISABLE);
+   brw_set_predicate_control(p, BRW_PREDICATE_NONE);
+
+   if (src.file == BRW_IMMEDIATE_VALUE) {
+      insn = brw_MOV(p, dst, brw_imm_ud(src.dw1.ud));
+   } else {
+      struct brw_reg tmp = suboffset(vec1(retype(src, BRW_REGISTER_TYPE_UD)),
+                                     BRW_GET_SWZ(src.dw1.bits.swizzle, 0));
+      insn = brw_OR(p, dst, tmp, brw_imm_ud(0));
+   }
+
+   insn->bits3.generic_gen5.msg_length = msg_length;
+   insn->bits3.generic_gen5.response_length = response_length;
+   insn->bits3.generic_gen5.header_present = header_present;
+
+   brw_pop_insn_state(p);
+
+   return insn;
+}
+
+static struct brw_instruction *
+brw_send_indirect_message(struct brw_compile *p,
+                          unsigned sfid,
+                          struct brw_reg dst,
+                          struct brw_reg mrf,
+                          struct brw_reg desc)
+{
+   /* Due to a hardware limitation the message descriptor desc MUST be
+    * stored in a0.0.  That means that there's only room for one
+    * descriptor and the surface indices of different channels in the
+    * same SIMD thread cannot diverge.  That's OK for the moment
+    * because OpenGL requires image (and atomic counter) array
+    * indexing to be dynamically uniform.
+    */
+   struct brw_instruction *insn = next_insn(p, BRW_OPCODE_SEND);
+
+   brw_set_dest(p, insn, retype(dst, BRW_REGISTER_TYPE_UD));
+   brw_set_src0(p, insn, retype(mrf, BRW_REGISTER_TYPE_UD));
+   brw_set_src1(p, insn, retype(desc, BRW_REGISTER_TYPE_UD));
+
+   /* On Gen6+ Message target/SFID goes in bits 27:24 of the header */
+   insn->header.destreg__conditionalmod = sfid;
+
+   return insn;
+}
+
+static unsigned
+brw_surface_payload_size(struct brw_compile *p,
+                         unsigned num_channels,
+                         bool has_simd4x2,
+                         bool has_simd16)
+{
+   if (has_simd4x2 && p->current->header.access_mode == BRW_ALIGN_16)
+      return 1;
+   else if (has_simd16 && p->compressed)
+      return 2 * num_channels;
+   else
+      return num_channels;
+}
+
 static void
 brw_set_dp_untyped_atomic_message(struct brw_compile *p,
                                   struct brw_instruction *insn,
                                   unsigned atomic_op,
-                                  unsigned bind_table_index,
-                                  unsigned msg_length,
-                                  unsigned response_length,
-                                  bool header_present)
+                                  bool response_expected)
 {
    if (p->brw->is_haswell) {
-      brw_set_message_descriptor(p, insn, HSW_SFID_DATAPORT_DATA_CACHE_1,
-                                 msg_length, response_length,
-                                 header_present, false);
-
-
-      if (insn->header.access_mode == BRW_ALIGN_1) {
-         if (insn->header.execution_size != BRW_EXECUTE_16)
+      if (p->current->header.access_mode == BRW_ALIGN_1) {
+         if (!p->compressed)
             insn->bits3.ud |= 1 << 12; /* SIMD8 mode */
 
          insn->bits3.gen7_dp.msg_type =
@@ -2554,75 +2618,62 @@ brw_set_dp_untyped_atomic_message(struct brw_compile *p,
       }
 
    } else {
-      brw_set_message_descriptor(p, insn, GEN7_SFID_DATAPORT_DATA_CACHE,
-                                 msg_length, response_length,
-                                 header_present, false);
-
       insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_DC_UNTYPED_ATOMIC_OP;
 
-      if (insn->header.execution_size != BRW_EXECUTE_16)
+      if (!p->compressed)
          insn->bits3.ud |= 1 << 12; /* SIMD8 mode */
    }
 
-   if (response_length)
+   if (response_expected)
       insn->bits3.ud |= 1 << 13; /* Return data expected */
 
-   insn->bits3.gen7_dp.binding_table_index = bind_table_index;
    insn->bits3.ud |= atomic_op << 8;
 }
 
 void
 brw_untyped_atomic(struct brw_compile *p,
-                   struct brw_reg dest,
+                   struct brw_reg dst,
                    struct brw_reg mrf,
+                   struct brw_reg surface,
                    unsigned atomic_op,
-                   unsigned bind_table_index,
                    unsigned msg_length,
-                   unsigned response_length) {
-   struct brw_instruction *insn = brw_next_insn(p, BRW_OPCODE_SEND);
+                   bool response_expected)
+{
+   const unsigned sfid = (p->brw->is_haswell ?
+                          HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN7_SFID_DATAPORT_DATA_CACHE);
+   const bool header_present = p->current->header.access_mode == BRW_ALIGN_1;
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
 
-   brw_set_dest(p, insn, retype(dest, BRW_REGISTER_TYPE_UD));
-   brw_set_src0(p, insn, retype(mrf, BRW_REGISTER_TYPE_UD));
-   brw_set_src1(p, insn, brw_imm_d(0));
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length,
+      brw_surface_payload_size(p, response_expected, p->brw->is_haswell, true),
+      header_present);
+
    brw_set_dp_untyped_atomic_message(
-      p, insn, atomic_op, bind_table_index, msg_length, response_length,
-      insn->header.access_mode == BRW_ALIGN_1);
+      p, insn, atomic_op, response_expected);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
 }
 
 static void
 brw_set_dp_untyped_surface_read_message(struct brw_compile *p,
                                         struct brw_instruction *insn,
-                                        unsigned bind_table_index,
-                                        unsigned msg_length,
-                                        unsigned response_length,
-                                        bool header_present)
+                                        unsigned num_channels)
 {
-   const unsigned dispatch_width =
-      (insn->header.execution_size == BRW_EXECUTE_16 ? 16 : 8);
-   const unsigned num_channels = response_length / (dispatch_width / 8);
+   insn->bits3.gen7_dp.msg_type = (p->brw->is_haswell ?
+                                   HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_READ :
+                                   GEN7_DATAPORT_DC_UNTYPED_SURFACE_READ);
 
-   if (p->brw->is_haswell) {
-      brw_set_message_descriptor(p, insn, HSW_SFID_DATAPORT_DATA_CACHE_1,
-                                 msg_length, response_length,
-                                 header_present, false);
-
-      insn->bits3.gen7_dp.msg_type = HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_READ;
-   } else {
-      brw_set_message_descriptor(p, insn, GEN7_SFID_DATAPORT_DATA_CACHE,
-                                 msg_length, response_length,
-                                 header_present, false);
-
-      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_DC_UNTYPED_SURFACE_READ;
-   }
-
-   if (insn->header.access_mode == BRW_ALIGN_1) {
-      if (dispatch_width == 16)
+   if (p->current->header.access_mode == BRW_ALIGN_1) {
+      if (p->compressed)
          insn->bits3.ud |= 1 << 12; /* SIMD16 mode */
       else
          insn->bits3.ud |= 2 << 12; /* SIMD8 mode */
+   } else {
+      insn->bits3.ud |= 0 << 12; /* SIMD4x2 mode */
    }
-
-   insn->bits3.gen7_dp.binding_table_index = bind_table_index;
 
    /* Set mask of 32-bit channels to drop. */
    insn->bits3.ud |= (0xf & (0xf << num_channels)) << 8;
@@ -2630,19 +2681,27 @@ brw_set_dp_untyped_surface_read_message(struct brw_compile *p,
 
 void
 brw_untyped_surface_read(struct brw_compile *p,
-                         struct brw_reg dest,
+                         struct brw_reg dst,
                          struct brw_reg mrf,
-                         unsigned bind_table_index,
+                         struct brw_reg surface,
                          unsigned msg_length,
-                         unsigned response_length)
+                         unsigned num_channels)
 {
-   struct brw_instruction *insn = next_insn(p, BRW_OPCODE_SEND);
+   const unsigned sfid = (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN7_SFID_DATAPORT_DATA_CACHE);
+   const bool header_present = p->current->header.access_mode == BRW_ALIGN_1;
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
 
-   brw_set_dest(p, insn, retype(dest, BRW_REGISTER_TYPE_UD));
-   brw_set_src0(p, insn, retype(mrf, BRW_REGISTER_TYPE_UD));
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length,
+      brw_surface_payload_size(p, num_channels, true, true),
+      header_present);
+
    brw_set_dp_untyped_surface_read_message(
-      p, insn, bind_table_index, msg_length, response_length,
-      insn->header.access_mode == BRW_ALIGN_1);
+      p, insn, num_channels);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
 }
 
 /**
@@ -2681,8 +2740,13 @@ void brw_shader_time_add(struct brw_compile *p,
                                       BRW_ARF_NULL, 0));
    brw_set_src0(p, send, brw_vec1_reg(payload.file,
                                       payload.nr, 0));
-   brw_set_dp_untyped_atomic_message(p, send, BRW_AOP_ADD, surf_index,
-                                     2 /* message length */,
-                                     0 /* response length */,
-                                     false /* header present */);
+   brw_set_src1(p, send, brw_imm_ud(0));
+   brw_set_dp_untyped_atomic_message(p, send, BRW_AOP_ADD, false);
+
+   /* On Gen6+ Message target/SFID goes in bits 27:24 of the header */
+   send->header.destreg__conditionalmod =
+      (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+       GEN7_SFID_DATAPORT_DATA_CACHE);
+   send->bits3.generic_gen5.msg_length = 2;
+   send->bits3.ud |= surf_index;
 }

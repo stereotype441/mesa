@@ -1269,8 +1269,8 @@ fs_generator::generate_untyped_atomic(fs_inst *inst, struct brw_reg dst,
 	  surf_index.type == BRW_REGISTER_TYPE_UD);
 
    brw_untyped_atomic(p, dst, brw_message_reg(inst->base_mrf),
-                      atomic_op.dw1.ud, surf_index.dw1.ud,
-                      inst->mlen, dispatch_width / 8);
+                      surf_index, atomic_op.dw1.ud,
+                      inst->mlen, true);
 
    brw_mark_surface_used(&c->prog_data.base, surf_index.dw1.ud);
 }
@@ -1283,8 +1283,7 @@ fs_generator::generate_untyped_surface_read(fs_inst *inst, struct brw_reg dst,
 	  surf_index.type == BRW_REGISTER_TYPE_UD);
 
    brw_untyped_surface_read(p, dst, brw_message_reg(inst->base_mrf),
-                            surf_index.dw1.ud,
-                            inst->mlen, dispatch_width / 8);
+                            surf_index, inst->mlen, 1);
 
    brw_mark_surface_used(&c->prog_data.base, surf_index.dw1.ud);
 }
