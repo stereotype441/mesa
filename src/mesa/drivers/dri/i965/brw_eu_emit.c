@@ -2753,6 +2753,172 @@ brw_untyped_surface_write(struct brw_compile *p,
    brw_send_indirect_message(p, sfid, dst, mrf, desc);
 }
 
+static void
+brw_set_dp_typed_atomic_message(struct brw_compile *p,
+                                struct brw_instruction *insn,
+                                unsigned atomic_op,
+                                bool response_expected)
+{
+   const unsigned access_mode = p->current->header.access_mode;
+   const unsigned compression_control = p->current->header.compression_control;
+
+   if (p->brw->is_haswell) {
+      if (access_mode == BRW_ALIGN_1) {
+         if (compression_control == GEN6_COMPRESSION_2Q)
+            insn->bits3.ud |= 1 << 12; /* Use high 8 slots of the sample mask */
+
+         insn->bits3.gen7_dp.msg_type =
+            HSW_DATAPORT_DC_PORT1_TYPED_ATOMIC_OP;
+      } else {
+         insn->bits3.gen7_dp.msg_type =
+            HSW_DATAPORT_DC_PORT1_TYPED_ATOMIC_OP_SIMD4X2;
+      }
+
+   } else {
+      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_RC_TYPED_ATOMIC_OP;
+
+      if (compression_control == GEN6_COMPRESSION_2Q)
+         insn->bits3.ud |= 1 << 12; /* Use high 8 slots of the sample mask */
+   }
+
+   if (response_expected)
+      insn->bits3.ud |= 1 << 13; /* Return data expected */
+
+   insn->bits3.ud |= atomic_op << 8;
+}
+
+void
+brw_typed_atomic(struct brw_compile *p,
+                 struct brw_reg dst,
+                 struct brw_reg mrf,
+                 struct brw_reg surface,
+                 unsigned atomic_op,
+                 unsigned msg_length,
+                 bool response_expected) {
+   const unsigned sfid = (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN6_SFID_DATAPORT_RENDER_CACHE);
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
+
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length,
+      brw_surface_payload_size(p, response_expected, p->brw->is_haswell, false),
+      true);
+
+   brw_set_dp_typed_atomic_message(
+      p, insn, atomic_op, response_expected);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
+}
+
+static void
+brw_set_dp_typed_surface_read_message(struct brw_compile *p,
+                                      struct brw_instruction *insn,
+                                      unsigned num_channels)
+{
+   const unsigned access_mode = p->current->header.access_mode;
+   const unsigned compression_control = p->current->header.compression_control;
+
+   if (p->brw->is_haswell) {
+      insn->bits3.gen7_dp.msg_type = HSW_DATAPORT_DC_PORT1_TYPED_SURFACE_READ;
+
+      if (access_mode == BRW_ALIGN_1) {
+         if (compression_control == GEN6_COMPRESSION_2Q)
+            insn->bits3.ud |= 2 << 12; /* Use high 8 slots of the sample mask */
+         else
+            insn->bits3.ud |= 1 << 12; /* Use low 8 slots of the sample mask */
+      }
+
+   } else {
+      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_RC_TYPED_SURFACE_READ;
+
+      if (access_mode == BRW_ALIGN_1) {
+         if (compression_control == GEN6_COMPRESSION_2Q)
+            insn->bits3.ud |= 1 << 13; /* Use high 8 slots of the sample mask */
+      }
+   }
+
+   /* Set mask of unused channels. */
+   insn->bits3.ud |= (0xf & (0xf << num_channels)) << 8;
+}
+
+void
+brw_typed_surface_read(struct brw_compile *p,
+                       struct brw_reg dst,
+                       struct brw_reg mrf,
+                       struct brw_reg surface,
+                       unsigned msg_length,
+                       unsigned num_channels)
+{
+   const unsigned sfid = (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN6_SFID_DATAPORT_RENDER_CACHE);
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
+
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length,
+      brw_surface_payload_size(p, num_channels, p->brw->is_haswell, false),
+      true);
+
+   brw_set_dp_typed_surface_read_message(
+      p, insn, num_channels);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
+}
+
+static void
+brw_set_dp_typed_surface_write_message(struct brw_compile *p,
+                                       struct brw_instruction *insn,
+                                       unsigned num_channels)
+{
+   const unsigned access_mode = p->current->header.access_mode;
+   const unsigned compression_control = p->current->header.compression_control;
+
+   if (p->brw->is_haswell) {
+      insn->bits3.gen7_dp.msg_type = HSW_DATAPORT_DC_PORT1_TYPED_SURFACE_WRITE;
+
+      if (access_mode == BRW_ALIGN_1) {
+         if (compression_control == GEN6_COMPRESSION_2Q)
+            insn->bits3.ud |= 2 << 12; /* Use high 8 slots of the sample mask */
+         else
+            insn->bits3.ud |= 1 << 12; /* Use low 8 slots of the sample mask */
+      }
+
+   } else {
+      insn->bits3.gen7_dp.msg_type = GEN7_DATAPORT_RC_TYPED_SURFACE_WRITE;
+
+      if (access_mode == BRW_ALIGN_1) {
+         if (compression_control == GEN6_COMPRESSION_2Q)
+            insn->bits3.ud |= 1 << 13; /* Use high 8 slots of the sample mask */
+      }
+   }
+
+   /* Set mask of unused channels. */
+   insn->bits3.ud |= (0xf & (0xf << num_channels)) << 8;
+}
+
+void
+brw_typed_surface_write(struct brw_compile *p,
+                        struct brw_reg dst,
+                        struct brw_reg mrf,
+                        struct brw_reg surface,
+                        unsigned msg_length,
+                        unsigned num_channels)
+{
+   const unsigned sfid = (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN6_SFID_DATAPORT_RENDER_CACHE);
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
+
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length, 0, true);
+
+   brw_set_dp_typed_surface_write_message(
+      p, insn, num_channels);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
+}
+
 /**
  * This instruction is generated as a single-channel align1 instruction by
  * both the VS and FS stages when using INTEL_DEBUG=shader_time.

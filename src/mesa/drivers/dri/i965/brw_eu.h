@@ -383,6 +383,31 @@ brw_untyped_surface_write(struct brw_compile *p,
                           unsigned msg_length,
                           unsigned num_channels);
 
+void
+brw_typed_atomic(struct brw_compile *p,
+                 struct brw_reg dst,
+                 struct brw_reg mrf,
+                 struct brw_reg surface,
+                 unsigned atomic_op,
+                 unsigned msg_length,
+                 bool response_expected);
+
+void
+brw_typed_surface_read(struct brw_compile *p,
+                       struct brw_reg dst,
+                       struct brw_reg mrf,
+                       struct brw_reg surface,
+                       unsigned msg_length,
+                       unsigned num_channels);
+
+void
+brw_typed_surface_write(struct brw_compile *p,
+                        struct brw_reg dst,
+                        struct brw_reg mrf,
+                        struct brw_reg surface,
+                        unsigned msg_length,
+                        unsigned num_channels);
+
 /***********************************************************************
  * brw_eu_util.c:
  */

@@ -664,6 +664,8 @@ backend_instruction::has_side_effects() const
    switch (opcode) {
    case SHADER_OPCODE_UNTYPED_SURFACE_WRITE:
    case SHADER_OPCODE_UNTYPED_ATOMIC:
+   case SHADER_OPCODE_TYPED_ATOMIC:
+   case SHADER_OPCODE_TYPED_SURFACE_WRITE:
       return true;
    default:
       return false;

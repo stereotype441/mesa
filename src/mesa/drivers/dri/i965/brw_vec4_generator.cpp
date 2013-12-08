@@ -1183,6 +1183,24 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
                                 src[0], inst->mlen, src[1].dw1.ud);
       break;
 
+   case SHADER_OPCODE_TYPED_ATOMIC:
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_typed_atomic(p, dst, brw_message_reg(inst->base_mrf),
+                       src[0], src[1].dw1.ud, inst->mlen, true);
+      break;
+
+   case SHADER_OPCODE_TYPED_SURFACE_READ:
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_typed_surface_read(p, dst, brw_message_reg(inst->base_mrf),
+                             src[0], inst->mlen, src[1].dw1.ud);
+      break;
+
+   case SHADER_OPCODE_TYPED_SURFACE_WRITE:
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_typed_surface_write(p, dst, brw_message_reg(inst->base_mrf),
+                              src[0], inst->mlen, src[1].dw1.ud);
+      break;
+
    case VS_OPCODE_UNPACK_FLAGS_SIMD4X2:
       generate_unpack_flags(inst, dst);
       break;
