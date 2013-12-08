@@ -2704,6 +2704,55 @@ brw_untyped_surface_read(struct brw_compile *p,
    brw_send_indirect_message(p, sfid, dst, mrf, desc);
 }
 
+static void
+brw_set_dp_untyped_surface_write_message(struct brw_compile *p,
+                                         struct brw_instruction *insn,
+                                         unsigned num_channels)
+{
+   insn->bits3.gen7_dp.msg_type = (p->brw->is_haswell ?
+                                   HSW_DATAPORT_DC_PORT1_UNTYPED_SURFACE_WRITE :
+                                   GEN7_DATAPORT_DC_UNTYPED_SURFACE_WRITE);
+
+   if (p->current->header.access_mode == BRW_ALIGN_1) {
+      if (p->compressed)
+         insn->bits3.ud |= 1 << 12; /* SIMD16 mode */
+      else
+         insn->bits3.ud |= 2 << 12; /* SIMD8 mode */
+   } else {
+      if (p->brw->is_haswell)
+         insn->bits3.ud |= 2 << 12; /* SIMD4x2 mode */
+      else
+         insn->bits3.ud |= 2 << 12; /* SIMD8 mode */
+   }
+
+   /* Set mask of 32-bit channels to drop. */
+   insn->bits3.ud |= (0xf & (0xf << num_channels)) << 8;
+}
+
+void
+brw_untyped_surface_write(struct brw_compile *p,
+                          struct brw_reg dst,
+                          struct brw_reg mrf,
+                          struct brw_reg surface,
+                          unsigned msg_length,
+                          unsigned num_channels)
+{
+   const unsigned sfid = (p->brw->is_haswell ? HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GEN7_SFID_DATAPORT_DATA_CACHE);
+   const bool header_present = p->current->header.access_mode == BRW_ALIGN_1;
+   struct brw_reg desc = retype(brw_address_reg(0), BRW_REGISTER_TYPE_UD);
+   struct brw_instruction *insn;
+
+   insn = brw_load_indirect_message_descriptor(
+      p, desc, surface, msg_length, 0,
+      header_present);
+
+   brw_set_dp_untyped_surface_write_message(
+      p, insn, num_channels);
+
+   brw_send_indirect_message(p, sfid, dst, mrf, desc);
+}
+
 /**
  * This instruction is generated as a single-channel align1 instruction by
  * both the VS and FS stages when using INTEL_DEBUG=shader_time.

@@ -1695,6 +1695,12 @@ fs_generator::generate_code(exec_list *instructions)
                                   src[0], inst->mlen, src[1].dw1.ud);
          break;
 
+      case SHADER_OPCODE_UNTYPED_SURFACE_WRITE:
+         assert(src[1].file == BRW_IMMEDIATE_VALUE);
+         brw_untyped_surface_write(p, dst, brw_message_reg(inst->base_mrf),
+                                   src[0], inst->mlen, src[1].dw1.ud);
+         break;
+
       case FS_OPCODE_SET_SIMD4X2_OFFSET:
          generate_set_simd4x2_offset(inst, dst, src[0]);
          break;

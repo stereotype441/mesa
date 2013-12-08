@@ -1177,6 +1177,12 @@ vec4_generator::generate_vec4_instruction(vec4_instruction *instruction,
                                src[0], inst->mlen, src[1].dw1.ud);
       break;
 
+   case SHADER_OPCODE_UNTYPED_SURFACE_WRITE:
+      assert(src[1].file == BRW_IMMEDIATE_VALUE);
+      brw_untyped_surface_write(p, dst, brw_message_reg(inst->base_mrf),
+                                src[0], inst->mlen, src[1].dw1.ud);
+      break;
+
    case VS_OPCODE_UNPACK_FLAGS_SIMD4X2:
       generate_unpack_flags(inst, dst);
       break;
