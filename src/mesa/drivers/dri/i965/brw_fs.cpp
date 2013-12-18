@@ -420,12 +420,6 @@ fs_reg::fs_reg(struct brw_reg fixed_hw_reg) :
    init();
 }
 
-fs_reg::fs_reg(const backend_reg &reg) :
-   backend_reg(reg)
-{
-   init();
-}
-
 bool
 fs_reg::equals(const fs_reg &r) const
 {

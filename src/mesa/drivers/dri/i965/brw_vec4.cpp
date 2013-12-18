@@ -109,12 +109,6 @@ src_reg::src_reg(struct brw_reg reg) :
    init();
 }
 
-src_reg::src_reg(const backend_reg &reg) :
-   backend_reg(reg)
-{
-   init();
-}
-
 src_reg::src_reg(dst_reg reg) :
    backend_reg(reg)
 {
@@ -167,12 +161,6 @@ dst_reg::dst_reg(register_file file, int reg, const glsl_type *type,
 }
 
 dst_reg::dst_reg(struct brw_reg reg) :
-   backend_reg(reg)
-{
-   init();
-}
-
-dst_reg::dst_reg(const backend_reg &reg) :
    backend_reg(reg)
 {
    init();

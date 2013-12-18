@@ -100,7 +100,6 @@ public:
    src_reg(uint32_t u);
    src_reg(int32_t i);
    src_reg(struct brw_reg reg);
-   src_reg(const backend_reg &reg);
 
    bool equals(src_reg *r);
 
@@ -167,7 +166,6 @@ public:
    dst_reg(register_file file, int reg, const glsl_type *type, int writemask);
    dst_reg(struct brw_reg reg);
    dst_reg(class vec4_visitor *v, const struct glsl_type *type);
-   dst_reg(const backend_reg &reg);
 
    explicit dst_reg(src_reg reg);
 
