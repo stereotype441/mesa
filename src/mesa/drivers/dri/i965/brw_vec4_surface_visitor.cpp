@@ -172,11 +172,11 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
    src_reg stride = offset(image, BRW_IMAGE_PARAM_STRIDE_OFFSET / 4);
    src_reg tile = offset(image, BRW_IMAGE_PARAM_TILING_OFFSET / 4);
    src_reg swz = offset(image, BRW_IMAGE_PARAM_SWIZZLING_OFFSET / 4);
-   src_reg dst = make_grf(BRW_REGISTER_TYPE_UD, 1);
-   src_reg tmp = make_grf(BRW_REGISTER_TYPE_UD, 4);
+   dst_reg dst(make_grf(BRW_REGISTER_TYPE_UD, 1));
+   dst_reg tmp(make_grf(BRW_REGISTER_TYPE_UD, 4));
 
    /* Shift the coordinates by the fixed surface offset. */
-   emit(BRW_OPCODE_ADD, writemask(addr, WRITEMASK_XY & mask),
+   emit(BRW_OPCODE_ADD, writemask(dst_reg(addr), WRITEMASK_XY & mask),
         addr, off);
 
    if (dims > 2) {
@@ -187,7 +187,7 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
            addr, negate(tile));
 
       emit(BRW_OPCODE_SHR, writemask(tmp, WRITEMASK_Z),
-           tmp, negate(tile));
+           src_reg(tmp), negate(tile));
 
       emit(BRW_OPCODE_SHR, writemask(tmp, WRITEMASK_W),
            swizzle(addr, BRW_SWIZZLE_ZZZZ),
@@ -197,9 +197,9 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
        * offset.
        */
       emit(BRW_OPCODE_MUL, writemask(tmp, WRITEMASK_ZW),
-           stride, tmp);
-      emit(BRW_OPCODE_ADD, writemask(addr, WRITEMASK_XY),
-           addr, swizzle(tmp, BRW_SWIZZLE_ZWZW));
+           stride, src_reg(tmp));
+      emit(BRW_OPCODE_ADD, writemask(dst_reg(addr), WRITEMASK_XY),
+           addr, swizzle(src_reg(tmp), BRW_SWIZZLE_ZWZW));
    }
 
    if (dims > 1) {
@@ -208,7 +208,7 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
            addr, negate(tile));
 
       emit(BRW_OPCODE_SHR, writemask(tmp, WRITEMASK_XY),
-           tmp, negate(tile));
+           src_reg(tmp), negate(tile));
 
       /* Calculate the major x (tmp.z) and y (tmp.w) indices. */
       emit(BRW_OPCODE_SHR, writemask(tmp, WRITEMASK_ZW),
@@ -220,7 +220,7 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
        * the vertical stride.
        */
       emit(BRW_OPCODE_MUL, writemask(tmp, WRITEMASK_XYZW),
-           swizzle(stride, BRW_SWIZZLE_XXXY), tmp);
+           swizzle(stride, BRW_SWIZZLE_XXXY), src_reg(tmp));
 
       /* Multiply by the tile dimensions using two shift instructions.
        * Equivalent to:
@@ -229,37 +229,37 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
        *   major.y = major.y << tile.y
        */
       emit(BRW_OPCODE_SHL, writemask(tmp, WRITEMASK_ZW),
-           swizzle(tmp, BRW_SWIZZLE_ZWZW),
+           swizzle(src_reg(tmp), BRW_SWIZZLE_ZWZW),
            swizzle(tile, BRW_SWIZZLE_YYYY));
 
       emit(BRW_OPCODE_SHL, writemask(tmp, WRITEMASK_YZ),
-           swizzle(tmp, BRW_SWIZZLE_YYZZ),
+           swizzle(src_reg(tmp), BRW_SWIZZLE_YYZZ),
            swizzle(tile, BRW_SWIZZLE_XXXX));
 
       /* Add everything up. */
       emit(BRW_OPCODE_ADD, writemask(tmp, WRITEMASK_XY),
-           swizzle(tmp, BRW_SWIZZLE_XYXY),
-           swizzle(tmp, BRW_SWIZZLE_ZWZW));
+           swizzle(src_reg(tmp), BRW_SWIZZLE_XYXY),
+           swizzle(src_reg(tmp), BRW_SWIZZLE_ZWZW));
 
       emit(BRW_OPCODE_ADD, writemask(dst, WRITEMASK_X),
-           swizzle(tmp, BRW_SWIZZLE_XXXX),
-           swizzle(tmp, BRW_SWIZZLE_YYYY));
+           swizzle(src_reg(tmp), BRW_SWIZZLE_XXXX),
+           swizzle(src_reg(tmp), BRW_SWIZZLE_YYYY));
 
       if (v->brw->has_swizzling) {
          /* Take into account the two dynamically specified shifts. */
          emit(BRW_OPCODE_SHR, writemask(tmp, WRITEMASK_XY),
-              swizzle(dst, BRW_SWIZZLE_XXXX), swz);
+              swizzle(src_reg(dst), BRW_SWIZZLE_XXXX), swz);
 
          /* XOR tmp.x and tmp.y with bit 6 of the memory address. */
          emit(BRW_OPCODE_XOR, writemask(tmp, WRITEMASK_X),
-              swizzle(tmp, BRW_SWIZZLE_XXXX),
-              swizzle(tmp, BRW_SWIZZLE_YYYY));
+              swizzle(src_reg(tmp), BRW_SWIZZLE_XXXX),
+              swizzle(src_reg(tmp), BRW_SWIZZLE_YYYY));
 
          emit(BRW_OPCODE_AND, writemask(tmp, WRITEMASK_X),
-              tmp, 1 << 6);
+              src_reg(tmp), 1 << 6);
 
          emit(BRW_OPCODE_XOR, writemask(dst, WRITEMASK_X),
-              dst, tmp);
+              src_reg(dst), src_reg(tmp));
       }
 
    } else {
@@ -268,7 +268,7 @@ brw_vec4_surface_visitor::emit_coordinate_address_calculation(
            addr, stride);
    }
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -276,11 +276,11 @@ brw_vec4_surface_visitor::emit_untyped_read(
    src_reg flag, src_reg surface, src_reg addr,
    unsigned dims, unsigned size) const
 {
-   src_reg dst = make_grf(BRW_REGISTER_TYPE_UD, size);
+   dst_reg dst(make_grf(BRW_REGISTER_TYPE_UD, size));
    unsigned mlen = 0;
 
    /* Set the surface read address. */
-   emit_assign_with_pad(make_mrf(mlen), addr, dims);
+   emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
    mlen++;
 
    /* Emit the instruction. */
@@ -290,7 +290,7 @@ brw_vec4_surface_visitor::emit_untyped_read(
    inst.base_mrf = 0;
    inst.mlen = mlen;
 
-   return dst;
+   return src_reg(dst);
 }
 
 void
@@ -303,19 +303,19 @@ brw_vec4_surface_visitor::emit_untyped_write(
 
    /* Set the surface write address. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), addr, dims);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), addr, dims);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), addr, dims);
       mlen += dims;
    }
 
    /* Set the source value. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), src, size);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), src, size);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), src, size);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), src, size);
       mlen += size;
    }
 
@@ -337,39 +337,39 @@ brw_vec4_surface_visitor::emit_untyped_atomic(
    src_reg src0, src_reg src1,
    unsigned dims, unsigned op) const
 {
-   src_reg dst = make_grf(BRW_REGISTER_TYPE_UD, 1);
+   dst_reg dst(make_grf(BRW_REGISTER_TYPE_UD, 1));
    unsigned mlen = 0;
 
    /* Set the atomic operation address. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), addr, dims);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), addr, dims);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), addr, dims);
       mlen += dims;
    }
 
    /* Set the source arguments. */
    if (v->brw->is_haswell) {
       if (src0.file != BAD_FILE)
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src0);
 
       if (src1.file != BAD_FILE)
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_Y),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_Y),
               swizzle(src1, BRW_SWIZZLE_XXXX));
 
       mlen++;
 
    } else {
       if (src0.file != BAD_FILE) {
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src0);
          mlen++;
       }
 
       if (src1.file != BAD_FILE) {
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src1);
          mlen++;
       }
@@ -386,7 +386,7 @@ brw_vec4_surface_visitor::emit_untyped_atomic(
    inst.base_mrf = 0;
    inst.mlen = mlen;
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -395,20 +395,20 @@ brw_vec4_surface_visitor::emit_typed_read(
    unsigned dims, unsigned size) const
 {
    const unsigned rlen = size * (v->brw->is_haswell ? 1 : 8);
-   src_reg tmp = make_grf(BRW_REGISTER_TYPE_UD, rlen);
-   src_reg dst = make_grf(BRW_REGISTER_TYPE_UD, size);
+   dst_reg tmp(make_grf(BRW_REGISTER_TYPE_UD, rlen));
+   dst_reg dst(make_grf(BRW_REGISTER_TYPE_UD, size));
    unsigned mlen = 0;
 
    /* Initialize the message header. */
-   emit_surface_header(make_mrf(mlen));
+   emit_surface_header(dst_reg(make_mrf(mlen)));
    mlen++;
 
    /* Set the surface read address. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), addr, dims);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), addr, dims);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), addr, dims);
       mlen += dims;
    }
 
@@ -426,9 +426,9 @@ brw_vec4_surface_visitor::emit_typed_read(
    if (v->brw->is_haswell)
       dst = tmp;
    else
-      emit_assign_from_transpose(dst, tmp, size);
+      emit_assign_from_transpose(dst, src_reg(tmp), size);
 
-   return dst;
+   return src_reg(dst);
 }
 
 void
@@ -439,24 +439,24 @@ brw_vec4_surface_visitor::emit_typed_write(
    unsigned mlen = 0;
 
    /* Initialize the message header. */
-   emit_surface_header(make_mrf(mlen));
+   emit_surface_header(dst_reg(make_mrf(mlen)));
    mlen++;
 
    /* Set the surface write address. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), addr, dims);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), addr, dims);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), addr, dims);
       mlen += dims;
    }
 
    /* Set the source value. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), src, size);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), src, size);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), src, size);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), src, size);
       mlen += size;
    }
 
@@ -477,43 +477,43 @@ brw_vec4_surface_visitor::emit_typed_atomic(
    src_reg src0, src_reg src1,
    unsigned dims, unsigned op) const
 {
-   src_reg dst = make_grf(BRW_REGISTER_TYPE_UD, 1);
+   dst_reg dst(make_grf(BRW_REGISTER_TYPE_UD, 1));
    unsigned mlen = 0;
 
    /* Initialize the message header. */
-   emit_surface_header(make_mrf(mlen));
+   emit_surface_header(dst_reg(make_mrf(mlen)));
    mlen++;
 
    /* Set the atomic operation address. */
    if (v->brw->is_haswell) {
-      emit_assign_with_pad(make_mrf(mlen), addr, dims);
+      emit_assign_with_pad(dst_reg(make_mrf(mlen)), addr, dims);
       mlen++;
    } else {
-      emit_assign_to_transpose(make_mrf(mlen), addr, dims);
+      emit_assign_to_transpose(dst_reg(make_mrf(mlen)), addr, dims);
       mlen += dims;
    }
 
    /* Set the source arguments. */
    if (v->brw->is_haswell) {
       if (src0.file != BAD_FILE)
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src0);
 
       if (src1.file != BAD_FILE)
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_Y),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_Y),
               swizzle(src1, BRW_SWIZZLE_XXXX));
 
       mlen++;
 
    } else {
       if (src0.file != BAD_FILE) {
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src0);
          mlen++;
       }
 
       if (src1.file != BAD_FILE) {
-         emit(BRW_OPCODE_MOV, writemask(make_mrf(mlen), WRITEMASK_X),
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(make_mrf(mlen)), WRITEMASK_X),
               src1);
          mlen++;
       }
@@ -530,7 +530,7 @@ brw_vec4_surface_visitor::emit_typed_atomic(
    inst.base_mrf = 0;
    inst.mlen = mlen;
 
-   return dst;
+   return src_reg(dst);
 }
 
 void
@@ -548,16 +548,16 @@ brw_vec4_surface_visitor::emit_pad(
    struct brw_reg pad = brw_imm_vf4(0, 0, 0, 1);
 
    if (flag.file != BAD_FILE) {
-      src_reg dst = make_grf(src.type, 4);
+      dst_reg dst(make_grf(src.type, 4));
 
       emit(BRW_OPCODE_MOV, writemask(dst, WRITEMASK_XYZW), pad);
       exec_predicated(flag, emit(BRW_OPCODE_SEL, writemask(dst, src_mask),
-                                 src, dst));
-      return dst;
+                                 src, src_reg(dst)));
+      return src_reg(dst);
 
    } else {
       if (pad_mask)
-         emit(BRW_OPCODE_MOV, writemask(src, pad_mask), pad);
+         emit(BRW_OPCODE_MOV, writemask(dst_reg(src), pad_mask), pad);
 
       return src;
    }
@@ -577,7 +577,7 @@ brw_vec4_surface_visitor::emit_pack_generic(
                              (!width_b || width_g == width_b) &&
                              (!width_a || width_b == width_a));
    const unsigned bits = width_r + width_g + width_b + width_a;
-   src_reg shift = make_grf(BRW_REGISTER_TYPE_UD, 4);
+   dst_reg shift(make_grf(BRW_REGISTER_TYPE_UD, 4));
 
    /* Shift left to discard the most significant bits. */
    emit(BRW_OPCODE_MOV, writemask(shift, mask),
@@ -585,7 +585,7 @@ brw_vec4_surface_visitor::emit_pack_generic(
          brw_imm_vf4(32 - width_r, 32 - width_g,
                      32 - width_b, 32 - width_a)));
 
-   emit(BRW_OPCODE_SHL, writemask(src, mask), src, shift);
+   emit(BRW_OPCODE_SHL, writemask(dst_reg(src), mask), src, src_reg(shift));
 
    /* Shift right to the final bit field positions. */
    emit(BRW_OPCODE_MOV, writemask(shift, mask),
@@ -594,19 +594,19 @@ brw_vec4_surface_visitor::emit_pack_generic(
                     32 - shift_b % 32 - width_b,
                     32 - shift_a % 32 - width_a));
 
-   emit(BRW_OPCODE_SHR, writemask(src, mask), src, shift);
+   emit(BRW_OPCODE_SHR, writemask(dst_reg(src), mask), src, src_reg(shift));
 
    /* Add everything up. */
    if (mask >> 2)
       emit(BRW_OPCODE_OR,
-           writemask(src, WRITEMASK_XY),
+           writemask(dst_reg(src), WRITEMASK_XY),
            swizzle(src, BRW_SWIZZLE_XZXZ),
            swizzle(src, (mask >> 3 ? BRW_SWIZZLE_YWYW :
                          BRW_SWIZZLE_YZYZ)));
 
    if (mask >> 1 && bits <= 32)
       emit(BRW_OPCODE_OR,
-           writemask(src, WRITEMASK_X),
+           writemask(dst_reg(src), WRITEMASK_X),
            swizzle(src, BRW_SWIZZLE_XXXX),
            swizzle(src, BRW_SWIZZLE_YYYY));
 
@@ -626,8 +626,8 @@ brw_vec4_surface_visitor::emit_unpack_generic(
    const bool homogeneous = ((!width_g || width_r == width_g) &&
                              (!width_b || width_g == width_b) &&
                              (!width_a || width_b == width_a));
-   src_reg shift = make_grf(BRW_REGISTER_TYPE_UD, 4);
-   src_reg dst = make_grf(src.type, 4);
+   dst_reg shift(make_grf(BRW_REGISTER_TYPE_UD, 4));
+   dst_reg dst(make_grf(src.type, 4));
 
    /* Shift left to discard the most significant bits. */
    emit(BRW_OPCODE_MOV, writemask(shift, mask),
@@ -639,7 +639,7 @@ brw_vec4_surface_visitor::emit_unpack_generic(
    emit(BRW_OPCODE_SHL, writemask(dst, mask),
         swizzle(src, BRW_SWIZZLE4(shift_r / 32, shift_g / 32,
                                   shift_b / 32, shift_a / 32)),
-        shift);
+        src_reg(shift));
 
    /* Shift back to the least significant bits using an arithmetic
     * shift to get sign extension on signed types.
@@ -649,9 +649,9 @@ brw_vec4_surface_visitor::emit_unpack_generic(
          brw_imm_vf4(32 - width_r, 32 - width_g,
                      32 - width_b, 32 - width_a)));
 
-   emit(BRW_OPCODE_ASR, writemask(dst, mask), dst, shift);
+   emit(BRW_OPCODE_ASR, writemask(dst, mask), src_reg(dst), src_reg(shift));
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -703,12 +703,12 @@ brw_vec4_surface_visitor::emit_convert_to_integer(
 
          /* Clamp to the minimum value. */
          if (type_is_signed(src.type))
-            emit(BRW_OPCODE_SEL, writemask(src, mask[i]),
+            emit(BRW_OPCODE_SEL, writemask(dst_reg(src), mask[i]),
                  src, - max - 1)
                .conditional_mod = BRW_CONDITIONAL_G;
 
          /* Clamp to the maximum value. */
-         emit(BRW_OPCODE_SEL, writemask(src, mask[i]),
+         emit(BRW_OPCODE_SEL, writemask(dst_reg(src), mask[i]),
               src, max)
             .conditional_mod = BRW_CONDITIONAL_L;
       }
@@ -726,7 +726,7 @@ brw_vec4_surface_visitor::emit_convert_from_scaled(
    const unsigned mask[] = { mask0, mask1 };
    const unsigned full_mask = mask0 | mask1;
    const float scale[] = { scale0, scale1 };
-   src_reg dst = retype(src, BRW_REGISTER_TYPE_F);
+   dst_reg dst(retype(src, BRW_REGISTER_TYPE_F));
 
    /* Convert to float. */
    emit(BRW_OPCODE_MOV, writemask(dst, full_mask), src);
@@ -735,16 +735,16 @@ brw_vec4_surface_visitor::emit_convert_from_scaled(
    for (unsigned i = 0; i < Elements(mask); ++i) {
       if (mask[i])
          emit(BRW_OPCODE_MUL, writemask(dst, mask[i]),
-              dst, 1.0f / scale[i]);
+              src_reg(dst), 1.0f / scale[i]);
    }
 
    /* Clamp to the minimum value. */
    if (type_is_signed(src.type))
       emit(BRW_OPCODE_SEL, writemask(dst, full_mask),
-           dst, -1.0f)
+           src_reg(dst), -1.0f)
          .conditional_mod = BRW_CONDITIONAL_G;
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -756,30 +756,30 @@ brw_vec4_surface_visitor::emit_convert_to_scaled(
    const unsigned mask[] = { mask0, mask1 };
    const unsigned full_mask = mask0 | mask1;
    const float scale[] = { scale0, scale1 };
-   src_reg dst = retype(src, type);
+   dst_reg dst(retype(src, type));
 
    /* Clamp to the minimum value. */
    if (type_is_signed(type))
-      emit(BRW_OPCODE_SEL, writemask(src, full_mask),
+      emit(BRW_OPCODE_SEL, writemask(dst_reg(src), full_mask),
            src, -1.0f)
          .conditional_mod = BRW_CONDITIONAL_G;
 
    /* Clamp to the maximum value. */
-   emit(BRW_OPCODE_SEL, writemask(src, full_mask),
+   emit(BRW_OPCODE_SEL, writemask(dst_reg(src), full_mask),
         src, 1.0f)
       .conditional_mod = BRW_CONDITIONAL_L;
 
    /* Multiply by the normalization constants. */
    for (unsigned i = 0; i < Elements(mask); ++i) {
       if (mask[i])
-         emit(BRW_OPCODE_MUL, writemask(src, mask[i]),
+         emit(BRW_OPCODE_MUL, writemask(dst_reg(src), mask[i]),
               src, scale[i]);
    }
 
    /* Convert to integer. */
    emit(BRW_OPCODE_MOV, writemask(dst, full_mask), src);
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -791,7 +791,7 @@ brw_vec4_surface_visitor::emit_convert_from_float(
    const unsigned mask[] = { mask0, mask1 };
    const unsigned full_mask = mask0 | mask1;
    const unsigned width[] = { width0, width1 };
-   src_reg dst = retype(src, BRW_REGISTER_TYPE_F);
+   dst_reg dst(retype(src, BRW_REGISTER_TYPE_F));
 
    /* Extend 10-bit and 11-bit floating point numbers to 15 bits.
     * This works because they have a 5-bit exponent just like the
@@ -799,14 +799,14 @@ brw_vec4_surface_visitor::emit_convert_from_float(
     */
    for (unsigned i = 0; i < Elements(mask); ++i) {
       if (mask[i] && width[i] < 16)
-         emit(BRW_OPCODE_SHL, writemask(src, mask[i]),
+         emit(BRW_OPCODE_SHL, writemask(dst_reg(src), mask[i]),
               src, 15 - width[i]);
    }
 
    /* Convert to 32-bit floating point. */
    emit(BRW_OPCODE_F16TO32, writemask(dst, full_mask), src);
 
-   return dst;
+   return src_reg(dst);
 }
 
 src_reg
@@ -820,11 +820,11 @@ brw_vec4_surface_visitor::emit_convert_to_float(
    const unsigned full_mask = mask0 | mask1;
    const unsigned clamp_mask = ((width0 < 16 ? mask0 : 0) |
                                 (width1 < 16 ? mask1 : 0));
-   src_reg dst = retype(src, BRW_REGISTER_TYPE_UD);
+   dst_reg dst(retype(src, BRW_REGISTER_TYPE_UD));
 
    /* Clamp to the minimum value. */
    if (clamp_mask)
-      emit(BRW_OPCODE_SEL, writemask(src, clamp_mask),
+      emit(BRW_OPCODE_SEL, writemask(dst_reg(src), clamp_mask),
            src, 0.0f)
          .conditional_mod = BRW_CONDITIONAL_G;
 
@@ -839,8 +839,8 @@ brw_vec4_surface_visitor::emit_convert_to_float(
    for (unsigned i = 0; i < Elements(mask); ++i) {
       if (mask[i] && width[i] < 16)
          v->emit(BRW_OPCODE_SHR, writemask(dst, mask[i]),
-                 dst, 15 - width[i]);
+                 src_reg(dst), 15 - width[i]);
    }
 
-   return dst;
+   return src_reg(dst);
 }

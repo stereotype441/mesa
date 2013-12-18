@@ -1791,13 +1791,13 @@ vec4_visitor::visit(ir_dereference_array *ir)
    src = this->result;
 
    if (ir->array->type->contains_atomic()) {
-      src_reg tmp(this, glsl_type::uint_type);
+      dst_reg tmp(this, glsl_type::uint_type);
 
       ir->array_index->accept(this);
 
       emit(MUL(tmp, this->result, ATOMIC_COUNTER_SIZE));
-      emit(ADD(tmp, tmp, src));
-      this->result = tmp;
+      emit(ADD(tmp, src_reg(tmp), src));
+      this->result = src_reg(tmp);
 
    } else {
       if (constant_index) {
