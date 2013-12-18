@@ -71,7 +71,7 @@ namespace {
 }
 
 brw_fs_surface_visitor::brw_fs_surface_visitor(fs_visitor *v) :
-   brw_surface_visitor(v), v(v)
+   brw_surface_visitor(v)
 {
 }
 

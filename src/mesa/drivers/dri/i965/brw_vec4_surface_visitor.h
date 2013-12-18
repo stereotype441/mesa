@@ -163,8 +163,6 @@ protected:
    emit_convert_to_float(backend_reg src,
                          unsigned mask0 = 0, unsigned width0 = 0,
                          unsigned mask1 = 0, unsigned width1 = 0) const;
-
-   brw::vec4_visitor *v;
 };
 
 #endif

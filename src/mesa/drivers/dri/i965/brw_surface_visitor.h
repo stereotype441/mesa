@@ -35,7 +35,7 @@ public:
    typedef typename traits::dst_reg dst_reg;
    typedef typename traits::visitor visitor;
 
-   brw_surface_visitor(backend_visitor *v);
+   brw_surface_visitor(visitor *v);
 
    /**
     * Lower an atomic counter intrinsic call.
@@ -232,7 +232,7 @@ protected:
                          unsigned mask0 = 0, unsigned width0 = 0,
                          unsigned mask1 = 0, unsigned width1 = 0) const = 0;
 
-   backend_visitor *v;
+   visitor *v;
 };
 
 #endif

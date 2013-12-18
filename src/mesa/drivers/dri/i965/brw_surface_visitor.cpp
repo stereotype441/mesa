@@ -30,7 +30,7 @@
 #include "brw_context.h"
 
 template<class traits>
-brw_surface_visitor<traits>::brw_surface_visitor(backend_visitor *v) :
+brw_surface_visitor<traits>::brw_surface_visitor(visitor *v) :
    v(v)
 {
 }

@@ -47,7 +47,7 @@ namespace {
 }
 
 brw_vec4_surface_visitor::brw_vec4_surface_visitor(vec4_visitor *v) :
-   brw_surface_visitor(v), v(v)
+   brw_surface_visitor(v)
 {
 }
 
