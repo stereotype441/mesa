@@ -64,7 +64,7 @@ src_reg
 brw_vec4_surface_visitor::make_grf(unsigned type, unsigned size) const
 {
    const unsigned num_registers = (size + 3) / 4;
-   return retype(src_reg(GRF, v->virtual_grf_alloc(num_registers), NULL),
+   return retype(src_reg(GRF, v->regs.virtual_grf_alloc(num_registers), NULL),
                  type);
 }
 

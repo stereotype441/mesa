@@ -265,7 +265,7 @@ bool
 vec4_visitor::opt_copy_propagation()
 {
    bool progress = false;
-   src_reg *cur_value[virtual_grf_reg_count][4];
+   src_reg *cur_value[regs.virtual_grf_reg_count][4];
 
    memset(&cur_value, 0, sizeof(cur_value));
 
@@ -296,7 +296,7 @@ vec4_visitor::opt_copy_propagation()
 	     inst->src[i].reladdr)
 	    continue;
 
-	 int reg = (virtual_grf_reg_map[inst->src[i].reg] +
+	 int reg = (regs.virtual_grf_reg_map[inst->src[i].reg] +
 		    inst->src[i].reg_offset);
 
 	 /* Find the regs that each swizzle component came from.
@@ -332,7 +332,7 @@ vec4_visitor::opt_copy_propagation()
       /* Track available source registers. */
       if (inst->dst.file == GRF) {
 	 const int reg =
-	    virtual_grf_reg_map[inst->dst.reg] + inst->dst.reg_offset;
+	    regs.virtual_grf_reg_map[inst->dst.reg] + inst->dst.reg_offset;
 
 	 /* Update our destination's current channel values.  For a direct copy,
 	  * the value is the newly propagated source.  Otherwise, we don't know
@@ -351,7 +351,7 @@ vec4_visitor::opt_copy_propagation()
 	 if (inst->dst.reladdr)
 	    memset(cur_value, 0, sizeof(cur_value));
 	 else {
-	    for (int i = 0; i < virtual_grf_reg_count; i++) {
+	    for (int i = 0; i < regs.virtual_grf_reg_count; i++) {
 	       for (int j = 0; j < 4; j++) {
 		  if (inst->dst.writemask & (1 << j) &&
 		      cur_value[i][j] &&

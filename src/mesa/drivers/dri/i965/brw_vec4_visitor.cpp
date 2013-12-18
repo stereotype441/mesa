@@ -584,16 +584,16 @@ type_size(const struct glsl_type *type)
 }
 
 int
-vec4_visitor::virtual_grf_alloc(int size)
+vec4_regs::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_count) {
       if (virtual_grf_array_size == 0)
 	 virtual_grf_array_size = 16;
       else
 	 virtual_grf_array_size *= 2;
-      virtual_grf_sizes = reralloc(mem_ctx, virtual_grf_sizes, int,
+      virtual_grf_sizes = reralloc(v->mem_ctx, virtual_grf_sizes, int,
 				   virtual_grf_array_size);
-      virtual_grf_reg_map = reralloc(mem_ctx, virtual_grf_reg_map, int,
+      virtual_grf_reg_map = reralloc(v->mem_ctx, virtual_grf_reg_map, int,
 				     virtual_grf_array_size);
    }
    virtual_grf_reg_map[virtual_grf_count] = virtual_grf_reg_count;
@@ -603,7 +603,7 @@ vec4_visitor::virtual_grf_alloc(int size)
 }
 
 src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type) :
-   backend_reg(GRF, v->virtual_grf_alloc(type_size(type)),
+   backend_reg(GRF, v->regs.virtual_grf_alloc(type_size(type)),
                brw_type_for_base_type(type))
 {
    init();
@@ -616,7 +616,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type) :
 }
 
 dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type) :
-   backend_reg(GRF, v->virtual_grf_alloc(type_size(type)),
+   backend_reg(GRF, v->regs.virtual_grf_alloc(type_size(type)),
                brw_type_for_base_type(type))
 {
    init();
@@ -3038,9 +3038,9 @@ vec4_visitor::emit_scratch_write(vec4_instruction *inst, int base_offset)
 void
 vec4_visitor::move_grf_array_access_to_scratch()
 {
-   int scratch_loc[this->virtual_grf_count];
+   int scratch_loc[this->regs.virtual_grf_count];
 
-   for (int i = 0; i < this->virtual_grf_count; i++) {
+   for (int i = 0; i < this->regs.virtual_grf_count; i++) {
       scratch_loc[i] = -1;
    }
 
@@ -3054,7 +3054,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
       if (inst->dst.file == GRF && inst->dst.reladdr &&
 	  scratch_loc[inst->dst.reg] == -1) {
 	 scratch_loc[inst->dst.reg] = c->last_scratch;
-	 c->last_scratch += this->virtual_grf_sizes[inst->dst.reg];
+	 c->last_scratch += regs.virtual_grf_sizes[inst->dst.reg];
       }
 
       for (int i = 0 ; i < 3; i++) {
@@ -3063,7 +3063,7 @@ vec4_visitor::move_grf_array_access_to_scratch()
 	 if (src->file == GRF && src->reladdr &&
 	     scratch_loc[src->reg] == -1) {
 	    scratch_loc[src->reg] = c->last_scratch;
-	    c->last_scratch += this->virtual_grf_sizes[src->reg];
+	    c->last_scratch += regs.virtual_grf_sizes[src->reg];
 	 }
       }
    }
@@ -3237,10 +3237,9 @@ vec4_visitor::vec4_visitor(struct brw_context *brw,
                            bool no_spills)
    : sanity_param_count(0),
      fail_msg(NULL),
-     first_non_payload_grf(0),
+     regs(brw, this, no_spills),
      need_all_constants_in_pull_buffer(false),
-     debug_flag(debug_flag),
-     no_spills(no_spills)
+     debug_flag(debug_flag)
 {
    this->brw = brw;
    this->ctx = &brw->ctx;
@@ -3266,14 +3265,7 @@ vec4_visitor::vec4_visitor(struct brw_context *brw,
 
    this->virtual_grf_start = NULL;
    this->virtual_grf_end = NULL;
-   this->virtual_grf_sizes = NULL;
-   this->virtual_grf_count = 0;
-   this->virtual_grf_reg_map = NULL;
-   this->virtual_grf_reg_count = 0;
-   this->virtual_grf_array_size = 0;
    this->live_intervals_valid = false;
-
-   this->max_grf = brw->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
 
    this->uniforms = 0;
 }

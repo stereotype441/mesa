@@ -42,7 +42,7 @@ assign(unsigned int *reg_hw_locations, backend_reg *reg)
 }
 
 bool
-vec4_visitor::reg_allocate_trivial()
+vec4_regs::allocate_trivial()
 {
    unsigned int hw_reg_mapping[this->virtual_grf_count];
    bool virtual_grf_used[this->virtual_grf_count];
@@ -56,7 +56,7 @@ vec4_visitor::reg_allocate_trivial()
       virtual_grf_used[i] = false;
    }
 
-   foreach_iter(exec_list_iterator, iter, this->instructions) {
+   foreach_iter(exec_list_iterator, iter, v->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
       if (inst->dst.file == GRF)
@@ -76,9 +76,9 @@ vec4_visitor::reg_allocate_trivial()
 	 next += this->virtual_grf_sizes[i];
       }
    }
-   prog_data->total_grf = next;
+   v->prog_data->total_grf = next;
 
-   foreach_iter(exec_list_iterator, iter, this->instructions) {
+   foreach_iter(exec_list_iterator, iter, v->instructions) {
       vec4_instruction *inst = (vec4_instruction *)iter.get();
 
       assign(hw_reg_mapping, &inst->dst);
@@ -87,9 +87,9 @@ vec4_visitor::reg_allocate_trivial()
       assign(hw_reg_mapping, &inst->src[2]);
    }
 
-   if (prog_data->total_grf > max_grf) {
-      fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   prog_data->total_grf, max_grf);
+   if (v->prog_data->total_grf > max_grf) {
+      v->fail("Ran out of regs on trivial allocator (%d/%d)\n",
+              v->prog_data->total_grf, max_grf);
       return false;
    }
 
@@ -151,9 +151,9 @@ brw_vec4_alloc_reg_set(struct brw_context *brw)
 }
 
 void
-vec4_visitor::setup_payload_interference(struct ra_graph *g,
-                                         int first_payload_node,
-                                         int reg_node_count)
+vec4_regs::setup_payload_interference(struct ra_graph *g,
+                                      int first_payload_node,
+                                      int reg_node_count)
 {
    int payload_node_count = this->first_non_payload_grf;
 
@@ -175,7 +175,7 @@ vec4_visitor::setup_payload_interference(struct ra_graph *g,
 }
 
 bool
-vec4_visitor::reg_allocate()
+vec4_regs::allocate()
 {
    unsigned int hw_reg_mapping[virtual_grf_count];
    int payload_reg_count = this->first_non_payload_grf;
@@ -184,9 +184,9 @@ vec4_visitor::reg_allocate()
     * register access as a result of broken optimization passes.
     */
    if (0)
-      return reg_allocate_trivial();
+      return allocate_trivial();
 
-   calculate_live_intervals();
+   v->calculate_live_intervals();
 
    int node_count = virtual_grf_count;
    int first_payload_node = node_count;
@@ -201,7 +201,7 @@ vec4_visitor::reg_allocate()
       ra_set_node_class(g, i, brw->vec4.classes[size - 1]);
 
       for (int j = 0; j < i; j++) {
-	 if (virtual_grf_interferes(i, j)) {
+	 if (v->virtual_grf_interferes(i, j)) {
 	    ra_add_node_interference(g, i, j);
 	 }
       }
@@ -215,12 +215,12 @@ vec4_visitor::reg_allocate()
        */
       int reg = choose_spill_reg(g);
       if (this->no_spills) {
-         fail("Failure to register allocate.  Reduce number of live "
-              "values to avoid this.");
+         v->fail("Failure to register allocate.  Reduce number of live "
+                 "values to avoid this.");
       } else if (reg == -1) {
-         fail("no register to spill\n");
+         v->fail("no register to spill\n");
       } else {
-         spill_reg(reg);
+         v->spill_reg(reg);
       }
       ralloc_free(g);
       return false;
@@ -230,16 +230,16 @@ vec4_visitor::reg_allocate()
     * regs in the register classes back down to real hardware reg
     * numbers.
     */
-   prog_data->total_grf = payload_reg_count;
+   v->prog_data->total_grf = payload_reg_count;
    for (int i = 0; i < virtual_grf_count; i++) {
       int reg = ra_get_node_reg(g, i);
 
       hw_reg_mapping[i] = brw->vec4.ra_reg_to_grf[reg];
-      prog_data->total_grf = MAX2(prog_data->total_grf,
-				  hw_reg_mapping[i] + virtual_grf_sizes[i]);
+      v->prog_data->total_grf = MAX2(v->prog_data->total_grf,
+                                     hw_reg_mapping[i] + virtual_grf_sizes[i]);
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
       assign(hw_reg_mapping, &inst->dst);
@@ -254,7 +254,7 @@ vec4_visitor::reg_allocate()
 }
 
 void
-vec4_visitor::evaluate_spill_costs(float *spill_costs, bool *no_spill)
+vec4_regs::evaluate_spill_costs(float *spill_costs, bool *no_spill)
 {
    float loop_scale = 1.0;
 
@@ -267,7 +267,7 @@ vec4_visitor::evaluate_spill_costs(float *spill_costs, bool *no_spill)
     * spill/unspill we'll have to do, and guess that the insides of
     * loops run 10 times.
     */
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       vec4_instruction *inst = (vec4_instruction *) node;
 
       for (unsigned int i = 0; i < 3; i++) {
@@ -311,7 +311,7 @@ vec4_visitor::evaluate_spill_costs(float *spill_costs, bool *no_spill)
 }
 
 int
-vec4_visitor::choose_spill_reg(struct ra_graph *g)
+vec4_regs::choose_spill_reg(struct ra_graph *g)
 {
    float spill_costs[this->virtual_grf_count];
    bool no_spill[this->virtual_grf_count];
@@ -329,7 +329,7 @@ vec4_visitor::choose_spill_reg(struct ra_graph *g)
 void
 vec4_visitor::spill_reg(int spill_reg_nr)
 {
-   assert(virtual_grf_sizes[spill_reg_nr] == 1);
+   assert(regs.virtual_grf_sizes[spill_reg_nr] == 1);
    unsigned int spill_offset = c->last_scratch++;
 
    /* Generate spill/unspill instructions for the objects being spilled. */
@@ -339,7 +339,7 @@ vec4_visitor::spill_reg(int spill_reg_nr)
       for (unsigned int i = 0; i < 3; i++) {
          if (inst->src[i].file == GRF && inst->src[i].reg == spill_reg_nr) {
             src_reg spill_reg = inst->src[i];
-            inst->src[i].reg = virtual_grf_alloc(1);
+            inst->src[i].reg = regs.virtual_grf_alloc(1);
             dst_reg temp = dst_reg(inst->src[i]);
 
             /* Only read the necessary channels, to avoid overwriting the rest

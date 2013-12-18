@@ -94,7 +94,7 @@ vec4_live_variables::setup_def_use()
 	  * variable, and thus qualify for being in def[].
 	  */
 	 if (inst->dst.file == GRF &&
-	     v->virtual_grf_sizes[inst->dst.reg] == 1 &&
+	     v->regs.virtual_grf_sizes[inst->dst.reg] == 1 &&
 	     !inst->predicate) {
             for (int c = 0; c < 4; c++) {
                if (inst->dst.writemask & (1 << c)) {
@@ -158,7 +158,7 @@ vec4_live_variables::vec4_live_variables(vec4_visitor *v, cfg_t *cfg)
 {
    mem_ctx = ralloc_context(NULL);
 
-   num_vars = v->virtual_grf_count * 4;
+   num_vars = v->regs.virtual_grf_count * 4;
    bd = rzalloc_array(mem_ctx, struct block_data, cfg->num_blocks);
 
    bitset_words = BITSET_WORDS(num_vars);
@@ -203,14 +203,14 @@ vec4_visitor::calculate_live_intervals()
    if (this->live_intervals_valid)
       return;
 
-   int *start = ralloc_array(mem_ctx, int, this->virtual_grf_count);
-   int *end = ralloc_array(mem_ctx, int, this->virtual_grf_count);
+   int *start = ralloc_array(mem_ctx, int, regs.virtual_grf_count);
+   int *end = ralloc_array(mem_ctx, int, regs.virtual_grf_count);
    ralloc_free(this->virtual_grf_start);
    ralloc_free(this->virtual_grf_end);
    this->virtual_grf_start = start;
    this->virtual_grf_end = end;
 
-   for (int i = 0; i < this->virtual_grf_count; i++) {
+   for (int i = 0; i < regs.virtual_grf_count; i++) {
       start[i] = MAX_INSTRUCTION;
       end[i] = -1;
    }

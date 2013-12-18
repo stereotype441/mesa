@@ -85,6 +85,7 @@ brw_vec4_setup_prog_key_for_precompile(struct gl_context *ctx,
 namespace brw {
 
 class dst_reg;
+class vec4_visitor;
 
 unsigned
 swizzle_for_size(int size);
@@ -249,6 +250,60 @@ public:
    }
 };
 
+
+class vec4_regs
+{
+public:
+   vec4_regs(struct brw_context *brw, vec4_visitor *v, bool no_spills)
+      : virtual_grf_sizes(NULL),
+        virtual_grf_count(0),
+        first_non_payload_grf(0),
+        virtual_grf_reg_count(0),
+        virtual_grf_reg_map(NULL),
+        brw(brw),
+        v(v),
+        virtual_grf_array_size(0),
+        max_grf(brw->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF),
+        no_spills(no_spills)
+   {
+   }
+
+   int virtual_grf_alloc(int size);
+   bool allocate();
+   void spill_everything();
+   void split_virtual_grfs();
+
+   int *virtual_grf_sizes;
+   int virtual_grf_count;
+   int first_non_payload_grf;
+
+   /**
+    * This is the size to be used for an array with an element per
+    * reg_offset
+    */
+   int virtual_grf_reg_count;
+   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
+   int *virtual_grf_reg_map;
+
+private:
+   bool allocate_trivial();
+   void evaluate_spill_costs(float *spill_costs, bool *no_spill);
+   int choose_spill_reg(struct ra_graph *g);
+   void setup_payload_interference(struct ra_graph *g, int first_payload_node,
+                                   int reg_node_count);
+
+   struct brw_context *brw;
+   vec4_visitor *v;
+   int virtual_grf_array_size;
+   unsigned int max_grf;
+
+   /**
+    * If true, then register allocation should fail instead of spilling.
+    */
+   const bool no_spills;
+};
+
+
 /**
  * The vertex shader front-end.
  *
@@ -300,22 +355,10 @@ public:
    const void *base_ir;
    const char *current_annotation;
 
-   int *virtual_grf_sizes;
-   int virtual_grf_count;
-   int virtual_grf_array_size;
-   int first_non_payload_grf;
-   unsigned int max_grf;
+   vec4_regs regs;
    int *virtual_grf_start;
    int *virtual_grf_end;
    dst_reg userplane[MAX_CLIP_PLANES];
-
-   /**
-    * This is the size to be used for an array with an element per
-    * reg_offset
-    */
-   int virtual_grf_reg_count;
-   /** Per-virtual-grf indices into an array of size virtual_grf_reg_count */
-   int *virtual_grf_reg_map;
 
    bool live_intervals_valid;
 
@@ -375,17 +418,12 @@ public:
    bool run(void);
    void fail(const char *msg, ...);
 
-   int virtual_grf_alloc(int size);
    void setup_uniform_clipplane_values();
    virtual void setup_vector_uniform_values(void *values, unsigned stride,
                                             unsigned size);
    void setup_uniform_values(ir_variable *ir);
    void setup_builtin_uniform_values(ir_variable *ir);
    int setup_uniforms(int payload_reg);
-   bool reg_allocate_trivial();
-   bool reg_allocate();
-   void evaluate_spill_costs(float *spill_costs, bool *no_spill);
-   int choose_spill_reg(struct ra_graph *g);
    void spill_reg(int spill_reg);
    void move_grf_array_access_to_scratch();
    void move_uniform_array_access_to_pull_constants();
@@ -394,7 +432,6 @@ public:
    void pack_uniform_registers();
    void calculate_live_intervals();
    void invalidate_live_intervals();
-   void split_virtual_grfs();
    bool dead_code_eliminate();
    bool virtual_grf_interferes(int a, int b);
    bool opt_copy_propagation();
@@ -561,8 +598,6 @@ protected:
    void emit_vertex();
    void lower_attributes_to_hw_regs(const int *attribute_map,
                                     bool interleaved);
-   void setup_payload_interference(struct ra_graph *g, int first_payload_node,
-                                   int reg_node_count);
    virtual dst_reg *make_reg_for_system_value(ir_variable *ir) = 0;
    virtual void setup_payload() = 0;
    virtual void emit_prolog() = 0;
@@ -573,12 +608,6 @@ protected:
    virtual int compute_array_stride(ir_dereference_array *ir);
 
    const bool debug_flag;
-
-private:
-   /**
-    * If true, then register allocation should fail instead of spilling.
-    */
-   const bool no_spills;
 };
 
 

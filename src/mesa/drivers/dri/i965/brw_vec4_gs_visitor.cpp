@@ -123,7 +123,7 @@ vec4_gs_visitor::setup_payload()
    lower_attributes_to_hw_regs(attribute_map,
                                c->prog_data.dual_instanced_dispatch);
 
-   this->first_non_payload_grf = reg;
+   regs.first_non_payload_grf = reg;
 }
 
 

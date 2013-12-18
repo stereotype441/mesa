@@ -998,7 +998,7 @@ vec4_visitor::opt_register_coalesce()
  * a GRF on IVB.
  */
 void
-vec4_visitor::split_virtual_grfs()
+vec4_regs::split_virtual_grfs()
 {
    int num_vars = this->virtual_grf_count;
    int new_virtual_grf[num_vars];
@@ -1014,7 +1014,7 @@ vec4_visitor::split_virtual_grfs()
    /* Check that the instructions are compatible with the registers we're trying
     * to split.
     */
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
       /* If there's a SEND message loading from a GRF on gen7+, it needs to be
@@ -1045,7 +1045,7 @@ vec4_visitor::split_virtual_grfs()
       this->virtual_grf_sizes[i] = 1;
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       vec4_instruction *inst = (vec4_instruction *)node;
 
       if (inst->dst.file == GRF && split_grf[inst->dst.reg] &&
@@ -1063,7 +1063,7 @@ vec4_visitor::split_virtual_grfs()
          }
       }
    }
-   invalidate_live_intervals();
+   v->invalidate_live_intervals();
 }
 
 void
@@ -1392,7 +1392,7 @@ vec4_vs_visitor::setup_payload(void)
 
    reg = setup_attributes(reg);
 
-   this->first_non_payload_grf = reg;
+   regs.first_non_payload_grf = reg;
 }
 
 src_reg
@@ -1486,6 +1486,25 @@ vec4_visitor::emit_shader_time_write(enum shader_time_shader_type type,
    emit(SHADER_OPCODE_SHADER_TIME_ADD, dst_reg(), src_reg(dst));
 }
 
+
+/**
+ * For debugging of register spilling
+ */
+void
+vec4_regs::spill_everything()
+{
+   const int grf_count = virtual_grf_count;
+   float spill_costs[virtual_grf_count];
+   bool no_spill[virtual_grf_count];
+   evaluate_spill_costs(spill_costs, no_spill);
+   for (int i = 0; i < grf_count; i++) {
+      if (no_spill[i])
+         continue;
+      v->spill_reg(i);
+   }
+}
+
+
 bool
 vec4_visitor::run()
 {
@@ -1533,7 +1552,7 @@ vec4_visitor::run()
    }
    pack_uniform_registers();
    move_push_constants_to_pull_constants();
-   split_virtual_grfs();
+   regs.split_virtual_grfs();
 
    bool progress;
    do {
@@ -1553,18 +1572,10 @@ vec4_visitor::run()
 
    if (false) {
       /* Debug of register spilling: Go spill everything. */
-      const int grf_count = virtual_grf_count;
-      float spill_costs[virtual_grf_count];
-      bool no_spill[virtual_grf_count];
-      evaluate_spill_costs(spill_costs, no_spill);
-      for (int i = 0; i < grf_count; i++) {
-         if (no_spill[i])
-            continue;
-         spill_reg(i);
-      }
+      regs.spill_everything();
    }
 
-   while (!reg_allocate()) {
+   while (!regs.allocate()) {
       if (failed)
          return false;
    }
