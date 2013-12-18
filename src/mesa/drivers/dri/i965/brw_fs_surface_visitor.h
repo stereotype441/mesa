@@ -48,7 +48,7 @@ protected:
    make_mrf(unsigned reg) const;
 
    virtual void
-   emit_assign_vector(backend_reg dst, backend_reg src, unsigned size) const;
+   emit_assign_vector(fs_reg dst, fs_reg src, unsigned size) const;
 
    void
    emit_pack_vector_half(fs_reg dst, fs_reg src,
@@ -61,102 +61,102 @@ protected:
    void
    emit_surface_header(fs_reg dst) const;
 
-   virtual backend_reg
-   emit_coordinate_check(backend_reg image, backend_reg addr,
+   virtual fs_reg
+   emit_coordinate_check(fs_reg image, fs_reg addr,
                          unsigned dims) const;
 
-   virtual backend_reg
-   emit_coordinate_address_calculation(backend_reg image, backend_reg addr,
+   virtual fs_reg
+   emit_coordinate_address_calculation(fs_reg image, fs_reg addr,
                                        unsigned dims) const;
 
-   virtual backend_reg
-   emit_untyped_read(backend_reg flag, backend_reg surface,
-                     backend_reg addr,
+   virtual fs_reg
+   emit_untyped_read(fs_reg flag, fs_reg surface,
+                     fs_reg addr,
                      unsigned dims, unsigned size) const;
 
    virtual void
-   emit_untyped_write(backend_reg flag, backend_reg surface,
-                      backend_reg addr, backend_reg src,
+   emit_untyped_write(fs_reg flag, fs_reg surface,
+                      fs_reg addr, fs_reg src,
                       unsigned dims, unsigned size) const;
 
-   virtual backend_reg
-   emit_untyped_atomic(backend_reg flag, backend_reg surface,
-                       backend_reg addr,
-                       backend_reg src0, backend_reg src1,
+   virtual fs_reg
+   emit_untyped_atomic(fs_reg flag, fs_reg surface,
+                       fs_reg addr,
+                       fs_reg src0, fs_reg src1,
                        unsigned dims, unsigned op) const;
 
-   virtual backend_reg
-   emit_typed_read(backend_reg flag, backend_reg surface,
-                   backend_reg addr,
+   virtual fs_reg
+   emit_typed_read(fs_reg flag, fs_reg surface,
+                   fs_reg addr,
                    unsigned dims, unsigned size) const;
 
    virtual void
-   emit_typed_write(backend_reg flag, backend_reg surface,
-                    backend_reg addr, backend_reg src,
+   emit_typed_write(fs_reg flag, fs_reg surface,
+                    fs_reg addr, fs_reg src,
                     unsigned dims, unsigned size) const;
 
-   virtual backend_reg
-   emit_typed_atomic(backend_reg flag, backend_reg surface,
-                     backend_reg addr,
-                     backend_reg src0, backend_reg src1,
+   virtual fs_reg
+   emit_typed_atomic(fs_reg flag, fs_reg surface,
+                     fs_reg addr,
+                     fs_reg src0, fs_reg src1,
                      unsigned dims, unsigned op) const;
 
    virtual void
    emit_memory_fence() const;
 
-   virtual backend_reg
-   emit_pad(backend_reg flag, backend_reg src, unsigned size) const;
+   virtual fs_reg
+   emit_pad(fs_reg flag, fs_reg src, unsigned size) const;
 
-   virtual backend_reg
-   emit_pack_generic(backend_reg src,
+   virtual fs_reg
+   emit_pack_generic(fs_reg src,
                      unsigned shift_r = 0, unsigned width_r = 0,
                      unsigned shift_g = 0, unsigned width_g = 0,
                      unsigned shift_b = 0, unsigned width_b = 0,
                      unsigned shift_a = 0, unsigned width_a = 0) const;
 
-   virtual backend_reg
-   emit_unpack_generic(backend_reg src,
+   virtual fs_reg
+   emit_unpack_generic(fs_reg src,
                        unsigned shift_r = 0, unsigned width_r = 0,
                        unsigned shift_g = 0, unsigned width_g = 0,
                        unsigned shift_b = 0, unsigned width_b = 0,
                        unsigned shift_a = 0, unsigned width_a = 0) const;
 
-   virtual backend_reg
-   emit_pack_homogeneous(backend_reg src,
+   virtual fs_reg
+   emit_pack_homogeneous(fs_reg src,
                          unsigned shift_r = 0, unsigned width_r = 0,
                          unsigned shift_g = 0, unsigned width_g = 0,
                          unsigned shift_b = 0, unsigned width_b = 0,
                          unsigned shift_a = 0, unsigned width_a = 0) const;
 
-   virtual backend_reg
-   emit_unpack_homogeneous(backend_reg src,
+   virtual fs_reg
+   emit_unpack_homogeneous(fs_reg src,
                            unsigned shift_r = 0, unsigned width_r = 0,
                            unsigned shift_g = 0, unsigned width_g = 0,
                            unsigned shift_b = 0, unsigned width_b = 0,
                            unsigned shift_a = 0, unsigned width_a = 0) const;
 
-   virtual backend_reg
-   emit_convert_to_integer(backend_reg src,
+   virtual fs_reg
+   emit_convert_to_integer(fs_reg src,
                            unsigned mask0 = 0, unsigned width0 = 0,
                            unsigned mask1 = 0, unsigned width1 = 0) const;
 
-   virtual backend_reg
-   emit_convert_from_scaled(backend_reg src,
+   virtual fs_reg
+   emit_convert_from_scaled(fs_reg src,
                             unsigned mask0 = 0, float scale0 = 0,
                             unsigned mask1 = 0, float scale1 = 0) const;
 
-   virtual backend_reg
-   emit_convert_to_scaled(backend_reg src, unsigned type,
+   virtual fs_reg
+   emit_convert_to_scaled(fs_reg src, unsigned type,
                           unsigned mask0 = 0, float scale0 = 0,
                           unsigned mask1 = 0, float scale1 = 0) const;
 
-   virtual backend_reg
-   emit_convert_from_float(backend_reg src,
+   virtual fs_reg
+   emit_convert_from_float(fs_reg src,
                            unsigned mask0 = 0, unsigned width0 = 0,
                            unsigned mask1 = 0, unsigned width1 = 0) const;
 
-   virtual backend_reg
-   emit_convert_to_float(backend_reg src,
+   virtual fs_reg
+   emit_convert_to_float(fs_reg src,
                          unsigned mask0 = 0, unsigned width0 = 0,
                          unsigned mask1 = 0, unsigned width1 = 0) const;
 };

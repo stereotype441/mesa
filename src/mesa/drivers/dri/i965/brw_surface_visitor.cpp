@@ -42,28 +42,28 @@ brw_surface_visitor<traits>::visit_atomic_counter_intrinsic(ir_call *ir) const
    const char *callee = ir->callee->function_name();
    ir_dereference *deref = static_cast<ir_dereference *>(
       ir->actual_parameters.get_head());
-   const backend_reg offset = v->visit_result(deref);
-   const backend_reg surface =
+   const src_reg offset = v->visit_result(deref);
+   const src_reg surface(
       brw_imm_ud(v->stage_prog_data->binding_table.abo_start +
-                 deref->variable_referenced()->atomic.buffer_index);
-   backend_reg tmp;
+                 deref->variable_referenced()->atomic.buffer_index));
+   src_reg tmp;
 
    if (!strcmp("__intrinsic_atomic_read", callee)) {
-      tmp = emit_untyped_read(backend_reg(), surface, offset, 1, 1);
+      tmp = emit_untyped_read(src_reg(), surface, offset, 1, 1);
 
    } else if (!strcmp("__intrinsic_atomic_increment", callee)) {
-      tmp = emit_untyped_atomic(backend_reg(), surface, offset,
-                                backend_reg(), backend_reg(),
+      tmp = emit_untyped_atomic(src_reg(), surface, offset,
+                                src_reg(), src_reg(),
                                 1, BRW_AOP_INC);
 
    } else if (!strcmp("__intrinsic_atomic_predecrement", callee)) {
-      tmp = emit_untyped_atomic(backend_reg(), surface, offset,
-                                backend_reg(), backend_reg(),
+      tmp = emit_untyped_atomic(src_reg(), surface, offset,
+                                src_reg(), src_reg(),
                                 1, BRW_AOP_PREDEC);
    }
 
    if (ir->return_deref) {
-      backend_reg dst = v->visit_result(ir->return_deref);
+      dst_reg dst(v->visit_result(ir->return_deref));
       emit_assign_vector(dst, tmp, 1);
    }
 }
@@ -95,19 +95,19 @@ namespace {
             src[i] = visit_next(v, it);
 
          if (ir->return_deref)
-            dst = v->visit_result(ir->return_deref);
+            dst = dst_reg(v->visit_result(ir->return_deref));
       }
 
       ir_variable *image_var;
 
-      backend_reg image;
-      backend_reg addr;
-      backend_reg sample;
-      backend_reg src[2];
-      backend_reg dst;
+      src_reg image;
+      src_reg addr;
+      src_reg sample;
+      src_reg src[2];
+      dst_reg dst;
 
    private:
-      backend_reg
+      src_reg
       visit_next(visitor *v, exec_list_iterator &it) const
       {
          ir_dereference *deref = static_cast<ir_dereference *>(it.get());
@@ -162,7 +162,7 @@ brw_surface_visitor<traits>::visit_image_intrinsic(ir_call *ir) const
    const unsigned dims = p.image_var->type->coordinate_components();
    const GLenum format = (p.image_var->image.write_only ? GL_NONE :
                           p.image_var->image.format);
-   backend_reg tmp;
+   src_reg tmp;
 
    if (!strcmp("__intrinsic_image_load", callee))
       tmp = emit_image_load(p.image, p.addr, format, dims);
@@ -190,13 +190,13 @@ brw_surface_visitor<traits>::visit_barrier_intrinsic(ir_call *ir) const
 }
 
 template<class traits>
-backend_reg
-brw_surface_visitor<traits>::emit_image_load(backend_reg image,
-                                             backend_reg addr,
+typename traits::src_reg
+brw_surface_visitor<traits>::emit_image_load(src_reg image,
+                                             src_reg addr,
                                              GLenum format,
                                              unsigned dims) const
 {
-   backend_reg flag, tmp;
+   src_reg flag, tmp;
 
    switch (format) {
    case GL_RGBA32F:
@@ -728,13 +728,13 @@ brw_surface_visitor<traits>::emit_image_load(backend_reg image,
 
 template<class traits>
 void
-brw_surface_visitor<traits>::emit_image_store(backend_reg image,
-                                              backend_reg addr,
-                                              backend_reg src,
+brw_surface_visitor<traits>::emit_image_store(src_reg image,
+                                              src_reg addr,
+                                              src_reg src,
                                               GLenum format,
                                               unsigned dims) const
 {
-   backend_reg flag, tmp;
+   src_reg flag, tmp;
 
    switch (format) {
    case GL_NONE:
@@ -1203,23 +1203,23 @@ brw_surface_visitor<traits>::emit_image_store(backend_reg image,
 }
 
 template<class traits>
-backend_reg
-brw_surface_visitor<traits>::emit_image_atomic(backend_reg image,
-                                               backend_reg addr,
-                                               backend_reg src0,
-                                               backend_reg src1,
+typename traits::src_reg
+brw_surface_visitor<traits>::emit_image_atomic(src_reg image,
+                                               src_reg addr,
+                                               src_reg src0,
+                                               src_reg src1,
                                                GLenum format, unsigned op,
                                                unsigned dims) const
 {
    switch (format) {
    case GL_R32UI:
       /* Hardware surface format: R32_UINT */
-      return emit_typed_atomic(backend_reg(), image, addr, src0, src1,
+      return emit_typed_atomic(src_reg(), image, addr, src0, src1,
                                dims, op);
 
    case GL_R32I:
       /* Hardware surface format: R32_INT */
-      return emit_typed_atomic(backend_reg(), image, addr, src0, src1,
+      return emit_typed_atomic(src_reg(), image, addr, src0, src1,
                                dims, op);
 
    default:

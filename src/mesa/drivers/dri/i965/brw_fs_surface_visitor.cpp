@@ -100,7 +100,7 @@ brw_fs_surface_visitor::make_mrf(unsigned reg) const
 
 void
 brw_fs_surface_visitor::emit_assign_vector(
-   backend_reg dst, backend_reg src, unsigned size) const
+   dst_reg dst, src_reg src, unsigned size) const
 {
    for (unsigned i = 0; i < size; ++i)
       emit(BRW_OPCODE_MOV, offset(dst, i), offset(src, i));
@@ -152,9 +152,9 @@ brw_fs_surface_visitor::emit_surface_header(struct fs_reg dst) const
                  get_sample_mask(v)));
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_coordinate_check(
-   backend_reg image, backend_reg addr, unsigned dims) const
+   fs_reg image, fs_reg addr, unsigned dims) const
 {
    fs_reg size = offset(image, BRW_IMAGE_PARAM_SIZE_OFFSET);
 
@@ -173,9 +173,9 @@ brw_fs_surface_visitor::emit_coordinate_check(
    return brw_flag_reg(0, 0);
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_coordinate_address_calculation(
-   backend_reg image, backend_reg addr, unsigned dims) const
+   fs_reg image, fs_reg addr, unsigned dims) const
 {
    fs_reg x = retype(offset(addr, 0), BRW_REGISTER_TYPE_UD);
    fs_reg y = retype(offset(addr, 1), BRW_REGISTER_TYPE_UD);
@@ -266,9 +266,9 @@ brw_fs_surface_visitor::emit_coordinate_address_calculation(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_untyped_read(
-   backend_reg flag, backend_reg surface, backend_reg addr,
+   fs_reg flag, fs_reg surface, fs_reg addr,
    unsigned dims, unsigned size) const
 {
    fs_reg dst = make_grf(BRW_REGISTER_TYPE_UD, size);
@@ -295,8 +295,8 @@ brw_fs_surface_visitor::emit_untyped_read(
 
 void
 brw_fs_surface_visitor::emit_untyped_write(
-   backend_reg flag, backend_reg surface, backend_reg addr,
-   backend_reg src, unsigned dims, unsigned size) const
+   fs_reg flag, fs_reg surface, fs_reg addr,
+   fs_reg src, unsigned dims, unsigned size) const
 {
    unsigned mlen = 0;
 
@@ -320,10 +320,10 @@ brw_fs_surface_visitor::emit_untyped_write(
    inst.mlen = mlen;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_untyped_atomic(
-   backend_reg flag, backend_reg surface, backend_reg addr,
-   backend_reg src0, backend_reg src1,
+   fs_reg flag, fs_reg surface, fs_reg addr,
+   fs_reg src0, fs_reg src1,
    unsigned dims, unsigned op) const
 {
    fs_reg dst = make_grf(BRW_REGISTER_TYPE_UD, 1);
@@ -358,9 +358,9 @@ brw_fs_surface_visitor::emit_untyped_atomic(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_typed_read(
-   backend_reg flag, backend_reg surface, backend_reg addr,
+   fs_reg flag, fs_reg surface, fs_reg addr,
    unsigned dims, unsigned size) const
 {
    fs_reg dst = make_grf(BRW_REGISTER_TYPE_UD, size);
@@ -396,8 +396,8 @@ brw_fs_surface_visitor::emit_typed_read(
 
 void
 brw_fs_surface_visitor::emit_typed_write(
-   backend_reg flag, backend_reg surface, backend_reg addr,
-   backend_reg src, unsigned dims, unsigned size) const
+   fs_reg flag, fs_reg surface, fs_reg addr,
+   fs_reg src, unsigned dims, unsigned size) const
 {
    for (unsigned i = 0; i < v->dispatch_width / 8; ++i) {
       unsigned mlen = 0;
@@ -423,10 +423,10 @@ brw_fs_surface_visitor::emit_typed_write(
    }
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_typed_atomic(
-   backend_reg flag, backend_reg surface, backend_reg addr,
-   backend_reg src0, backend_reg src1,
+   fs_reg flag, fs_reg surface, fs_reg addr,
+   fs_reg src0, fs_reg src1,
    unsigned dims, unsigned op) const
 {
    fs_reg dst = make_grf(BRW_REGISTER_TYPE_UD, 1);
@@ -470,9 +470,9 @@ brw_fs_surface_visitor::emit_memory_fence() const
    emit(SHADER_OPCODE_MEMORY_FENCE);
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_pad(
-   backend_reg flag, backend_reg src, unsigned size) const
+   fs_reg flag, fs_reg src, unsigned size) const
 {
    fs_reg dst = make_grf(src.type, 4);
 
@@ -496,9 +496,9 @@ brw_fs_surface_visitor::emit_pad(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_pack_generic(
-   backend_reg src,
+   fs_reg src,
    unsigned shift_r, unsigned width_r,
    unsigned shift_g, unsigned width_g,
    unsigned shift_b, unsigned width_b,
@@ -542,9 +542,9 @@ brw_fs_surface_visitor::emit_pack_generic(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_unpack_generic(
-   backend_reg src,
+   fs_reg src,
    unsigned shift_r, unsigned width_r,
    unsigned shift_g, unsigned width_g,
    unsigned shift_b, unsigned width_b,
@@ -590,9 +590,9 @@ namespace {
    }
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_pack_homogeneous(
-   backend_reg src,
+   fs_reg src,
    unsigned shift_r, unsigned width_r,
    unsigned shift_g, unsigned width_g,
    unsigned shift_b, unsigned width_b,
@@ -633,9 +633,9 @@ brw_fs_surface_visitor::emit_pack_homogeneous(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_unpack_homogeneous(
-   backend_reg src,
+   fs_reg src,
    unsigned shift_r, unsigned width_r,
    unsigned shift_g, unsigned width_g,
    unsigned shift_b, unsigned width_b,
@@ -657,9 +657,9 @@ brw_fs_surface_visitor::emit_unpack_homogeneous(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_convert_to_integer(
-   backend_reg src,
+   fs_reg src,
    unsigned mask0, unsigned width0,
    unsigned mask1, unsigned width1) const
 {
@@ -690,9 +690,9 @@ brw_fs_surface_visitor::emit_convert_to_integer(
    return src;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_convert_from_scaled(
-   backend_reg src,
+   fs_reg src,
    unsigned mask0, float scale0,
    unsigned mask1, float scale1) const
 {
@@ -722,9 +722,9 @@ brw_fs_surface_visitor::emit_convert_from_scaled(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_convert_to_scaled(
-   backend_reg src, unsigned type,
+   fs_reg src, unsigned type,
    unsigned mask0, float scale0,
    unsigned mask1, float scale1) const
 {
@@ -759,9 +759,9 @@ brw_fs_surface_visitor::emit_convert_to_scaled(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_convert_from_float(
-   backend_reg src,
+   fs_reg src,
    unsigned mask0, unsigned width0,
    unsigned mask1, unsigned width1) const
 {
@@ -790,9 +790,9 @@ brw_fs_surface_visitor::emit_convert_from_float(
    return dst;
 }
 
-backend_reg
+fs_reg
 brw_fs_surface_visitor::emit_convert_to_float(
-   backend_reg src,
+   fs_reg src,
    unsigned mask0, unsigned width0,
    unsigned mask1, unsigned width1) const
 {
