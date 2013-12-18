@@ -72,8 +72,13 @@ namespace {
    /**
     * Process the parameters passed to an image intrinsic call.
     */
+   template<class traits>
    struct image_intrinsic_parameters {
-      image_intrinsic_parameters(backend_visitor *v, ir_call *ir)
+      typedef typename traits::src_reg src_reg;
+      typedef typename traits::dst_reg dst_reg;
+      typedef typename traits::visitor visitor;
+
+      image_intrinsic_parameters(visitor *v, ir_call *ir)
       {
          exec_list_iterator it = ir->actual_parameters.iterator();
 
@@ -103,7 +108,7 @@ namespace {
 
    private:
       backend_reg
-      visit_next(backend_visitor *v, exec_list_iterator &it) const
+      visit_next(visitor *v, exec_list_iterator &it) const
       {
          ir_dereference *deref = static_cast<ir_dereference *>(it.get());
          it.next();
@@ -152,7 +157,7 @@ template<class traits>
 void
 brw_surface_visitor<traits>::visit_image_intrinsic(ir_call *ir) const
 {
-   image_intrinsic_parameters p(v, ir);
+   image_intrinsic_parameters<traits> p(v, ir);
    const char *callee = ir->callee->function_name();
    const unsigned dims = p.image_var->type->coordinate_components();
    const GLenum format = (p.image_var->image.write_only ? GL_NONE :
