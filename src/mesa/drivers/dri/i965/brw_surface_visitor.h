@@ -28,8 +28,13 @@
 
 #include "brw_shader.h"
 
+template<class traits>
 class brw_surface_visitor {
 public:
+   typedef typename traits::src_reg src_reg;
+   typedef typename traits::dst_reg dst_reg;
+   typedef typename traits::visitor visitor;
+
    brw_surface_visitor(backend_visitor *v);
 
    /**

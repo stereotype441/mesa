@@ -26,10 +26,11 @@
 #ifndef BRW_VEC4_SURFACE_VISITOR_H
 #define BRW_VEC4_SURFACE_VISITOR_H
 
+#include "brw_backend_traits.h"
 #include "brw_surface_visitor.h"
 #include "brw_vec4.h"
 
-class brw_vec4_surface_visitor : public brw_surface_visitor {
+class brw_vec4_surface_visitor : public brw_surface_visitor<vec4_traits> {
 public:
    brw_vec4_surface_visitor(brw::vec4_visitor *v);
 

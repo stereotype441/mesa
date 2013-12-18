@@ -25,15 +25,19 @@
  */
 
 #include "brw_surface_visitor.h"
+#include "brw_fs_surface_visitor.h"
+#include "brw_vec4_surface_visitor.h"
 #include "brw_context.h"
 
-brw_surface_visitor::brw_surface_visitor(backend_visitor *v) :
+template<class traits>
+brw_surface_visitor<traits>::brw_surface_visitor(backend_visitor *v) :
    v(v)
 {
 }
 
+template<class traits>
 void
-brw_surface_visitor::visit_atomic_counter_intrinsic(ir_call *ir) const
+brw_surface_visitor<traits>::visit_atomic_counter_intrinsic(ir_call *ir) const
 {
    const char *callee = ir->callee->function_name();
    ir_dereference *deref = static_cast<ir_dereference *>(
@@ -144,8 +148,9 @@ namespace {
    }
 }
 
+template<class traits>
 void
-brw_surface_visitor::visit_image_intrinsic(ir_call *ir) const
+brw_surface_visitor<traits>::visit_image_intrinsic(ir_call *ir) const
 {
    image_intrinsic_parameters p(v, ir);
    const char *callee = ir->callee->function_name();
@@ -172,15 +177,19 @@ brw_surface_visitor::visit_image_intrinsic(ir_call *ir) const
    }
 }
 
+template<class traits>
 void
-brw_surface_visitor::visit_barrier_intrinsic(ir_call *ir) const
+brw_surface_visitor<traits>::visit_barrier_intrinsic(ir_call *ir) const
 {
    emit_memory_fence();
 }
 
+template<class traits>
 backend_reg
-brw_surface_visitor::emit_image_load(backend_reg image, backend_reg addr,
-                                     GLenum format, unsigned dims) const
+brw_surface_visitor<traits>::emit_image_load(backend_reg image,
+                                             backend_reg addr,
+                                             GLenum format,
+                                             unsigned dims) const
 {
    backend_reg flag, tmp;
 
@@ -712,10 +721,13 @@ brw_surface_visitor::emit_image_load(backend_reg image, backend_reg addr,
    }
 }
 
+template<class traits>
 void
-brw_surface_visitor::emit_image_store(backend_reg image, backend_reg addr,
-                                      backend_reg src,
-                                      GLenum format, unsigned dims) const
+brw_surface_visitor<traits>::emit_image_store(backend_reg image,
+                                              backend_reg addr,
+                                              backend_reg src,
+                                              GLenum format,
+                                              unsigned dims) const
 {
    backend_reg flag, tmp;
 
@@ -1185,11 +1197,14 @@ brw_surface_visitor::emit_image_store(backend_reg image, backend_reg addr,
    }
 }
 
+template<class traits>
 backend_reg
-brw_surface_visitor::emit_image_atomic(backend_reg image, backend_reg addr,
-                                       backend_reg src0, backend_reg src1,
-                                       GLenum format, unsigned op,
-                                       unsigned dims) const
+brw_surface_visitor<traits>::emit_image_atomic(backend_reg image,
+                                               backend_reg addr,
+                                               backend_reg src0,
+                                               backend_reg src1,
+                                               GLenum format, unsigned op,
+                                               unsigned dims) const
 {
    switch (format) {
    case GL_R32UI:
@@ -1206,3 +1221,12 @@ brw_surface_visitor::emit_image_atomic(backend_reg image, backend_reg addr,
       unreachable();
    }
 }
+
+
+/* Since a lot of templatized brw_surface_visitor functions are defined in
+ * this file, we need to instantiate all the variants of brw_surface_visitor
+ * that we need, so that all the variants of each of those functions gets
+ * created.
+ */
+template class brw_surface_visitor<fs_traits>;
+template class brw_surface_visitor<vec4_traits>;

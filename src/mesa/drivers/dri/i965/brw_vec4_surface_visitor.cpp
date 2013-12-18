@@ -127,7 +127,7 @@ brw_vec4_surface_visitor::emit_assign_from_transpose(
  * Initialize the header present in some surface access messages.
  */
 void
-brw_vec4_surface_visitor::emit_surface_header(struct dst_reg dst) const
+brw_vec4_surface_visitor::emit_surface_header(dst_reg dst) const
 {
    assert(dst.file == MRF);
    exec_all(emit(BRW_OPCODE_MOV, dst, 0));

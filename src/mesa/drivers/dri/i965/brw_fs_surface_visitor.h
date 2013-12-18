@@ -26,10 +26,11 @@
 #ifndef BRW_FS_SURFACE_VISITOR_H
 #define BRW_FS_SURFACE_VISITOR_H
 
+#include "brw_backend_traits.h"
 #include "brw_surface_visitor.h"
 #include "brw_fs.h"
 
-class brw_fs_surface_visitor : public brw_surface_visitor {
+class brw_fs_surface_visitor : public brw_surface_visitor<fs_traits> {
 public:
    brw_fs_surface_visitor(fs_visitor *v);
 
