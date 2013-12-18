@@ -897,7 +897,7 @@ fs_visitor::try_rewrite_rhs_to_dst(ir_assignment *ir,
    /* If last_rhs_inst wrote a different number of components than our LHS,
     * we can't safely rewrite it.
     */
-   if (virtual_grf_sizes[dst.reg] != modify->regs_written)
+   if (regs.virtual_grf_sizes[dst.reg] != modify->regs_written)
       return false;
 
    /* Success!  Rewrite the instruction. */
@@ -1077,7 +1077,7 @@ fs_visitor::emit_texture_gen4(ir_texture *ir, fs_reg dst, fs_reg coordinate,
        * this weirdness around to the expected layout.
        */
       orig_dst = dst;
-      dst = fs_reg(GRF, virtual_grf_alloc(8),
+      dst = fs_reg(GRF, regs.virtual_grf_alloc(8),
                    (brw->is_g4x ?
                     brw_type_for_base_type(ir->type) :
                     BRW_REGISTER_TYPE_F));
@@ -1441,7 +1441,7 @@ fs_visitor::emit_texture_gen7(ir_texture *ir, fs_reg dst, fs_reg coordinate,
    inst->header_present = header_present;
    inst->regs_written = 4;
 
-   virtual_grf_sizes[payload.reg] = next.reg_offset;
+   regs.virtual_grf_sizes[payload.reg] = next.reg_offset;
    if (inst->mlen > 11) {
       fail("Message length >11 disallowed by hardware\n");
    }
@@ -2816,7 +2816,8 @@ fs_visitor::fs_visitor(struct brw_context *brw,
                        struct gl_shader_program *shader_prog,
                        struct gl_fragment_program *fp,
                        unsigned dispatch_width)
-   : dispatch_width(dispatch_width)
+   : regs(brw, this, dispatch_width),
+     dispatch_width(dispatch_width)
 {
    this->c = c;
    this->brw = brw;
@@ -2839,15 +2840,10 @@ fs_visitor::fs_visitor(struct brw_context *brw,
 
    memset(this->outputs, 0, sizeof(this->outputs));
    memset(this->output_components, 0, sizeof(this->output_components));
-   this->first_non_payload_grf = 0;
-   this->max_grf = brw->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF;
 
    this->current_annotation = NULL;
    this->base_ir = NULL;
 
-   this->virtual_grf_sizes = NULL;
-   this->virtual_grf_count = 0;
-   this->virtual_grf_array_size = 0;
    this->virtual_grf_start = NULL;
    this->virtual_grf_end = NULL;
    this->live_intervals = NULL;

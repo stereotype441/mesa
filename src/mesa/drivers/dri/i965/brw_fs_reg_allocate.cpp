@@ -40,7 +40,7 @@ assign_reg(int *reg_hw_locations, fs_reg *reg, int reg_width)
 }
 
 void
-fs_visitor::assign_regs_trivial()
+fs_regs::allocate_trivial()
 {
    int hw_reg_mapping[this->virtual_grf_count + 1];
    int i;
@@ -52,9 +52,9 @@ fs_visitor::assign_regs_trivial()
       hw_reg_mapping[i] = (hw_reg_mapping[i - 1] +
 			   this->virtual_grf_sizes[i - 1] * reg_width);
    }
-   this->grf_used = hw_reg_mapping[this->virtual_grf_count];
+   v->grf_used = hw_reg_mapping[this->virtual_grf_count];
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       assign_reg(hw_reg_mapping, &inst->dst, reg_width);
@@ -63,9 +63,9 @@ fs_visitor::assign_regs_trivial()
       assign_reg(hw_reg_mapping, &inst->src[2], reg_width);
    }
 
-   if (this->grf_used >= max_grf) {
-      fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   this->grf_used, max_grf);
+   if (v->grf_used >= max_grf) {
+      v->fail("Ran out of regs on trivial allocator (%d/%d)\n",
+              v->grf_used, max_grf);
    }
 
 }
@@ -228,9 +228,9 @@ count_to_loop_end(fs_inst *do_inst)
  * (note that in 16-wide, a node is two registers).
  */
 void
-fs_visitor::setup_payload_interference(struct ra_graph *g,
-                                       int payload_node_count,
-                                       int first_payload_node)
+fs_regs::setup_payload_interference(struct ra_graph *g,
+                                    int payload_node_count,
+                                    int first_payload_node)
 {
    int reg_width = dispatch_width / 8;
    int loop_depth = 0;
@@ -239,7 +239,7 @@ fs_visitor::setup_payload_interference(struct ra_graph *g,
    int payload_last_use_ip[payload_node_count];
    memset(payload_last_use_ip, 0, sizeof(payload_last_use_ip));
    int ip = 0;
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       switch (inst->opcode) {
@@ -330,7 +330,7 @@ fs_visitor::setup_payload_interference(struct ra_graph *g,
           * in order to not have to worry about the uniform issue described in
           * calculate_live_intervals().
           */
-         if (this->virtual_grf_start[j] <= payload_last_use_ip[i]) {
+         if (v->virtual_grf_start[j] <= payload_last_use_ip[i]) {
             ra_add_node_interference(g, first_payload_node + i, j);
          }
       }
@@ -389,12 +389,12 @@ fs_visitor::get_used_mrfs(bool *mrf_used)
  * messages (treated as MRFs in code generation).
  */
 void
-fs_visitor::setup_mrf_hack_interference(struct ra_graph *g, int first_mrf_node)
+fs_regs::setup_mrf_hack_interference(struct ra_graph *g, int first_mrf_node)
 {
    int reg_width = dispatch_width / 8;
 
    bool mrf_used[BRW_MAX_MRF];
-   get_used_mrfs(mrf_used);
+   v->get_used_mrfs(mrf_used);
 
    for (int i = 0; i < BRW_MAX_MRF; i++) {
       /* Mark each MRF reg node as being allocated to its physical register.
@@ -417,7 +417,7 @@ fs_visitor::setup_mrf_hack_interference(struct ra_graph *g, int first_mrf_node)
 }
 
 bool
-fs_visitor::assign_regs(bool allow_spilling)
+fs_regs::allocate(bool allow_spilling)
 {
    /* Most of this allocation was written for a reg_width of 1
     * (dispatch_width == 8).  In extending to 16-wide, the code was
@@ -430,7 +430,7 @@ fs_visitor::assign_regs(bool allow_spilling)
    int payload_node_count = (ALIGN(this->first_non_payload_grf, reg_width) /
                             reg_width);
    int rsi = reg_width - 1; /* Which brw->wm.reg_sets[] to use */
-   calculate_live_intervals();
+   v->calculate_live_intervals();
 
    int node_count = this->virtual_grf_count;
    int first_payload_node = node_count;
@@ -459,14 +459,14 @@ fs_visitor::assign_regs(bool allow_spilling)
        * that register and set it to the appropriate class.
        */
       if (brw->wm.reg_sets[rsi].aligned_pairs_class >= 0 &&
-          this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].reg == i) {
+          v->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].reg == i) {
          c = brw->wm.reg_sets[rsi].aligned_pairs_class;
       }
 
       ra_set_node_class(g, i, c);
 
       for (int j = 0; j < i; j++) {
-	 if (virtual_grf_interferes(i, j)) {
+	 if (v->virtual_grf_interferes(i, j)) {
 	    ra_add_node_interference(g, i, j);
 	 }
       }
@@ -481,7 +481,7 @@ fs_visitor::assign_regs(bool allow_spilling)
       int reg = choose_spill_reg(g);
 
       if (reg != -1) {
-         spill_reg(reg);
+         v->spill_reg(reg);
          ralloc_free(g);
          return false;
       }
@@ -494,10 +494,10 @@ fs_visitor::assign_regs(bool allow_spilling)
       int reg = choose_spill_reg(g);
 
       if (reg == -1) {
-         fail("no register to spill:\n");
-         dump_instructions();
+         v->fail("no register to spill:\n");
+         v->dump_instructions();
       } else if (allow_spilling) {
-         spill_reg(reg);
+         v->spill_reg(reg);
       }
 
       ralloc_free(g);
@@ -509,17 +509,17 @@ fs_visitor::assign_regs(bool allow_spilling)
     * regs in the register classes back down to real hardware reg
     * numbers.
     */
-   this->grf_used = payload_node_count * reg_width;
+   v->grf_used = payload_node_count * reg_width;
    for (int i = 0; i < this->virtual_grf_count; i++) {
       int reg = ra_get_node_reg(g, i);
 
       hw_reg_mapping[i] = brw->wm.reg_sets[rsi].ra_reg_to_grf[reg] * reg_width;
-      this->grf_used = MAX2(this->grf_used,
-			    hw_reg_mapping[i] + this->virtual_grf_sizes[i] *
-			    reg_width);
+      v->grf_used = MAX2(v->grf_used,
+                         hw_reg_mapping[i] + this->virtual_grf_sizes[i] *
+                         reg_width);
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       assign_reg(hw_reg_mapping, &inst->dst, reg_width);
@@ -562,7 +562,7 @@ fs_visitor::emit_unspill(fs_inst *inst, fs_reg dst, uint32_t spill_offset,
 }
 
 int
-fs_visitor::choose_spill_reg(struct ra_graph *g)
+fs_regs::choose_spill_reg(struct ra_graph *g)
 {
    float loop_scale = 1.0;
    float spill_costs[this->virtual_grf_count];
@@ -577,7 +577,7 @@ fs_visitor::choose_spill_reg(struct ra_graph *g)
     * spill/unspill we'll have to do, and guess that the insides of
     * loops run 10 times.
     */
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       for (unsigned int i = 0; i < 3; i++) {
@@ -643,7 +643,7 @@ void
 fs_visitor::spill_reg(int spill_reg)
 {
    int reg_size = dispatch_width * sizeof(float);
-   int size = virtual_grf_sizes[spill_reg];
+   int size = regs.virtual_grf_sizes[spill_reg];
    unsigned int spill_offset = c->last_scratch;
    assert(ALIGN(spill_offset, 16) == spill_offset); /* oword read/write req. */
    int spill_base_mrf = dispatch_width > 8 ? 13 : 14;
@@ -685,7 +685,7 @@ fs_visitor::spill_reg(int spill_reg)
             int regs_read = inst->regs_read(this, i);
             int subset_spill_offset = (spill_offset +
                                        reg_size * inst->src[i].reg_offset);
-            fs_reg unspill_dst(GRF, virtual_grf_alloc(regs_read));
+            fs_reg unspill_dst(GRF, regs.virtual_grf_alloc(regs_read));
 
             inst->src[i].reg = unspill_dst.reg;
             inst->src[i].reg_offset = 0;
@@ -698,7 +698,7 @@ fs_visitor::spill_reg(int spill_reg)
 	  inst->dst.reg == spill_reg) {
          int subset_spill_offset = (spill_offset +
                                     reg_size * inst->dst.reg_offset);
-         fs_reg spill_src(GRF, virtual_grf_alloc(inst->regs_written));
+         fs_reg spill_src(GRF, regs.virtual_grf_alloc(inst->regs_written));
 
          inst->dst.reg = spill_src.reg;
          inst->dst.reg_offset = 0;

@@ -161,7 +161,7 @@ fs_visitor::opt_cse_local(bblock_t *block, exec_list *aeb)
                int written = entry->generator->regs_written;
 
                fs_reg orig_dst = entry->generator->dst;
-               fs_reg tmp = fs_reg(GRF, virtual_grf_alloc(written),
+               fs_reg tmp = fs_reg(GRF, regs.virtual_grf_alloc(written),
                                    orig_dst.type);
                entry->tmp = tmp;
                entry->generator->dst = tmp;

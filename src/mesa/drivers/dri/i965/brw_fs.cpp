@@ -281,7 +281,8 @@ fs_visitor::VARYING_PULL_CONSTANT_LOAD(fs_reg dst, fs_reg surf_index,
       op = FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_GEN7;
    else
       op = FS_OPCODE_VARYING_PULL_CONSTANT_LOAD;
-   fs_reg vec4_result = fs_reg(GRF, virtual_grf_alloc(4 * scale), dst.type);
+   fs_reg vec4_result =
+      fs_reg(GRF, regs.virtual_grf_alloc(4 * scale), dst.type);
    inst = new(mem_ctx) fs_inst(op, vec4_result, surf_index, vec4_offset);
    inst->regs_written = 4 * scale;
    instructions.push_tail(inst);
@@ -787,14 +788,14 @@ fs_visitor::implied_mrf_writes(fs_inst *inst)
 }
 
 int
-fs_visitor::virtual_grf_alloc(int size)
+fs_regs::virtual_grf_alloc(int size)
 {
    if (virtual_grf_array_size <= virtual_grf_count) {
       if (virtual_grf_array_size == 0)
 	 virtual_grf_array_size = 16;
       else
 	 virtual_grf_array_size *= 2;
-      virtual_grf_sizes = reralloc(mem_ctx, virtual_grf_sizes, int,
+      virtual_grf_sizes = reralloc(v->mem_ctx, virtual_grf_sizes, int,
 				   virtual_grf_array_size);
    }
    virtual_grf_sizes[virtual_grf_count] = size;
@@ -814,7 +815,7 @@ fs_reg::fs_reg(enum register_file file, int reg, uint32_t type) :
 }
 
 fs_reg::fs_reg(class fs_visitor *v, const struct glsl_type *type) :
-   backend_reg(GRF, v->virtual_grf_alloc(v->type_size(type)),
+   backend_reg(GRF, v->regs.virtual_grf_alloc(v->type_size(type)),
                brw_type_for_base_type(type))
 {
    init();
@@ -1500,7 +1501,7 @@ fs_visitor::assign_urb_setup()
    }
 
    /* Each attribute is 4 setup channels, each of which is half a reg. */
-   this->first_non_payload_grf =
+   this->regs.first_non_payload_grf =
       urb_start + c->prog_data.num_varying_inputs * 2;
 }
 
@@ -1523,7 +1524,7 @@ fs_visitor::assign_urb_setup()
  * live intervals and better dead code elimination and coalescing.
  */
 void
-fs_visitor::split_virtual_grfs()
+fs_regs::split_virtual_grfs()
 {
    int num_vars = this->virtual_grf_count;
    bool split_grf[num_vars];
@@ -1538,17 +1539,17 @@ fs_visitor::split_virtual_grfs()
    }
 
    if (brw->has_pln &&
-       this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].file == GRF) {
+       v->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].file == GRF) {
       /* PLN opcodes rely on the delta_xy being contiguous.  We only have to
        * check this for BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC, because prior to
        * Gen6, that was the only supported interpolation mode, and since Gen6,
        * delta_x and delta_y are in fixed hardware registers.
        */
-      split_grf[this->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].reg] =
+      split_grf[v->delta_x[BRW_WM_PERSPECTIVE_PIXEL_BARYCENTRIC].reg] =
          false;
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       /* If there's a SEND message that requires contiguous destination
@@ -1585,7 +1586,7 @@ fs_visitor::split_virtual_grfs()
       }
    }
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *)node;
 
       if (inst->dst.file == GRF &&
@@ -1605,7 +1606,7 @@ fs_visitor::split_virtual_grfs()
 	 }
       }
    }
-   invalidate_live_intervals();
+   v->invalidate_live_intervals();
 }
 
 /**
@@ -1618,13 +1619,13 @@ fs_visitor::split_virtual_grfs()
  * overhead.
  */
 void
-fs_visitor::compact_virtual_grfs()
+fs_regs::compact_virtual_grfs()
 {
    /* Mark which virtual GRFs are used, and count how many. */
    int remap_table[this->virtual_grf_count];
    memset(remap_table, -1, sizeof(remap_table));
 
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       const fs_inst *inst = (const fs_inst *) node;
 
       if (inst->dst.file == GRF)
@@ -1640,13 +1641,13 @@ fs_visitor::compact_virtual_grfs()
     * direct references to certain special values which must be patched:
     */
    fs_reg *special[] = {
-      &frag_depth, &pixel_x, &pixel_y, &pixel_w, &wpos_w, &dual_src_output,
-      &outputs[0], &outputs[1], &outputs[2], &outputs[3],
-      &outputs[4], &outputs[5], &outputs[6], &outputs[7],
-      &delta_x[0], &delta_x[1], &delta_x[2],
-      &delta_x[3], &delta_x[4], &delta_x[5],
-      &delta_y[0], &delta_y[1], &delta_y[2],
-      &delta_y[3], &delta_y[4], &delta_y[5],
+      &v->frag_depth, &v->pixel_x, &v->pixel_y, &v->pixel_w, &v->wpos_w, &v->dual_src_output,
+      &v->outputs[0], &v->outputs[1], &v->outputs[2], &v->outputs[3],
+      &v->outputs[4], &v->outputs[5], &v->outputs[6], &v->outputs[7],
+      &v->delta_x[0], &v->delta_x[1], &v->delta_x[2],
+      &v->delta_x[3], &v->delta_x[4], &v->delta_x[5],
+      &v->delta_y[0], &v->delta_y[1], &v->delta_y[2],
+      &v->delta_y[3], &v->delta_y[4], &v->delta_y[5],
    };
    STATIC_ASSERT(BRW_WM_BARYCENTRIC_INTERP_MODE_COUNT == 6);
    STATIC_ASSERT(BRW_MAX_DRAW_BUFFERS == 8);
@@ -1663,7 +1664,7 @@ fs_visitor::compact_virtual_grfs()
       if (remap_table[i] != -1) {
          remap_table[i] = new_index;
          virtual_grf_sizes[new_index] = virtual_grf_sizes[i];
-         invalidate_live_intervals();
+         v->invalidate_live_intervals();
          ++new_index;
       }
    }
@@ -1671,7 +1672,7 @@ fs_visitor::compact_virtual_grfs()
    this->virtual_grf_count = new_index;
 
    /* Patch all the instructions to use the newly renumbered registers */
-   foreach_list(node, &this->instructions) {
+   foreach_list(node, &v->instructions) {
       fs_inst *inst = (fs_inst *) node;
 
       if (inst->dst.file == GRF)
@@ -2179,7 +2180,7 @@ fs_visitor::dead_code_eliminate_local()
 
          int read = 1;
          if (inst->is_send_from_grf())
-            read = virtual_grf_sizes[src.reg] - src.reg_offset;
+            read = regs.virtual_grf_sizes[src.reg] - src.reg_offset;
 
          for (int reg_offset = src.reg_offset;
               reg_offset < src.reg_offset + read;
@@ -2263,7 +2264,7 @@ fs_visitor::register_coalesce()
 	  !inst->src[0].is_contiguous() ||
 	  inst->dst.file != GRF ||
 	  inst->dst.type != inst->src[0].type ||
-	  virtual_grf_sizes[inst->src[0].reg] != 1) {
+	  regs.virtual_grf_sizes[inst->src[0].reg] != 1) {
 	 continue;
       }
 
@@ -3155,7 +3156,7 @@ fs_visitor::run()
 
       emit_fb_writes();
 
-      split_virtual_grfs();
+      regs.split_virtual_grfs();
 
       move_uniform_array_access_to_pull_constants();
       remove_dead_constants();
@@ -3165,7 +3166,7 @@ fs_visitor::run()
       do {
 	 progress = false;
 
-         compact_virtual_grfs();
+         regs.compact_virtual_grfs();
 
 	 progress = remove_duplicate_mrf_writes() || progress;
 
@@ -3200,10 +3201,10 @@ fs_visitor::run()
          schedule_instructions(pre_modes[i]);
 
          if (0) {
-            assign_regs_trivial();
+            regs.allocate_trivial();
             allocated_without_spills = true;
          } else {
-            allocated_without_spills = assign_regs(false);
+            allocated_without_spills = regs.allocate(false);
          }
          if (allocated_without_spills)
             break;
@@ -3222,7 +3223,7 @@ fs_visitor::run()
          /* Since we're out of heuristics, just go spill registers until we
           * get an allocation.
           */
-         while (!assign_regs(true)) {
+         while (!regs.allocate(true)) {
             if (failed)
                break;
          }

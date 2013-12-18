@@ -59,6 +59,8 @@ namespace brw {
    class fs_live_variables;
 }
 
+class fs_visitor;
+
 class fs_reg : public backend_reg {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(fs_reg)
@@ -197,6 +199,50 @@ public:
    /** @} */
 };
 
+
+class fs_regs
+{
+public:
+   fs_regs(struct brw_context *brw, fs_visitor *v, unsigned dispatch_width)
+      : virtual_grf_sizes(NULL),
+        virtual_grf_count(0),
+        first_non_payload_grf(0),
+        brw(brw),
+        v(v),
+        virtual_grf_array_size(0),
+        max_grf(brw->gen >= 7 ? GEN7_MRF_HACK_START : BRW_MAX_GRF),
+        dispatch_width(dispatch_width)
+   {
+   }
+
+   int virtual_grf_alloc(int size);
+   bool allocate(bool allow_spilling);
+   void allocate_trivial();
+   void split_virtual_grfs();
+   void compact_virtual_grfs();
+
+   int *virtual_grf_sizes;
+   int virtual_grf_count;
+   int first_non_payload_grf;
+
+private:
+   int choose_spill_reg(struct ra_graph *g);
+   void setup_payload_interference(struct ra_graph *g, int payload_reg_count,
+                                   int first_payload_node);
+   void setup_mrf_hack_interference(struct ra_graph *g,
+                                    int first_mrf_hack_node);
+
+   struct brw_context *brw;
+   fs_visitor *v;
+   int virtual_grf_array_size;
+
+   /** Either BRW_MAX_GRF or GEN7_MRF_HACK_START */
+   int max_grf;
+
+   const unsigned dispatch_width; /**< 8 or 16 */
+};
+
+
 /**
  * The fragment shader front-end.
  *
@@ -214,7 +260,6 @@ public:
    ~fs_visitor();
 
    fs_reg *variable_storage(ir_variable *var);
-   int virtual_grf_alloc(int size);
    void import_uniforms(fs_visitor *v);
 
    void visit(ir_variable *ir);
@@ -306,17 +351,8 @@ public:
    void assign_curb_setup();
    void calculate_urb_setup();
    void assign_urb_setup();
-   bool assign_regs(bool allow_spilling);
-   void assign_regs_trivial();
    void get_used_mrfs(bool *mrf_used);
-   void setup_payload_interference(struct ra_graph *g, int payload_reg_count,
-                                   int first_payload_node);
-   void setup_mrf_hack_interference(struct ra_graph *g,
-                                    int first_mrf_hack_node);
-   int choose_spill_reg(struct ra_graph *g);
    void spill_reg(int spill_reg);
-   void split_virtual_grfs();
-   void compact_virtual_grfs();
    void move_uniform_array_access_to_pull_constants();
    void setup_pull_constants();
    void invalidate_live_intervals();
@@ -446,9 +482,7 @@ public:
 
    int *param_size;
 
-   int *virtual_grf_sizes;
-   int virtual_grf_count;
-   int virtual_grf_array_size;
+   fs_regs regs;
    int *virtual_grf_start;
    int *virtual_grf_end;
    brw::fs_live_variables *live_intervals;
@@ -470,9 +504,6 @@ public:
    fs_reg outputs[BRW_MAX_DRAW_BUFFERS];
    unsigned output_components[BRW_MAX_DRAW_BUFFERS];
    fs_reg dual_src_output;
-   int first_non_payload_grf;
-   /** Either BRW_MAX_GRF or GEN7_MRF_HACK_START */
-   int max_grf;
 
    fs_reg *fp_temp_regs;
    fs_reg *fp_input_regs;

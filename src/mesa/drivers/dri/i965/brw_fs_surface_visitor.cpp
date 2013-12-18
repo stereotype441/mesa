@@ -89,7 +89,7 @@ brw_fs_surface_visitor::emit(opcode op, fs_reg dst,
 fs_reg
 brw_fs_surface_visitor::make_grf(unsigned type, unsigned size) const
 {
-   return fs_reg(GRF, v->virtual_grf_alloc(size), type);
+   return fs_reg(GRF, v->regs.virtual_grf_alloc(size), type);
 }
 
 fs_reg
