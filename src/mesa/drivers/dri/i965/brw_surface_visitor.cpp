@@ -1235,3 +1235,61 @@ brw_surface_visitor<traits>::emit_image_atomic(src_reg image,
  */
 template class brw_surface_visitor<fs_traits>;
 template class brw_surface_visitor<vec4_traits>;
+
+
+/* TESTING STUFF */
+class test_src_reg;
+class test_dst_reg
+{
+public:
+   test_dst_reg()
+   {
+   }
+
+   explicit test_dst_reg(const test_src_reg &)
+   {
+   }
+};
+
+class test_src_reg
+{
+public:
+   test_src_reg()
+   {
+   }
+
+   explicit test_src_reg(const struct brw_reg &)
+   {
+   }
+};
+
+static inline test_src_reg
+retype(test_src_reg reg, unsigned)
+{
+   return reg;
+}
+
+class test_visitor
+{
+public:
+   test_src_reg &visit_result(ir_instruction *ir)
+   {
+      return r;
+   }
+
+   struct brw_stage_prog_data *stage_prog_data;
+   struct brw_context *brw;
+
+private:
+   test_src_reg r;
+};
+
+class test_traits
+{
+public:
+   typedef test_src_reg src_reg;
+   typedef test_dst_reg dst_reg;
+   typedef test_visitor visitor;
+};
+
+template class brw_surface_visitor<test_traits>;
