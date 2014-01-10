@@ -962,11 +962,10 @@ _mesa_active_program(struct gl_context *ctx, struct gl_shader_program *shProg,
 /**
  */
 static void
-use_shader_program(struct gl_context *ctx, GLenum type,
+use_shader_program(struct gl_context *ctx, gl_shader_stage stage,
 		   struct gl_shader_program *shProg)
 {
    struct gl_shader_program **target;
-   gl_shader_stage stage = _mesa_shader_enum_to_shader_stage(type);
 
    target = &ctx->Shader.CurrentProgram[stage];
    if ((shProg != NULL) && (shProg->_LinkedShaders[stage] == NULL))
@@ -979,17 +978,17 @@ use_shader_program(struct gl_context *ctx, GLenum type,
        * it from that binding point as well.  This ensures that the correct
        * semantics of glDeleteProgram are maintained.
        */
-      switch (type) {
-      case GL_VERTEX_SHADER:
+      switch (stage) {
+      case MESA_SHADER_VERTEX:
 	 /* Empty for now. */
 	 break;
-      case GL_GEOMETRY_SHADER_ARB:
+      case MESA_SHADER_GEOMETRY:
 	 /* Empty for now. */
 	 break;
-      case GL_COMPUTE_SHADER:
+      case MESA_SHADER_COMPUTE:
          /* Empty for now. */
          break;
-      case GL_FRAGMENT_SHADER:
+      case MESA_SHADER_FRAGMENT:
 	 if (*target == ctx->Shader._CurrentFragmentProgram) {
 	    _mesa_reference_shader_program(ctx,
 					   &ctx->Shader._CurrentFragmentProgram,
@@ -1009,10 +1008,9 @@ use_shader_program(struct gl_context *ctx, GLenum type,
 void
 _mesa_use_program(struct gl_context *ctx, struct gl_shader_program *shProg)
 {
-   use_shader_program(ctx, GL_VERTEX_SHADER, shProg);
-   use_shader_program(ctx, GL_GEOMETRY_SHADER_ARB, shProg);
-   use_shader_program(ctx, GL_FRAGMENT_SHADER, shProg);
-   use_shader_program(ctx, GL_COMPUTE_SHADER, shProg);
+   int i;
+   for (i = 0; i < MESA_SHADER_STAGES; i++)
+      use_shader_program(ctx, i, shProg);
    _mesa_active_program(ctx, shProg, "glUseProgram");
 
    if (ctx->Driver.UseProgram)
