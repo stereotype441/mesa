@@ -951,6 +951,13 @@ struct dd_function_table {
 
    void (*MemoryBarrier)(struct gl_context *ctx, GLbitfield barriers);
    /** @} */
+
+   /**
+    * \name GL_ARB_compute_shader interface
+    */
+   /*@{*/
+   void (*DispatchCompute)(struct gl_context *ctx, const GLuint *num_groups);
+   /*@}*/
 };
 
 
