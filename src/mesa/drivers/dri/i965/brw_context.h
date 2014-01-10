@@ -249,6 +249,12 @@ struct brw_state_flags {
    } while (false)
 
 
+/**
+ * Check one of the bits in a field of brw_state_flags.
+ */
+#define CHECK_DIRTY_BIT(FIELD, FLAG) ((brw->state.dirty.FIELD & (FLAG)) != 0)
+
+
 #define AUB_TRACE_TYPE_MASK		0x0000ff00
 #define AUB_TRACE_TYPE_NOTYPE		(0 << 8)
 #define AUB_TRACE_TYPE_BATCH		(1 << 8)
