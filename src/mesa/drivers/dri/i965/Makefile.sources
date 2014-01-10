@@ -42,6 +42,7 @@ i965_FILES = \
 	brw_clip_tri.c \
 	brw_clip_unfilled.c \
 	brw_clip_util.c \
+	brw_compute.c \
 	brw_context.c \
 	brw_cubemap_normalize.cpp \
 	brw_curbe.c \
