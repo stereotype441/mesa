@@ -884,14 +884,14 @@ static void brw_upload_indices(struct brw_context *brw)
       drm_intel_bo_unreference(brw->ib.bo);
       brw->ib.bo = bo;
 
-      brw->state.dirty.brw |= BRW_NEW_INDEX_BUFFER;
+      SET_DIRTY_BIT(brw, BRW_NEW_INDEX_BUFFER);
    } else {
       drm_intel_bo_unreference(bo);
    }
 
    if (index_buffer->type != brw->ib.type) {
       brw->ib.type = index_buffer->type;
-      brw->state.dirty.brw |= BRW_NEW_INDEX_BUFFER;
+      SET_DIRTY_BIT(brw, BRW_NEW_INDEX_BUFFER);
    }
 }
 

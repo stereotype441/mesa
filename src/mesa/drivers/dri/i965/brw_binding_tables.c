@@ -61,7 +61,7 @@ brw_upload_binding_table(struct brw_context *brw,
    /* If there are no surfaces, skip making the binding table altogether. */
    if (prog_data->binding_table.size_bytes == 0) {
       if (stage_state->bind_bo_offset != 0) {
-         brw->state.dirty.brw |= brw_new_binding_table;
+         SET_DIRTY_BIT(brw, brw_new_binding_table);
          stage_state->bind_bo_offset = 0;
       }
       return;
@@ -80,7 +80,7 @@ brw_upload_binding_table(struct brw_context *brw,
    /* BRW_NEW_SURFACES and BRW_NEW_*_CONSTBUF */
    memcpy(bind, stage_state->surf_offset, prog_data->binding_table.size_bytes);
 
-   brw->state.dirty.brw |= brw_new_binding_table;
+   SET_DIRTY_BIT(brw, brw_new_binding_table);
 }
 
 /**

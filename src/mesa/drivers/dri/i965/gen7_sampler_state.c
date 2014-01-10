@@ -207,7 +207,7 @@ gen7_upload_sampler_state_table(struct brw_context *brw,
       }
    }
 
-   brw->state.dirty.cache |= CACHE_NEW_SAMPLER;
+   SET_DIRTY_BIT(cache, CACHE_NEW_SAMPLER);
 }
 
 void

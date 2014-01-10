@@ -231,6 +231,13 @@ struct brw_state_flags {
    GLuint cache;
 };
 
+
+/**
+ * Set one of the bits a field of brw_state_flags
+ */
+#define SET_DIRTY_BIT(FIELD, FLAG) brw->state.dirty.FIELD |= (FLAG)
+
+
 #define AUB_TRACE_TYPE_MASK		0x0000ff00
 #define AUB_TRACE_TYPE_NOTYPE		(0 << 8)
 #define AUB_TRACE_TYPE_BATCH		(1 << 8)

@@ -516,7 +516,7 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
          compute_fast_clear_color_bits(&ctx->Color.ClearColor);
       if (irb->mt->fast_clear_color_value != new_color_value) {
          irb->mt->fast_clear_color_value = new_color_value;
-         brw->state.dirty.brw |= BRW_NEW_SURFACES;
+         SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
       }
 
       /* If the buffer is already in INTEL_FAST_CLEAR_STATE_CLEAR, the clear
@@ -536,7 +536,7 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
              */
             return false;
          }
-         brw->state.dirty.brw |= BRW_NEW_SURFACES;
+         SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
       }
    }
 

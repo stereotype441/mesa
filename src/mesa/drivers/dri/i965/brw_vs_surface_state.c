@@ -56,7 +56,7 @@ brw_upload_vec4_pull_constants(struct brw_context *brw,
 	 drm_intel_bo_unreference(stage_state->const_bo);
 	 stage_state->const_bo = NULL;
 	 stage_state->surf_offset[surf_index] = 0;
-	 brw->state.dirty.brw |= brw_new_constbuf;
+	 SET_DIRTY_BIT(brw, brw_new_constbuf);
       }
       return;
    }
@@ -89,7 +89,7 @@ brw_upload_vec4_pull_constants(struct brw_context *brw,
                                &stage_state->surf_offset[surf_index],
                                false);
 
-   brw->state.dirty.brw |= brw_new_constbuf;
+   SET_DIRTY_BIT(brw, brw_new_constbuf);
 }
 
 

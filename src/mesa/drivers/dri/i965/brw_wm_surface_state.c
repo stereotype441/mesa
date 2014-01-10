@@ -451,7 +451,7 @@ brw_upload_wm_pull_constants(struct brw_context *brw)
 	 drm_intel_bo_unreference(brw->wm.base.const_bo);
 	 brw->wm.base.const_bo = NULL;
 	 brw->wm.base.surf_offset[surf_index] = 0;
-	 brw->state.dirty.brw |= BRW_NEW_SURFACES;
+	 SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
       }
       return;
    }
@@ -472,7 +472,7 @@ brw_upload_wm_pull_constants(struct brw_context *brw)
                                &brw->wm.base.surf_offset[surf_index],
                                true);
 
-   brw->state.dirty.brw |= BRW_NEW_SURFACES;
+   SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
 }
 
 const struct brw_tracked_state brw_wm_pull_constants = {
@@ -708,7 +708,7 @@ brw_update_renderbuffer_surfaces(struct brw_context *brw)
    } else {
       brw->vtbl.update_null_renderbuffer_surface(brw, 0);
    }
-   brw->state.dirty.brw |= BRW_NEW_SURFACES;
+   SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
 }
 
 const struct brw_tracked_state brw_renderbuffer_surfaces = {
@@ -794,7 +794,7 @@ brw_update_texture_surfaces(struct brw_context *brw)
    if (fs && fs->UsesGather)
       update_stage_texture_surfaces(brw, fs, &brw->wm.base, true);
 
-   brw->state.dirty.brw |= BRW_NEW_SURFACES;
+   SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
 }
 
 const struct brw_tracked_state brw_texture_surfaces = {
@@ -846,7 +846,7 @@ brw_upload_ubo_surfaces(struct brw_context *brw,
    }
 
    if (shader->NumUniformBlocks)
-      brw->state.dirty.brw |= BRW_NEW_SURFACES;
+      SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
 }
 
 static void
@@ -897,7 +897,7 @@ brw_upload_abo_surfaces(struct brw_context *brw,
    }
 
    if (prog->NumUniformBlocks)
-      brw->state.dirty.brw |= BRW_NEW_SURFACES;
+      SET_DIRTY_BIT(brw, BRW_NEW_SURFACES);
 }
 
 static void
