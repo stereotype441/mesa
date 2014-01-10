@@ -272,8 +272,8 @@ retry:
    /* We've smashed all state compared to what the normal 3D pipeline
     * rendering tracks for GL.
     */
-   brw->state.dirty.brw = ~0;
-   brw->state.dirty.cache = ~0;
+   SET_DIRTY_ALL(brw);
+   SET_DIRTY_ALL(cache);
    brw->ib.type = -1;
    intel_batchbuffer_clear_cache(brw);
 

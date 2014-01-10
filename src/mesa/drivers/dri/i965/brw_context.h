@@ -233,9 +233,20 @@ struct brw_state_flags {
 
 
 /**
- * Set one of the bits a field of brw_state_flags
+ * Set one of the bits in a field of brw_state_flags.
  */
 #define SET_DIRTY_BIT(FIELD, FLAG) brw->state.dirty.FIELD |= (FLAG)
+
+
+/**
+ * Set all of the bits in a field of brw_state_flags.
+ */
+#define SET_DIRTY_ALL(FIELD) \
+   do { \
+      /* ~0 == 0xffffffff, so make sure field is <= 32 bits */ \
+      STATIC_ASSERT(sizeof(brw->state.dirty.FIELD) == 4); \
+      brw->state.dirty.FIELD = ~0; \
+   } while (false)
 
 
 #define AUB_TRACE_TYPE_MASK		0x0000ff00
