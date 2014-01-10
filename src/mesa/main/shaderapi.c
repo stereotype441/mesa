@@ -969,7 +969,7 @@ use_shader_program(struct gl_context *ctx, GLenum type,
    gl_shader_stage stage = _mesa_shader_enum_to_shader_stage(type);
 
    target = &ctx->Shader.CurrentProgram[stage];
-   if ((shProg == NULL) || (shProg->_LinkedShaders[stage] == NULL))
+   if ((shProg != NULL) && (shProg->_LinkedShaders[stage] == NULL))
       shProg = NULL;
 
    if (*target != shProg) {
