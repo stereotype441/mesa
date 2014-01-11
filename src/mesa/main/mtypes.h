@@ -2923,6 +2923,7 @@ struct gl_shared_state
    struct gl_vertex_program *DefaultVertexProgram;
    struct gl_fragment_program *DefaultFragmentProgram;
    struct gl_geometry_program *DefaultGeometryProgram;
+   struct gl_compute_program *DefaultComputeProgram;
    /*@}*/
 
    /* GL_ATI_fragment_shader */
