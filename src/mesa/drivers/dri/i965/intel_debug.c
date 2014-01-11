@@ -65,6 +65,7 @@ static const struct dri_debug_control debug_control[] = {
    { "no16",  DEBUG_NO16 },
    { "blorp", DEBUG_BLORP },
    { "nodualobj", DEBUG_NO_DUAL_OBJECT_GS },
+   { "cs",    DEBUG_CS },
    { NULL,    0 }
 };
 
