@@ -789,6 +789,7 @@ enum brw_cache_id {
    BRW_CLIP_VP,
    BRW_CLIP_UNIT,
    BRW_CLIP_PROG,
+   BRW_CS_PROG,
 
    BRW_MAX_CACHE
 };
@@ -884,6 +885,7 @@ enum shader_time_shader_type {
 #define CACHE_NEW_CLIP_VP                (1<<BRW_CLIP_VP)
 #define CACHE_NEW_CLIP_UNIT              (1<<BRW_CLIP_UNIT)
 #define CACHE_NEW_CLIP_PROG              (1<<BRW_CLIP_PROG)
+#define CACHE_NEW_CS_PROG                (1<<BRW_CS_PROG)
 
 struct brw_cached_batch_item {
    struct header *header;
