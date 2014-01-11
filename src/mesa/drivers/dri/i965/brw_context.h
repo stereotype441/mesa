@@ -147,6 +147,7 @@ struct brw_vs_prog_key;
 struct brw_vec4_prog_key;
 struct brw_wm_prog_key;
 struct brw_wm_prog_data;
+struct brw_cs_prog_data;
 
 enum brw_state_id {
    BRW_STATE_URB_FENCE,
@@ -464,6 +465,12 @@ struct brw_wm_prog_data {
    const float **param;
    const float **pull_param;
 };
+
+
+struct brw_cs_prog_data {
+   struct brw_stage_prog_data base;
+};
+
 
 /**
  * Enum representing the i965-specific vertex results that don't correspond
@@ -1450,6 +1457,10 @@ struct brw_context
       } reg_sets[2];
    } wm;
 
+   struct {
+      struct brw_stage_state base;
+      struct brw_cs_prog_data *prog_data;
+   } cs;
 
    struct {
       uint32_t state_offset;
