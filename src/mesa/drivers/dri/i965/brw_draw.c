@@ -311,7 +311,7 @@ static void brw_merge_inputs( struct brw_context *brw,
  *
  * (In the future, this will also perform MSAA resolves).
  */
-static void
+void
 brw_predraw_resolve_buffers(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;

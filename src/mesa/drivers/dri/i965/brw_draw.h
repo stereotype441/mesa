@@ -46,6 +46,7 @@ void brw_draw_prims( struct gl_context *ctx,
 
 void brw_draw_init( struct brw_context *brw );
 void brw_draw_destroy( struct brw_context *brw );
+void brw_predraw_resolve_buffers(struct brw_context *brw);
 
 /* brw_primitive_restart.c */
 GLboolean
