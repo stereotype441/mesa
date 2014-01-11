@@ -317,6 +317,10 @@ void brw_shader_time_add(struct brw_compile *p,
                          struct brw_reg payload,
                          uint32_t surf_index);
 
+void brw_cs_terminate(struct brw_compile *p,
+                      unsigned msg_reg_nr,
+                      struct brw_reg src0);
+
 /* If/else/endif.  Works by manipulating the execution flags on each
  * channel.
  */

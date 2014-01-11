@@ -2744,3 +2744,47 @@ void brw_shader_time_add(struct brw_compile *p,
                                      0 /* response length */,
                                      false /* header present */);
 }
+
+
+static void
+brw_set_cs_terminate_message(struct brw_compile *p,
+                             struct brw_instruction *insn)
+{
+   /* Terminate a compute shader by sending a message to the thread spawner.
+    * Note that even though the thread has a URB resource associated with it,
+    * we set the "do not dereference URB" bit, because the URB resource is
+    * managed by the fixed-function unit, so it will free it automatically.
+    */
+   brw_set_message_descriptor(p, insn, BRW_SFID_THREAD_SPAWNER,
+                              1 /* msg_length */,
+                              0 /* response_length */,
+                              false /* header_present */,
+                              true /* end_of_thread */);
+   insn->bits3.spawner_gen5.opcode = 0; /* Dereference resource */
+   insn->bits3.spawner_gen5.request = 0; /* Root thread */
+   insn->bits3.spawner_gen5.resource = 1; /* Do not dereference URB */
+}
+
+
+/**
+ * Emit the SEND message to terminate a compute shader.
+ */
+void
+brw_cs_terminate(struct brw_compile *p,
+                 unsigned msg_reg_nr,
+                 struct brw_reg src0)
+{
+   struct brw_context *brw = p->brw;
+   struct brw_instruction *insn;
+
+   gen6_resolve_implied_move(p, &src0, msg_reg_nr);
+   insn = next_insn(p, BRW_OPCODE_SEND);
+   brw_set_dest(p, insn, brw_null_reg());
+   brw_set_src0(p, insn, src0);
+   brw_set_src1(p, insn, brw_imm_d(0));
+
+   if (brw->gen < 6)
+      insn->header.destreg__conditionalmod = msg_reg_nr;
+
+   brw_set_cs_terminate_message(p, insn);
+}

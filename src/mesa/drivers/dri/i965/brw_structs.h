@@ -1398,6 +1398,23 @@ struct brw_instruction
          GLuint pad4:2;
          GLuint end_of_thread:1;
       } gen7_pi;
+
+      /**
+       * Message for the thread spawner unit (used by compute shaders).
+       */
+      struct {
+         uint32_t opcode:1;
+         uint32_t request:1;
+         uint32_t pad0:2;
+         uint32_t resource:1;
+         uint32_t pad1:14;
+         uint32_t header:1;
+         uint32_t response_length:5;
+         uint32_t msg_length:4;
+         uint32_t pad2:2;
+         uint32_t end_of_thread:1;
+      } spawner_gen5;
+
       /** @} */
 
       struct {
