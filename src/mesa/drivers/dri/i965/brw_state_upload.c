@@ -333,6 +333,7 @@ static const struct brw_tracked_state *gen8_atoms[] =
 
 static const struct brw_tracked_state *gen7_compute_atoms[] =
 {
+   &brw_cs_prog,
 };
 
 
